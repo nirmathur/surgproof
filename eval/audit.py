@@ -98,13 +98,14 @@ def video_cluster_bootstrap_ci(
     if len(videos) < 2:
         return {"point": round(point, 4), "ci95": [round(point, 4), round(point, 4)], "n_videos": int(len(videos))}
 
-    by_vid = {v: df[df[video_col] == v] for v in videos}
+    v_arr = df[video_col].to_numpy()
+    rows_by_vid = [np.flatnonzero(v_arr == v) for v in videos]
     rng = np.random.default_rng(seed)
+    sampled_mat = rng.integers(0, len(videos), size=(n_boot, len(videos)))
     boot_vals = []
-    for _ in range(n_boot):
-        sampled = rng.choice(videos, size=len(videos), replace=True)
-        sub = pd.concat([by_vid[v] for v in sampled], ignore_index=True)
-        val = stat_fn(sub)
+    for row_idx in sampled_mat:
+        take = np.concatenate([rows_by_vid[i] for i in row_idx])
+        val = stat_fn(df.iloc[take])
         if val is not None and not np.isnan(val):
             boot_vals.append(float(val))
     if not boot_vals:
