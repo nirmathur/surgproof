@@ -80,3 +80,26 @@ def test_rendered_promo_cut_passes_director_checks():
         assert wc <= 6, f"Shot {sid} caption exceeds 6 words ({wc})"
 
 
+def test_promo_code_has_zero_fabricated_boxes_or_verdicts():
+    patterns = [
+        (r'["\']box["\']\s*:\s*\[\s*\d', "literal bounding box"),
+        (r'["\']status["\']\s*:\s*["\'](accept|reject|AMBER|amber)["\']', "literal verdict"),
+        (r'["\']\d{1,3}\.\d%["\']', "literal percentage string"),
+        (r'0\.7\d?\s*\+\s*0\.\d+\s*\*', "synthetic score formula"),
+        (r'(accuracy|acc|precision|coverage)\s*=\s*0\.\d{2,}', "hard-coded metric"),
+    ]
+    promo_dirs = [ROOT / "promo"]
+    lane_promo = Path("/Users/nirmathur/surgatlas-lanes/promo/promo")
+    if lane_promo.is_dir():
+        promo_dirs.append(lane_promo)
+    for pdir in promo_dirs:
+        for py_file in sorted(pdir.glob("*.py")):
+            for i, line in enumerate(py_file.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                s = line.strip()
+                if s.startswith("#") or "integrity: allow" in s:
+                    continue
+                for pat, what in patterns:
+                    assert not re.search(pat, line), f"{py_file}:{i}: {what}: {s[:110]}"
+
+
+

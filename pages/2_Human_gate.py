@@ -839,7 +839,7 @@ def build_verified_dataset_records(
                     "double_check": double_check_prov,
                     "amber_loop_rounds": item_rounds,
                     "release_gate": {
-                        "original_status": "accept",
+                        "original_status": ns,
                         "final_by": final_by,
                         "reviewer": rev_name,
                         "audit_signed_off_by": rev_name or default_signoff_reviewer,
@@ -870,7 +870,7 @@ def build_verified_dataset_records(
                     "box": box_val,
                     "rationale": rationale,
                     "evidence": rationale,
-                    "original_status": "AMBER",
+                    "original_status": ns,
                     "status": "accept",  # integrity: allow (human action)
                     "final_by": "human",
                     "verification_source": "human_gate",
@@ -888,7 +888,7 @@ def build_verified_dataset_records(
                         "double_check": double_check_prov,
                         "amber_loop_rounds": item_rounds,
                         "release_gate": {
-                            "original_status": "AMBER",
+                            "original_status": ns,
                             "final_by": "human",
                             "reviewer": rev_name,
                             "audit_signed_off_by": rev_name,
