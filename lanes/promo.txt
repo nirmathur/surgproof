@@ -3,3 +3,5 @@ Make a 60-90 second pitch video for SurgAtlas with Veo 3.1 via the google-genai 
 1. Write promo/storyboard.md: 4-6 shots telling the story (agent learns a surgery from public video, labels frames, checks itself, trains a specialist, narrates). Post it on #1 -> nir.
 2. Generate the shots to out/promo/. Generated footage is ILLUSTRATIVE and must carry an on-screen "illustrative" caption; never generate fake results, fake charts or fake surgeon endorsements.
 3. Leave the slot for real numbers and a screen capture of app.py, filled from pipeline outputs once they exist. Stitch with ffmpeg to out/promo/surgatlas_promo.mp4.
+
+UPDATE 13:05 from Nir: NO personal names anywhere (remove Nir and the supervisor slot). Calm, clean, minimalist, not dramatic: follow promo/DESIGN.md from nir-director and apply every fix it posts. Minimal text. Prefer real frames and the real app over Veo spectacle.
