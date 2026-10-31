@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SurgProof — Autonomous Surgical Video Annotation Toolbox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="studio-shell">
+    <!-- ====================================================================
+         1. TOP BAR: Wordmark, Video Name, Real Headline Number (with n), Actions
+         ==================================================================== -->
+    <header class="topbar" role="banner">
+      <div class="brand-group">
+        <div class="brand-logo">
+          <span class="brand-dot" aria-hidden="true"></span>
+          <span>SurgProof</span>
+        </div>
+        <span class="brand-claim">No human labels. Only proof.</span>
+        <span class="brand-tag" id="video-badge">video12 · Held-Out Test Split</span>
+      </div>
+
+      <div class="headline-strip" aria-label="Held-out test evaluation metrics">
+        <div class="metric-pill hero-metric" id="headline-metric" title="Primary held-out test result read strictly from web/data/video12.json / out/results.json">
+          <span class="val" id="headline-acc">pending</span>
+          <span class="sub" id="headline-n">n = pending held-out labels</span>
+        </div>
+        <div class="metric-pill" title="Spatial localization (boxes, masks &amp; instrument tip points) evaluated post-hoc vs CholecSeg8k masks">
+          <span class="val" id="headline-loc">pending</span>
+          <span class="sub" id="headline-loc-sub">spatial localization</span>
+        </div>
+        <div class="metric-pill" title="Specialist DINOv2 student trained on verified labels only vs unverified single pseudo-labels">
+          <span class="val" id="headline-student">pending</span>
+          <span class="sub" id="headline-student-sub">specialist student</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <div class="live-indicator polling" id="live-status-pill" title="Polls web/data/live.json every 2s for newly localized frames">
+          <span class="pulse-dot" aria-hidden="true"></span>
+          <span id="live-status-text">Agent Live: polling</span>
+        </div>
+        <button class="btn btn-primary" id="btn-stream-agent" type="button" title="Stream / replay agent spatial annotations into the timeline">
+          <span>Run / Stream Agent</span>
+          <kbd>R</kbd>
+        </button>
+        <button class="btn btn-amber" id="btn-final-pass" type="button" title="Open Final Pass · Release Dataset Sign-Off (Residual AMBERs + 20-Item Audit)">
+          <span>Final pass (<span id="amber-count-badge">pending</span>)</span>
+          <kbd>F</kbd>
+        </button>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         2. MAIN WORKSPACE: Centre Canvas (#viewer) + Right Panel (#objects)
+         ==================================================================== -->
+    <main class="workspace-main">
+      <!-- Centre Canvas Area -->
+      <section class="viewport-pane" aria-label="Surgical frame viewport">
+        <div class="viewport-toolbar">
+          <div class="layer-toggles">
+            <label class="toggle-chip" title="Overlay semi-transparent AI segmentation masks from out/masks/">
+              <input type="checkbox" id="chk-ai-masks" checked />
+              <span>AI Masks (<span id="mask-status-label">pending</span>)</span>
+              <kbd>M</kbd>
+            </label>
+            <label class="toggle-chip" title="Draw AI bounding boxes [ymin, xmin, ymax, xmax] coloured by double-check verdict">
+              <input type="checkbox" id="chk-ai-boxes" checked />
+              <span>AI Boxes</span>
+              <kbd>B</kbd>
+            </label>
+            <label class="toggle-chip" title="Draw Pass-1 (Flash) vs Pass-2 (Argon) dual boxes for independent double-check inspection">
+              <input type="checkbox" id="chk-dual-pass" />
+              <span>Pass-1 / Pass-2</span>
+              <kbd>D</kbd>
+            </label>
+            <label class="toggle-chip" title="Draw instrument tip crosshairs [y, x] for grasper &amp; L-hook">
+              <input type="checkbox" id="chk-ai-tips" checked />
+              <span>Tool Tips</span>
+              <kbd>T</kbd>
+            </label>
+            <label class="toggle-chip" title="Show per-structure verdict chips on frame HUD">
+              <input type="checkbox" id="chk-hud-chips" checked />
+              <span>Verdict HUD</span>
+              <kbd>H</kbd>
+            </label>
+          </div>
+
+          <div class="layer-toggles">
+            <label class="toggle-chip gt-toggle" title="Scoring View Only: overlay CholecSeg8k ground-truth watershed segmentation mask for post-hoc evaluation">
+              <input type="checkbox" id="chk-show-gt" />
+              <span>Scoring View: Show Ground Truth</span>
+              <kbd>G</kbd>
+            </label>
+            <button class="btn btn-sm" id="btn-zoom-reset" type="button" title="Reset canvas zoom (0)">100%</button>
+          </div>
+        </div>
+
+        <!-- Mount Point #viewer (used by nir-webcanvas web/viewer.js & fallback canvas) -->
+        <div class="canvas-stage" id="viewer">
+          <canvas id="frame-canvas" width="854" height="480"></canvas>
+        </div>
+
+        <!-- Transport & Grounded Narration Bar -->
+        <div class="transport-bar">
+          <div class="transport-controls">
+            <button class="btn btn-sm" id="btn-first" type="button" title="First frame (Home)">⏮</button>
+            <button class="btn btn-sm" id="btn-prev" type="button" title="Previous frame (← or K)">◀ Prev <kbd>K</kbd></button>
+            <button class="btn btn-sm btn-primary" id="btn-play" type="button" title="Play / Pause (Space)">▶ Play <kbd>Space</kbd></button>
+            <button class="btn btn-sm" id="btn-next" type="button" title="Next frame (→ or J)">Next ▶ <kbd>J</kbd></button>
+            <button class="btn btn-sm" id="btn-last" type="button" title="Last frame (End)">⏭</button>
+            <select class="btn btn-sm" id="sel-speed" aria-label="Playback speed" title="Playback speed">
+              <option value="650">1.0× (1.5 fps)</option>
+              <option value="350">2.0× (3.0 fps)</option>
+              <option value="1100">0.5× (Slow)</option>
+            </select>
+          </div>
+
+          <div class="frame-readout" id="frame-readout">Frame 0 / 0 · pending</div>
+          <div class="phase-pill" id="phase-badge" title="Surgical phase predicted from out/manual.json phases">Phase: pending</div>
+
+          <div class="narration-banner" id="narration-banner" title="Grounded surgical commentary generated strictly from accepted labels (out/narration_video12.json)">
+            <span class="tag">Verified Narration</span>
+            <span id="narration-text">pending</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel (#objects: Label List with Evidence + Double-Check / Amber-Round History) -->
+      <aside class="inspector-pane" aria-label="Object annotations and double-check evidence">
+        <div class="inspector-header">
+          <h2>Objects &amp; Double-Check Evidence</h2>
+          <span class="brand-tag" id="inspector-frame-tag">video12</span>
+        </div>
+
+        <div class="filter-tabs" role="tablist" aria-label="Filter frame labels">
+          <button class="filter-tab active" data-filter="all" type="button">All (6)</button>
+          <button class="filter-tab" data-filter="present" type="button">Present</button>
+          <button class="filter-tab" data-filter="amber" type="button">AMBER</button>
+          <button class="filter-tab" data-filter="spatial" type="button">Spatial Box/Mask</button>
+        </div>
+
+        <div class="amber-funnel-bar" id="amber-funnel-bar">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong>Amber Re-Check Loop Progression</strong>
+            <span id="funnel-scope-label" style="color:var(--text-secondary);font-size:11px;">held-out test split</span>
+          </div>
+          <div class="funnel-steps" id="amber-funnel-steps">
+            <span class="funnel-step">pending</span>
+          </div>
+        </div>
+
+        <!-- Mount Point #objects (Right Panel Label List with Evidence + Double-Check + Amber Rounds) -->
+        <div class="inspector-scroll" id="objects">
+          <!-- Populated dynamically by web/app.js from web/data/video12.json / out/decisions.csv -->
+        </div>
+
+        <!-- Self-Written Manual Rule Inspector (out/manual.json) -->
+        <details class="manual-reference-box" id="manual-reference-box">
+          <summary>Self-Written Manual Criterion (<code id="manual-rule-title">grasper</code> · <code>out/manual.json</code>)</summary>
+          <div class="manual-rule-body" id="manual-rule-body">Loading self-written manual criteria from out/manual.json...</div>
+        </details>
+      </aside>
+    </main>
+
+    <!-- ====================================================================
+         3. BOTTOM MULTI-TRACK TIMELINE (#timeline)
+         ==================================================================== -->
+    <section class="timeline-pane" aria-label="Multi-track video timeline">
+      <div class="timeline-header">
+        <div class="timeline-title">
+          <span>Multi-Track Timeline (<span id="timeline-frame-count">0</span> frames · <code>video12</code>)</span>
+          <span style="font-weight:400;text-transform:none;color:var(--text-secondary);">Click any cell to seek · Hover for frame &amp; round details</span>
+        </div>
+        <div class="timeline-legend">
+          <span class="legend-item"><i class="legend-swatch" style="background:var(--verdict-accept)"></i>Accept (Present)</span>
+          <span class="legend-item"><i class="legend-swatch" style="background:var(--verdict-accept-fill);border:1px solid var(--verdict-accept)"></i>Accept (Absent)</span>
+          <span class="legend-item"><i class="legend-swatch" style="background:var(--verdict-amber)"></i>AMBER (Unsure)</span>
+          <span class="legend-item"><i class="legend-swatch" style="background:var(--verdict-reject)"></i>Reject</span>
+          <span class="legend-item"><i class="legend-swatch" style="background:var(--accent-blue);height:4px"></i>Spatial Box/Tip/Mask</span>
+        </div>
+      </div>
+
+      <!-- Mount Point #timeline (used by nir-webtimeline web/timeline.js & fallback tracks) -->
+      <div class="timeline-tracks" id="timeline">
+        <!-- Populated dynamically: 1 phase track + 6 anatomical/instrument tracks -->
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         4. KEYBOARD HINTS FOOTER BAR
+         ==================================================================== -->
+    <footer class="shortcut-bar" aria-label="Keyboard shortcuts">
+      <div class="shortcut-group">
+        <span class="shortcut-item"><kbd>Space</kbd> Play / Pause</span>
+        <span class="shortcut-item"><kbd>←</kbd><kbd>→</kbd> or <kbd>K</kbd><kbd>J</kbd> Step Frame</span>
+        <span class="shortcut-item"><kbd>1</kbd>–<kbd>6</kbd> Select Structure</span>
+        <span class="shortcut-item"><kbd>M</kbd> AI Masks</span>
+        <span class="shortcut-item"><kbd>B</kbd> AI Boxes</span>
+        <span class="shortcut-item"><kbd>T</kbd> Tool Tips</span>
+        <span class="shortcut-item"><kbd>G</kbd> Scoring GT Overlay</span>
+      </div>
+      <div class="shortcut-group">
+        <span class="shortcut-item"><kbd>F</kbd> Final Pass Drawer</span>
+        <span class="shortcut-item"><kbd>A</kbd> Approve AMBER</span>
+        <span class="shortcut-item"><kbd>C</kbd> Flip AMBER</span>
+        <span class="shortcut-item">Source: <code>web/data/video12.json</code> · <code>out/decisions.csv</code> · <code>out/annotations.jsonl</code></span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ====================================================================
+       5. FINAL PASS · RELEASE DATASET DRAWER (Human Gate)
+       ==================================================================== -->
+  <div class="drawer-backdrop" id="final-pass-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer-panel">
+      <div class="drawer-header">
+        <div>
+          <h2 id="drawer-title" style="font-size:15px;font-weight:600;">Final Pass · Release Dataset</h2>
+          <p style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">
+            People stay in control: clear any residual AMBERs left after the 3-round Argon loop and sign off a 20-item random audit sample of auto-accepted labels before releasing <code>out/verified_dataset.jsonl</code>.
+          </p>
+        </div>
+        <button class="btn btn-sm" id="btn-close-drawer" type="button">✕ Close <kbd>Esc</kbd></button>
+      </div>
+
+      <div class="drawer-body" id="final-pass-mount">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div class="metric-pill hero-metric">
+            <span class="val" id="gate-stat-accept">pending</span>
+            <span class="sub">Auto-Accepted</span>
+          </div>
+          <div class="metric-pill">
+            <span class="val" style="color:var(--verdict-amber)" id="gate-stat-amber">pending</span>
+            <span class="sub">Ambers Left</span>
+          </div>
+          <div class="metric-pill">
+            <span class="val" style="color:var(--accent-blue)" id="gate-stat-audit">0 / 20</span>
+            <span class="sub">Audit Sample</span>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <h3 style="font-size:13px;font-weight:600;">1 · Residual AMBER Queue (After 3-Round Argon Loop)</h3>
+          <button class="btn btn-sm btn-amber" id="btn-clear-all-ambers" type="button" title="Approve agent verdicts on remaining AMBER items (logged to out/gate_log.jsonl)">
+            Approve Remaining AMBERs
+          </button>
+        </div>
+        <div id="gate-amber-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;">
+          <h3 style="font-size:13px;font-weight:600;">2 · Deterministic 20-Item Audit Sample of Auto-Accepted Labels</h3>
+          <button class="btn btn-sm btn-accept" id="btn-confirm-audit-sample" type="button">
+            ✓ Sign Off 20-Item Audit Sample
+          </button>
+        </div>
+        <div id="gate-audit-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <div class="drawer-footer">
+        <div id="gate-lock-msg" style="font-size:12px;color:var(--text-secondary);">
+          Release dataset locked until Ambers left == 0 and audit sample is signed off.
+        </div>
+        <button class="btn btn-accept" id="btn-release-dataset" type="button" disabled>
+          Release dataset (out/verified_dataset.jsonl)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Component modules built by nir-webcanvas, nir-webtimeline, and nir-gate (graceful if not yet built) -->
+  <script src="viewer.js"></script>
+  <script src="timeline.js"></script>
+  <script src="gate.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
