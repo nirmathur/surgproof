@@ -21,6 +21,33 @@ def test_parse_box_edge_cases():
     assert box == [100.0, 0.0, 800.0, 900.0]
 
 
+def test_join_gt_and_score_jsonl_ignores_unscorable_minus_one(tmp_path):
+    idx_df = pd.DataFrame([
+        {
+            "frame_id": "ext_01",
+            "video": "ev1",
+            "split": "test",
+            "gt_gallbladder": 1,
+            "gt_cystic_duct": 0,
+            "gt_grasper": -1,
+            "gt_l_hook": -1,
+            "gt_liver": -1,
+            "gt_blood": -1,
+        }
+    ])
+    jsonl_file = tmp_path / "labels_ext.jsonl"
+    recs = [
+        {"frame_id": "ext_01", "video": "ev1", "split": "test", "key": "gallbladder", "present": 1, "conf": 0.9},
+        {"frame_id": "ext_01", "video": "ev1", "split": "test", "key": "cystic_duct", "present": 0, "conf": 0.8},
+        {"frame_id": "ext_01", "video": "ev1", "split": "test", "key": "grasper", "present": 1, "conf": 0.9},
+    ]
+    jsonl_file.write_text("\n".join(json.dumps(r) for r in recs) + "\n")
+    stats = app.score_jsonl_against_index(jsonl_file, idx_df, split_filter="test")
+    assert stats is not None
+    assert stats["n_rows"] == 2  # grasper has gt == -1 so it is excluded from scoring
+    assert stats["acc_5_nontrivial"] == 1.0
+
+
 def test_draw_handles_missing_image_and_boxes(tmp_path):
     rows = pd.DataFrame([
         {"key": "grasper", "final_present": 1, "status": "accept", "box": "[100, 150, 400, 500]", "final_correct": 1},
