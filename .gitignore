@@ -2,9 +2,9 @@
 .env
 .env.*
 # data, cache, outputs (CholecSeg8k is not ours to redistribute)
-raw/
-data/
-out/
+/raw
+/data
+/out
 cache.sqlite
 *.sqlite
 *.npy
