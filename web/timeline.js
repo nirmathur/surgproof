@@ -76,6 +76,7 @@
     liveFetchInFlight: false,
     zoomLevel: 1,
     isScrubbing: false,
+    waveActiveUntil: 0,
     cellSignatures: {},
     freshCells: {},
     freshCleanupTimer: null,
@@ -468,12 +469,20 @@
       "  z-index: 1;",
       "}",
       ".tl-cell--fresh {",
-      "  animation: tlCellArrive 1.5s cubic-bezier(0.22, 1, 0.36, 1);",
+      "  animation: tlCellArrive 520ms cubic-bezier(0.34, 1.56, 0.64, 1);",
+      "}",
+      ".tl-cell--wave {",
+      "  animation: tlCellWave 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;",
+      "  animation-delay: var(--tl-delay, 0ms);",
       "}",
       "@keyframes tlCellArrive {",
-      "  0% { filter: brightness(2.1); transform: scaleY(0.35); }",
-      "  45% { filter: brightness(1.45); transform: scaleY(1.0); }",
+      "  0% { filter: brightness(1.85); transform: scaleY(0.28); }",
+      "  60% { filter: brightness(1.25); transform: scaleY(1.04); }",
       "  100% { filter: brightness(1.0); transform: scaleY(1.0); }",
+      "}",
+      "@keyframes tlCellWave {",
+      "  0% { opacity: 0.15; transform: scaleY(0.25); }",
+      "  100% { opacity: 1.0; transform: scaleY(1.0); }",
       "}",
       ".tl-spatial-dot {",
       "  width: 4px;",
@@ -494,6 +503,10 @@
       "  pointer-events: none;",
       "  z-index: 5;",
       "  transform: translateX(-1px);",
+      "  transition: left 90ms cubic-bezier(0.22, 1, 0.36, 1);",
+      "}",
+      ".tl-playhead--scrubbing {",
+      "  transition: none;",
       "}",
       ".tl-playhead-cap {",
       "  position: absolute;",
@@ -1149,10 +1162,13 @@
           Boolean(cellObj.mask || cellObj.mask_url || cellObj.mask_path || cellObj.mask_b64)
         );
 
+        var isWave = now < state.waveActiveUntil;
+        var waveDelay = isWave ? " style=\"--tl-delay:" + (fi * 6 + tk * 16) + "ms\"" : "";
         cellsHtml.push(
           '<div class="tl-cell track-cell tl-cell--' + verdict +
           (isCur ? " tl-cell--current active-frame" : "") +
-          (isFresh ? " tl-cell--fresh" : "") + '" ' +
+          (isFresh ? " tl-cell--fresh" : (isWave ? " tl-cell--wave" : "")) + '"' +
+          waveDelay + " " +
           'data-frame-idx="' + fi + '" data-label-key="' + escapeHtml(tKey) + '" data-verdict="' + verdict + '">' +
           (hasSpatial ? '<span class="tl-spatial-dot"></span>' : "") +
           "</div>"
@@ -1207,6 +1223,7 @@
     var pct = ((state.currentFrame + 0.5) / n) * 100;
 
     if (state.dom.playhead) {
+      state.dom.playhead.classList.toggle("tl-playhead--scrubbing", Boolean(state.isScrubbing));
       state.dom.playhead.style.left = pct.toFixed(4) + "%";
     }
     var curFrame = state.frames[state.currentFrame] || createEmptyFrame(state.currentFrame, state.video);
@@ -1633,6 +1650,7 @@
     state.freshCells = {};
     state.currentFrame = 0;
     state.selectedLabel = null;
+    state.waveActiveUntil = Date.now() + 900;
     state.dom = {};
 
     ingestData(initialData, true);
@@ -1701,6 +1719,12 @@
     };
   }
 
+  function animateWave() {
+    state.waveActiveUntil = Date.now() + 900;
+    renderDOM();
+    return api;
+  }
+
   var api = {
     mount: mount,
     update: update,
@@ -1713,6 +1737,7 @@
     nextFrame: function () { pausePlayback(); return setFrameInternal(state.currentFrame + 1, true); },
     prevFrame: function () { pausePlayback(); return setFrameInternal(state.currentFrame - 1, true); },
     nextAmber: jumpToNextAmber,
+    animateWave: animateWave,
     startLivePoll: startLivePolling,
     stopLivePoll: stopLivePolling,
     pollLiveOnce: pollLiveOnce,

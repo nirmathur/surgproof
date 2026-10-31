@@ -1,0 +1,102 @@
+# Knowledge base sources (10-20 open sources cited in research.md and guidelines)
+sages_guideline:
+  title: "The SAGES Safe Cholecystectomy Multi-society Practice Guideline"
+  url: "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/"
+  kind: "guideline"
+
+strasberg_2010:
+  title: "Critical View of Safety: Rationale and Technique (Strasberg & Brunt 2010)"
+  url: "https://drcesarramirez.com/joomla/files/cirugiaMBE/Critical_View_-_Strasberg.pdf"
+  kind: "paper"
+
+statpearls:
+  title: "StatPearls: Laparoscopic Cholecystectomy"
+  url: "https://www.ncbi.nlm.nih.gov/books/NBK470559/"
+  kind: "review"
+
+tg18:
+  title: "Tokyo Guidelines 2018: surgical management of acute cholecystitis"
+  url: "https://profiles.wustl.edu/en/publications/tokyo-guidelines-2018-surgical-management-of-acute-cholecystitis-/"
+  kind: "guideline"
+
+cholec80:
+  title: "EndoNet: A Deep Architecture for Recognition Tasks on Laparoscopic Videos (Cholec80)"
+  url: "https://arxiv.org/abs/1602.03012"
+  kind: "paper"
+
+cholect50:
+  title: "Rendezvous: Attention Mechanisms for Action Triplet Recognition in Laparoscopic Video (CholecT50)"
+  url: "https://arxiv.org/abs/2109.03223"
+  kind: "paper"
+
+endoscapes:
+  title: "Endoscapes: A Multi-Task Laparoscopic Video Dataset for Critical View of Safety Assessment"
+  url: "https://arxiv.org/abs/2312.12429"
+  kind: "paper"
+
+parkland:
+  title: "The Parkland grading scale for cholecystitis (Madni et al. 2018)"
+  url: "https://www.em-consulte.com/article/1204381/the-parkland-grading-scale-for-cholecystitis"
+  kind: "paper"
+
+nassar:
+  title: "The Nassar scale for intraoperative difficulty during laparoscopic cholecystectomy (Nassar 2021)"
+  url: "https://eprints.gla.ac.uk/223839/1/223839.pdf"
+  kind: "paper"
+
+alius_2023:
+  title: "Vascular and Biliary Anatomical Variations in Laparoscopic Cholecystectomy (Alius et al. 2023)"
+  url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10456257/"
+  kind: "paper"
+
+yildirim_2022:
+  title: "Subtotal Cholecystectomy Techniques and Outcomes (Yildirim et al. 2022)"
+  url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC8942168/"
+  kind: "paper"
+
+way_2003:
+  title: "Causes and Prevention of Laparoscopic Bile Duct Injuries (Way et al. 2003)"
+  url: "https://pubmed.ncbi.nlm.nih.gov/14660303/"
+  kind: "paper"
+
+mascagni_2026:
+  title: "Surgical Artificial Intelligence: Beyond the Hype (Mascagni et al. 2026)"
+  url: "https://arxiv.org/abs/2606.30657"
+  kind: "paper"
+
+# Aliases for decision nodes references
+madni2018:
+  title: "The Parkland grading scale for cholecystitis (Madni et al. 2018)"
+  url: "https://www.em-consulte.com/article/1204381/the-parkland-grading-scale-for-cholecystitis"
+  kind: "paper"
+
+sages2020:
+  title: "The SAGES Safe Cholecystectomy Multi-society Practice Guideline (2020)"
+  url: "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/"
+  kind: "guideline"
+
+sages_q1:
+  title: "SAGES Safe Cholecystectomy Guideline Recommendation Q1 (CVS identification)"
+  url: "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/"
+  kind: "guideline"
+
+sages_q4_q17:
+  title: "SAGES Safe Cholecystectomy Guideline Recommendations Q4 & Q17 (Imaging & Assistance)"
+  url: "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/"
+  kind: "guideline"
+
+sages_q2_q9:
+  title: "SAGES Safe Cholecystectomy Guideline Recommendations Q2 & Q9 (Bailout / Subtotal)"
+  url: "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/"
+  kind: "guideline"
+
+sages_q13:
+  title: "SAGES Safe Cholecystectomy Guideline Recommendation Q13 (CVS pause)"
+  url: "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/"
+  kind: "guideline"
+
+strasberg2010:
+  title: "Critical View of Safety: Rationale and Technique (Strasberg & Brunt 2010)"
+  url: "https://drcesarramirez.com/joomla/files/cirugiaMBE/Critical_View_-_Strasberg.pdf"
+  kind: "paper"
+

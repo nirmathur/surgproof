@@ -1,0 +1,58 @@
+implications:
+  parkland_1:
+    implication: Routine dissection; standard high rate of achieving CVS
+    evidence_grade: cohort
+  parkland_2:
+    implication: Minor adhesions require careful omental mobilization before entering triangle
+    evidence_grade: cohort
+  parkland_3:
+    implication: Acute inflammation increases difficulty; consider needle aspiration if distended
+    evidence_grade: cohort
+  parkland_4:
+    implication: Severe inflammation and obscured anatomy; prepare for high rate of CVS failure
+    evidence_grade: cohort
+  parkland_5:
+    implication: Extreme risk of bile duct injury; early bailout or subtotal cholecystectomy indicated
+    evidence_grade: cohort
+  nassar_1:
+    implication: Low technical difficulty; CVS failure rate under 1%
+    evidence_grade: cohort
+  nassar_2:
+    implication: Low technical difficulty; CVS failure rate under 1%
+    evidence_grade: cohort
+  nassar_3:
+    implication: Moderate technical difficulty; CVS failure rate approximately 14.4%
+    evidence_grade: cohort
+  nassar_4:
+    implication: High technical difficulty; CVS failure rate approximately 55.6%; consider bailout
+    evidence_grade: cohort
+  nassar_5:
+    implication: Extreme technical difficulty; CVS failure rate approximately 92.3%; subtotal cholecystectomy standard
+    evidence_grade: cohort
+  acute_cholecystitis:
+    implication: Edematous friable tissue; avoid excessive traction to prevent tear and bile leak
+    evidence_grade: guideline_expert_opinion
+  gangrenous_cholecystitis:
+    implication: Necrotic tissue limits grasping; fenestrating subtotal cholecystectomy preferred
+    evidence_grade: guideline_expert_opinion
+  mirizzi_syndrome:
+    implication: Severe risk of mistaking common bile duct for cystic duct; avoid dissecting neck
+    evidence_grade: guideline_expert_opinion
+rules:
+- id: implication.bailout_subtotal
+  statement: When severe inflammation prevents safe CVS attainment, bail out with subtotal cholecystectomy
+  source_id: sages_guideline
+  quote: 1. **Subtotal Cholecystectomy (Preferred Bailout):**
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: grounding_only
+- id: implication.subtotal_types
+  statement: Subtotal fenestrating carries higher bile leak risk, while reconstituting risks recurrent stones
+  source_id: yildirim_2022
+  quote: After a fenestrating subtotal cholecystectomy, the risk is higher for a significant bile leak
+  quote_verified: true
+  evidence_grade: cohort
+  seed: false
+  quote_status: verified
+  quote_original: reduces postoperative bile leak rates but carries a higher risk of recurrent stones

@@ -1,0 +1,140 @@
+phases:
+- id: P1
+  name: preparation
+  order: 1
+  typical_duration_s:
+  - 30
+  - 300
+  tools:
+  - grasper
+  - hook
+- id: P2
+  name: calot_triangle_dissection
+  order: 2
+  typical_duration_s:
+  - 300
+  - 2000
+  tools:
+  - grasper
+  - hook
+  - bipolar
+  - irrigator
+- id: P3
+  name: clipping_cutting
+  order: 3
+  typical_duration_s:
+  - 60
+  - 450
+  tools:
+  - grasper
+  - clipper
+  - scissors
+- id: P4
+  name: gallbladder_dissection
+  order: 4
+  typical_duration_s:
+  - 300
+  - 1500
+  tools:
+  - grasper
+  - hook
+  - bipolar
+- id: P5
+  name: gallbladder_packaging
+  order: 5
+  typical_duration_s:
+  - 60
+  - 300
+  tools:
+  - grasper
+  - specimen_bag_tool
+- id: P6
+  name: cleaning_coagulation
+  order: 6
+  typical_duration_s:
+  - 30
+  - 400
+  tools:
+  - grasper
+  - irrigator
+  - hook
+  - bipolar
+- id: P7
+  name: gallbladder_retraction
+  order: 7
+  typical_duration_s:
+  - 30
+  - 200
+  tools:
+  - grasper
+  - specimen_bag_tool
+transitions:
+- - preparation
+  - calot_triangle_dissection
+- - calot_triangle_dissection
+  - clipping_cutting
+- - clipping_cutting
+  - gallbladder_dissection
+- - gallbladder_dissection
+  - gallbladder_packaging
+- - gallbladder_dissection
+  - cleaning_coagulation
+- - gallbladder_dissection
+  - gallbladder_retraction
+- - gallbladder_packaging
+  - cleaning_coagulation
+- - cleaning_coagulation
+  - gallbladder_packaging
+- - cleaning_coagulation
+  - gallbladder_retraction
+- - gallbladder_packaging
+  - gallbladder_retraction
+rules:
+- id: phase.order.linear
+  statement: Cholec80 phases follow a broadly linear sequence from preparation to retraction
+  source_id: cholec80
+  quote: phases are defined sequentially
+  quote_verified: false
+  evidence_grade: cohort
+  seed: true
+  quote_status: not_found
+- id: phase.transition.p5_p6_swap
+  statement: Gallbladder packaging (P5) and cleaning coagulation (P6) may occur in either order
+  source_id: cholec80
+  quote: packaging and cleaning coagulation can be inverted
+  quote_verified: false
+  evidence_grade: cohort
+  seed: true
+  quote_status: not_found
+- id: phase.p6_optional
+  statement: Cleaning and coagulation phase (P6) is optional before final retraction
+  source_id: cholec80
+  quote: cleaning and coagulation phase may be omitted
+  quote_verified: false
+  evidence_grade: cohort
+  seed: true
+  quote_status: not_found
+- id: phase.p2_duration
+  statement: Calot triangle dissection is typically the longest phase bounding plausible timing
+  source_id: cholec80
+  quote: calot triangle dissection is the longest phase
+  quote_verified: false
+  evidence_grade: cohort
+  seed: true
+  quote_status: not_found
+- id: phase.tool_visibility
+  statement: A tool counts as present only if at least half its tip is visible
+  source_id: cholec80
+  quote: at least half of the tool tip is visible
+  quote_verified: false
+  evidence_grade: cohort
+  seed: true
+  quote_status: not_found
+- id: phase.clipper_in_p3
+  statement: Clipper is expected during clipping and cutting phase P3 and rarely elsewhere
+  source_id: cholec80
+  quote: clipper is used during clipping and cutting
+  quote_verified: false
+  evidence_grade: derived
+  seed: true
+  quote_status: not_found

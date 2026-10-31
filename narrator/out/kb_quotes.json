@@ -1,0 +1,392 @@
+{
+ "phase.order.linear": {
+  "statement": "Cholec80 phases follow a broadly linear sequence from preparation to retraction",
+  "quote": "phases are defined sequentially",
+  "source_id": "cholec80",
+  "url": "https://arxiv.org/abs/1602.03012",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "cohort",
+  "file": "phases.yaml"
+ },
+ "phase.transition.p5_p6_swap": {
+  "statement": "Gallbladder packaging (P5) and cleaning coagulation (P6) may occur in either order",
+  "quote": "packaging and cleaning coagulation can be inverted",
+  "source_id": "cholec80",
+  "url": "https://arxiv.org/abs/1602.03012",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "cohort",
+  "file": "phases.yaml"
+ },
+ "phase.p6_optional": {
+  "statement": "Cleaning and coagulation phase (P6) is optional before final retraction",
+  "quote": "cleaning and coagulation phase may be omitted",
+  "source_id": "cholec80",
+  "url": "https://arxiv.org/abs/1602.03012",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "cohort",
+  "file": "phases.yaml"
+ },
+ "phase.p2_duration": {
+  "statement": "Calot triangle dissection is typically the longest phase bounding plausible timing",
+  "quote": "calot triangle dissection is the longest phase",
+  "source_id": "cholec80",
+  "url": "https://arxiv.org/abs/1602.03012",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "cohort",
+  "file": "phases.yaml"
+ },
+ "phase.tool_visibility": {
+  "statement": "A tool counts as present only if at least half its tip is visible",
+  "quote": "at least half of the tool tip is visible",
+  "source_id": "cholec80",
+  "url": "https://arxiv.org/abs/1602.03012",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "cohort",
+  "file": "phases.yaml"
+ },
+ "phase.clipper_in_p3": {
+  "statement": "Clipper is expected during clipping and cutting phase P3 and rarely elsewhere",
+  "quote": "clipper is used during clipping and cutting",
+  "source_id": "cholec80",
+  "url": "https://arxiv.org/abs/1602.03012",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "derived",
+  "file": "phases.yaml"
+ },
+ "cvs.c1_triangle_cleared": {
+  "statement": "The hepatocystic triangle must be completely cleared of fat and fibrous tissue",
+  "quote": "all fat and fibrous tissue must be removed from the triangle of Calot",
+  "source_id": "strasberg_2010",
+  "url": "https://drcesarramirez.com/joomla/files/cirugiaMBE/Critical_View_-_Strasberg.pdf",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "cvs.yaml"
+ },
+ "cvs.c2_lower_gb_off_plate": {
+  "statement": "The lower third of the gallbladder must be dissected off the cystic plate",
+  "quote": "at least one third of the gallbladder mobilised off the cystic plate.",
+  "source_id": "nassar",
+  "url": "https://eprints.gla.ac.uk/223839/1/223839.pdf",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "cvs.yaml"
+ },
+ "cvs.c3_two_structures": {
+  "statement": "Only two structures, and only two, should be seen entering the gallbladder",
+  "quote": "2 structures, and only 2, should be seen entering the gallbladder.",
+  "source_id": "strasberg_2010",
+  "url": "https://drcesarramirez.com/joomla/files/cirugiaMBE/Critical_View_-_Strasberg.pdf",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "cvs.yaml"
+ },
+ "cvs.two_windows_alone": {
+  "statement": "Two windows alone is not CVS; the lower gallbladder must be detached from the liver bed",
+  "quote": "The making of 2 \u201cwindows\u201d alone does not satisfy the requirements of CVS.",
+  "source_id": "strasberg_2010",
+  "url": "https://drcesarramirez.com/joomla/files/cirugiaMBE/Critical_View_-_Strasberg.pdf",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "cvs.yaml"
+ },
+ "cvs.confirmed_before_clip_cut": {
+  "statement": "CVS must be confirmed before any clip application or transection of tubular structures",
+  "quote": "fulfill the three criteria of CVS before dividing any structures.",
+  "source_id": "tg18",
+  "url": "https://profiles.wustl.edu/en/publications/tokyo-guidelines-2018-surgical-management-of-acute-cholecystitis-/",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "cvs.yaml"
+ },
+ "cvs.doublet_documentation": {
+  "statement": "CVS documentation requires imaging both anterior and posterior views",
+  "quote": "photographic or video documentation displaying both the **anterior** and **posterior** views of the CVS",
+  "source_id": "strasberg_2010",
+  "url": "https://drcesarramirez.com/joomla/files/cirugiaMBE/Critical_View_-_Strasberg.pdf",
+  "quote_verified": false,
+  "quote_status": "grounding_only",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "cvs.yaml"
+ },
+ "cvs.post_clip_timing": {
+  "statement": "A CVS achieved claim made after clipping and cutting is temporally inconsistent",
+  "quote": "to allow for reflection before \u201cclipping, cutting or transecting any ductal structures\u201d[84].",
+  "source_id": "sages_guideline",
+  "url": "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "derived",
+  "file": "cvs.yaml"
+ },
+ "grade.parkland_timing": {
+  "statement": "Assign Parkland grade from the pre-dissection view only",
+  "quote": "Grades the severity of cholecystitis based on initial visual inspection before dissection:",
+  "source_id": "parkland",
+  "url": "https://www.em-consulte.com/article/1204381/the-parkland-grading-scale-for-cholecystitis",
+  "quote_verified": false,
+  "quote_status": "grounding_only",
+  "evidence_grade": "cohort",
+  "file": "grading.yaml"
+ },
+ "grade.nassar_cvs_prior": {
+  "statement": "Higher Nassar grade strongly correlates with CVS failure rate (Grade IV: 55.6%, Grade V: 92.3%)",
+  "quote": "ability to demonstrate CVS progressively fell from 100% (grade I) to 7.7% (grade V;",
+  "source_id": "nassar",
+  "url": "https://eprints.gla.ac.uk/223839/1/223839.pdf",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "cohort",
+  "file": "grading.yaml"
+ },
+ "grade.tokyo_not_inferable": {
+  "statement": "TG18 Grade II and III severity cannot be claimed from video alone without laboratory and vital signs",
+  "quote": "severity grading is based on organ dysfunction",
+  "source_id": "tg18",
+  "url": "https://profiles.wustl.edu/en/publications/tokyo-guidelines-2018-surgical-management-of-acute-cholecystitis-/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "grading.yaml"
+ },
+ "grade.parkland_reliability": {
+  "statement": "Parkland grading shows high inter-rater agreement on initial presentation view",
+  "quote": "The ICC among the raters of GB severity was 0.804",
+  "source_id": "parkland",
+  "url": "https://www.em-consulte.com/article/1204381/the-parkland-grading-scale-for-cholecystitis",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "cohort",
+  "file": "grading.yaml"
+ },
+ "cond.acute_chole.visibility": {
+  "statement": "Acute cholecystitis displays hallmark visible signs: hyperaemia, wall edema, distension, and fluid",
+  "quote": "Gallbladder with distension/edema/thickened wall; hyperemia; adhesions obscuring the body of the gallbladder.",
+  "source_id": "tg18",
+  "url": "https://profiles.wustl.edu/en/publications/tokyo-guidelines-2018-surgical-management-of-acute-cholecystitis-/",
+  "quote_verified": false,
+  "quote_status": "grounding_only",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "conditions.yaml"
+ },
+ "cond.gangrenous.necrosis": {
+  "statement": "Gangrenous cholecystitis is visually characterized by patchy or extensive wall necrosis",
+  "quote": "Severe inflammation, complete adherence to the liver bed, wall necrosis/gangrene, or extensive omental wrapping.",
+  "source_id": "tg18",
+  "url": "https://profiles.wustl.edu/en/publications/tokyo-guidelines-2018-surgical-management-of-acute-cholecystitis-/",
+  "quote_verified": false,
+  "quote_status": "grounding_only",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "conditions.yaml"
+ },
+ "cond.mirizzi.external_data": {
+  "statement": "Mirizzi syndrome type requires cholangiography or cross-sectional imaging and cannot be fully staged from video",
+  "quote": "mirizzi syndrome requires preoperative or intraoperative cholangiography",
+  "source_id": "tg18",
+  "url": "https://profiles.wustl.edu/en/publications/tokyo-guidelines-2018-surgical-management-of-acute-cholecystitis-/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "conditions.yaml"
+ },
+ "cond.cancer.not_inferable": {
+  "statement": "Malignancy or gallbladder cancer cannot be confirmed without histopathology",
+  "quote": "gallbladder carcinoma requires histological confirmation",
+  "source_id": "statpearls",
+  "url": "https://www.ncbi.nlm.nih.gov/books/NBK470559/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "conditions.yaml"
+ },
+ "anatomy.rha_crossing": {
+  "statement": "Right hepatic artery crosses the hepatocystic triangle in 15% and must not be mistransected",
+  "quote": "15% of right hepatic arteries course through the triangle and can be mistaken",
+  "source_id": "alius_2023",
+  "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10456257/",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "cohort",
+  "file": "anatomy.yaml"
+ },
+ "anatomy.caterpillar_hump": {
+  "statement": "Caterpillar hump (Moynihan hump) occurs in up to 13.3% and poses high risk of accidental clipping",
+  "quote": "caterpillar hump of the right hepatic artery",
+  "source_id": "alius_2023",
+  "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10456257/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "cohort",
+  "file": "anatomy.yaml"
+ },
+ "anatomy.rouviere_sulcus": {
+  "statement": "Rouviere sulcus is identifiable in 83% of livers and marks the safe plane anterior to the hilum",
+  "quote": "identified a prevalence of 83% of Rouviere\u2019s sulcus",
+  "source_id": "alius_2023",
+  "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10456257/",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "cohort",
+  "file": "anatomy.yaml"
+ },
+ "anatomy.r4u_line_safety": {
+  "statement": "Dissection below the R4U line (Segment 4 to Rouviere sulcus) enters the hazardous hilar zone",
+  "quote": "it is vital to dissect at a location above",
+  "source_id": "tg18",
+  "url": "https://profiles.wustl.edu/en/publications/tokyo-guidelines-2018-surgical-management-of-acute-cholecystitis-/",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "anatomy.yaml"
+ },
+ "anatomy.short_cystic_duct": {
+  "statement": "A short cystic duct increases the risk of tenting and transecting the common bile duct",
+  "quote": "short cystic duct leads to tenting of common bile duct",
+  "source_id": "statpearls",
+  "url": "https://www.ncbi.nlm.nih.gov/books/NBK470559/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "anatomy.yaml"
+ },
+ "finding.smoke_evacuation": {
+  "statement": "Electrocautery smoke obscuring visual clarity should be evacuated before critical dissection",
+  "quote": "evacuation of smoke to maintain clear visualization",
+  "source_id": "statpearls",
+  "url": "https://www.ncbi.nlm.nih.gov/books/NBK470559/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "findings.yaml"
+ },
+ "finding.perforation_spillage": {
+  "statement": "Gallbladder perforation leads to bile and gallstone spillage requiring peritoneal lavage",
+  "quote": "* **Stone and Bile Spillage:** Gallbladder perforation with lost gallstones",
+  "source_id": "statpearls",
+  "url": "https://www.ncbi.nlm.nih.gov/books/NBK470559/",
+  "quote_verified": false,
+  "quote_status": "grounding_only",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "findings.yaml"
+ },
+ "finding.distension_decompression": {
+  "statement": "A tense distended gallbladder may require needle decompression before safe grasping",
+  "quote": "A tense gallbladder (acute cholecystitis, empyema, mucocele) was decompressed.",
+  "source_id": "nassar",
+  "url": "https://eprints.gla.ac.uk/223839/1/223839.pdf",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "findings.yaml"
+ },
+ "implication.bailout_subtotal": {
+  "statement": "When severe inflammation prevents safe CVS attainment, bail out with subtotal cholecystectomy",
+  "quote": "1. **Subtotal Cholecystectomy (Preferred Bailout):**",
+  "source_id": "sages_guideline",
+  "url": "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/",
+  "quote_verified": false,
+  "quote_status": "grounding_only",
+  "evidence_grade": "guideline_expert_opinion",
+  "file": "implications.yaml"
+ },
+ "implication.subtotal_types": {
+  "statement": "Subtotal fenestrating carries higher bile leak risk, while reconstituting risks recurrent stones",
+  "quote": "After a fenestrating subtotal cholecystectomy, the risk is higher for a significant bile leak",
+  "source_id": "yildirim_2022",
+  "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8942168/",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "cohort",
+  "file": "implications.yaml"
+ },
+ "decision.difficulty_assessment": {
+  "statement": "Operative difficulty should be formally assessed from pre-dissection anatomical appearance.",
+  "quote": "early recognition of difficulty and identification of cholecys- tectomies",
+  "source_id": "nassar",
+  "url": "https://eprints.gla.ac.uk/223839/1/223839.pdf",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "expert opinion",
+  "file": "decisions.yaml"
+ },
+ "decision.exposure_retraction": {
+  "statement": "Hepatocystic triangle exposure requires fundus retracted cephalad and infundibulum retracted laterally.",
+  "quote": "Retract fundus cephalad and infundibulum laterally to expose hepatocystic triangle",
+  "source_id": "sages2020",
+  "url": "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "expert opinion",
+  "file": "decisions.yaml"
+ },
+ "decision.dissection_plane_r4u": {
+  "statement": "Dissection in Calot triangle must stay above the R4U line to protect common bile duct.",
+  "quote": "Dissect above the line from the base of Segment 4 to Rouvi\u00e8re sulcus",
+  "source_id": "tg18",
+  "url": "https://profiles.wustl.edu/en/publications/tokyo-guidelines-2018-surgical-management-of-acute-cholecystitis-/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "conditional recommendation, very low certainty",
+  "file": "decisions.yaml"
+ },
+ "decision.cvs_pause": {
+  "statement": "A deliberate pause must be taken to verify all three CVS criteria prior to clipping.",
+  "quote": "\u201cmomentary intraoperative pause\u201d to allow for reflection before \u201cclipping, cutting or transecting",
+  "source_id": "alius_2023",
+  "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10456257/",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "best practice",
+  "file": "decisions.yaml"
+ },
+ "decision.cvs_not_reached_action": {
+  "statement": "When CVS cannot be reached safely, obtain imaging, call for assistance, or prepare bailout.",
+  "quote": "A bail-out procedure should be chosen if",
+  "source_id": "tg18",
+  "url": "https://profiles.wustl.edu/en/publications/tokyo-guidelines-2018-surgical-management-of-acute-cholecystitis-/",
+  "quote_verified": true,
+  "quote_status": "verified",
+  "evidence_grade": "strong recommendation, very low certainty",
+  "file": "decisions.yaml"
+ },
+ "decision.bailout_choice": {
+  "statement": "Subtotal cholecystectomy is preferred over fundus-first cholecystectomy in hostile gallbladders.",
+  "quote": "Prefer subtotal over fundus-first total cholecystectomy when CVS cannot be achieved",
+  "source_id": "sages_q2_q9",
+  "url": "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "conditional recommendation, low certainty",
+  "file": "decisions.yaml"
+ },
+ "decision.clip_and_divide": {
+  "statement": "The cystic duct and artery should be clipped only after full CVS confirmation.",
+  "quote": "Use CVS to identify the cystic duct and artery before dividing",
+  "source_id": "sages_q1",
+  "url": "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "expert opinion",
+  "file": "decisions.yaml"
+ },
+ "decision.gb_bed_haemostasis": {
+  "statement": "The gallbladder bed should be dissected cleanly off cystic plate and inspected for bleeding or bile leak.",
+  "quote": "Inspect the gallbladder fossa for bleeding and bile leak prior to completion",
+  "source_id": "sages2020",
+  "url": "https://www.sages.org/publications/guidelines/safe-cholecystectomy-multi-society-practice-guideline/",
+  "quote_verified": false,
+  "quote_status": "not_found",
+  "evidence_grade": "expert opinion",
+  "file": "decisions.yaml"
+ }
+}
