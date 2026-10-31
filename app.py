@@ -28,6 +28,7 @@ COL = {
     "escalate": "#e53e3e",
 }
 NON_TRIVIAL_KEYS = [k for k in C.LABELS if k != "liver"]
+CORE_BALANCED_KEYS = ["grasper", "l_hook", "gallbladder"]
 
 
 class LiveVerdict(BaseModel):
@@ -55,11 +56,11 @@ def load_json(p: Path, default=None):
 
 
 def normalize_status(val: str) -> str:
-    """Normalize verifier status to canonical accept | reject | AMBER."""
+    """Normalize verifier status to canonical accept | reject | AMBER per docs/DESIGN.md."""
     s = str(val or "").strip().lower()
     if s == "accept":
         return "accept"
-    if s == "reject":
+    if s in ("reject", "escalate"):
         return "reject"
     return "AMBER"
 
@@ -186,10 +187,12 @@ def score_jsonl_against_index(jsonl_path: Path, idx_df: pd.DataFrame | None, spl
         if scorable.empty:
             return None
         nt = scorable[scorable["key"].isin(NON_TRIVIAL_KEYS)]
+        c3 = scorable[scorable["key"].isin(CORE_BALANCED_KEYS)]
         per_key = scorable.groupby("key")["correct"].mean().round(4).to_dict()
         return {
             "n_rows": int(len(scorable)),
             "n_frames": int(scorable["frame_id"].nunique()),
+            "acc_core_3": round(float(c3["correct"].mean()), 4) if not c3.empty else None,
             "acc_5_nontrivial": round(float(nt["correct"].mean()), 4) if not nt.empty else None,
             "acc_all_6": round(float(scorable["correct"].mean()), 4),
             "per_key": per_key,
@@ -231,6 +234,7 @@ def record_human_gate_decision(
     p = log_path or (O / "human_gate_log.jsonl")
     p.parent.mkdir(parents=True, exist_ok=True)
     rec = {
+        "t": round(time.time(), 3),
         "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "reviewer": reviewer.strip() or "Anonymous Surgeon",
         "frame_id": str(frame_id),
@@ -238,6 +242,7 @@ def record_human_gate_decision(
         "key": str(key),
         "agent_status": str(agent_status),
         "agent_present": int(agent_present),
+        "action": str(human_action),
         "human_action": str(human_action),
         "human_present": int(human_present) if human_present is not None else None,
     }
@@ -346,7 +351,7 @@ def build_verified_export(dec_df: pd.DataFrame, gate_log: list[dict]) -> dict:
 def _live_trust_score(r) -> float:
     s = float(r.conf) * (1.0 - float(r.p_wrong))
     if int(r.present) == 1:
-        s *= 1.0 if r.pv_match is True else 0.5
+        s *= 1.0 if bool(pd.notna(r.pv_match) and r.pv_match) else 0.5
     return round(float(s), 4)
 
 
@@ -359,53 +364,13 @@ def _live_initial_status(score: float) -> str:
 
 
 async def _live_do_frame_no_gt(row, manual: dict, sample_seed: int = 0) -> list[dict]:
-    """Label and run decorrelated checks on a single frame WITHOUT ever reading gt_* / truth."""
-    prompt = L.label_prompt(manual)
-    p_hash = hashlib.sha256(prompt.encode()).hexdigest()[:16]
-    lab = await gem.call(
-        prompt,
-        images=[gem.img_part(row.path)],
-        schema=L.FrameLabels,
-        temperature=0.0,
-        sample=sample_seed,
-        tag="live-label",
-    )
-    items = {i["key"]: i for i in lab.get("items", []) if i.get("key") in L.NAMES}
-    crit = await L.critique(row.path, list(items.values())) if items else {}
-    out = []
-    for key in L.NAMES:
-        it = items.get(key, {"present": False, "confidence": 0.0, "box_2d": [], "evidence": "missing"})
-        present_int = int(bool(it.get("present", False)))
-        box_2d = it.get("box_2d") or []
-        if present_int == 1 and len(box_2d) == 4:
-            pv_match, pv_conf = await L.verify_box(row.path, key, box_2d)
-        else:
-            pv_match, pv_conf = (None, None)
-        p_wrong = float(crit.get(key, {}).get("p_wrong", 0.5))
-        critic_arg = str(crit.get(key, {}).get("argument", ""))
-        out.append({
-            "frame_id": str(row.frame_id),
-            "video": str(row.video),
-            "video_id": str(row.video),
-            "split": str(row.split),
-            "frame_path": str(row.path),
-            "key": key,
-            "mode": "manual",
-            "sample": sample_seed,
-            "model": C.FLASH,
-            "prompt_hash": p_hash,
-            "present": present_int,
-            "conf": float(it.get("confidence", 0.0)),
-            "confidence": float(it.get("confidence", 0.0)),
-            "box": box_2d,
-            "evidence": str(it.get("evidence", "")),
-            "rationale": str(it.get("evidence", "")),
-            "pv_match": pv_match,
-            "pv_conf": pv_conf,
-            "p_wrong": p_wrong,
-            "critic": critic_arg,
-        })
-    return out
+    """Label and run decorrelated checks on a single frame via label.do_frame (zero GT access)."""
+    recs = await L.do_frame(row, "manual", manual, sample_seed, full_checks=True)
+    for r in recs:
+        r["frame_path"] = str(row.path)
+        for forbidden in ("truth", "correct", "final_correct"):
+            r.pop(forbidden, None)
+    return recs
 
 
 async def _live_argon_revise(r, manual: dict) -> dict:
@@ -503,6 +468,8 @@ async def run_live_video_async(
     O.mkdir(parents=True, exist_ok=True)
     d.to_csv(O / f"live_decisions_{video_id}.csv", index=False)
     d.to_csv(O / "live_decisions.csv", index=False)
+    if not (O / "decisions.csv").exists():
+        d.to_csv(O / "decisions.csv", index=False)
     (O / f"live_run_{video_id}.json").write_text(json.dumps(meta, indent=2))
     (O / "live_run_latest.json").write_text(json.dumps(meta, indent=2))
     return d, meta
@@ -529,46 +496,18 @@ def read_trace_lines(limit: int = 25) -> list[dict]:
     return list(reversed(out))
 
 
-# ---------------- Top Landing Header: SurgProof, Real Person, Honest Claims & Prior Work ----------------
+# ---------------- Top Landing Header: SurgProof, Honest Claims & Prior Work ----------------
 st.title("SurgProof — No human labels. Only proof.")
 st.caption(
-    "An autonomous Gemini agent that teaches itself a surgery from public sources, labels surgical video, "
-    "checks its own labels so no human has to, routes uncertain (AMBER) claims to a human gate so people stay in control, "
-    "trains a specialist only on what was verified, and narrates using only what it can stand behind."
+    "Self-taught surgical video labelling with zero-label verification, an AMBER human gate, "
+    "and specialist distillation."
 )
-
-# Judging Test 1: Named real person + Supervisor quote slot
-person_col, sup_col = st.columns(2)
-with person_col:
-    st.markdown(
-        """
-**👤 Built for a Real Person**
-- **Nir Mathur** — *Medical Student, King's College London (KCL)*
-- *"In surgical AI research, medical students and trainees spend hundreds of hours manually annotating laparoscopic frames one by one. SurgProof learns visual criteria from surgical lectures, runs decorrelated verification checks with Gemini 4 Argon, and only asks a human to clear the small AMBER queue."*
-"""
-    )
-with sup_col:
-    sup_quote = load_json(resolve_artifact("supervisor_quote.json"))
-    if sup_quote and sup_quote.get("quote"):
-        st.markdown(
-            f"**🩺 Clinical Supervisor Endorsement**\n"
-            f"- **{sup_quote.get('name', 'Clinical Supervisor')}** *({sup_quote.get('role', '')})*\n"
-            f"- *\"{sup_quote['quote']}\"*"
-        )
-    else:
-        st.markdown(
-            """
-**🩺 Clinical Supervisor Quote Slot**
-- **[PLACEHOLDER — Awaiting supervisor quote card (`out/supervisor_quote.json`)]**
-- *Reserved for exact quote and attribution from Nir Mathur's clinical supervisor; no quote is fabricated.*
-"""
-        )
 
 hc_col, pw_col = st.columns(2)
 with hc_col:
     st.markdown(
         """
-**Honest Claims (Strict Zero-Leakage Protocol)**
+**Honest Claims**
 - **"No human labels used in training."** Ground truth (`gt_*`) is excluded from labeller and verifier inputs and joined **only** to score held-out test videos (`split == "test"`).
 - **Upper bounds explicitly marked:** The `calib` split (`upper_bound_calibrated`) and `oracle_upper_bound` student use human labels and are reported strictly as **upper bounds** for reference only.
 - **Act 1 (any surgery) has no ground truth:** Showcase of zero-setup generalization, not accuracy proof. CholecSeg8k is the blind proof.
@@ -577,7 +516,7 @@ with hc_col:
 with pw_col:
     st.markdown(
         """
-**Prior Work Named on Stage & Our Step**
+**Prior Work & Our Step**
 - **SurgAtlas**: Large-scale dataset of public surgical videos.
 - **SurgVLP** *(CAMMA Strasbourg)*: Learning representations from narrated surgical lectures.
 - **SurgSLOT**: Self-evolving surgical data engine relying on **human verification**.
@@ -600,7 +539,7 @@ with st.sidebar:
         "out/results.json": resolve_artifact("results.json").exists(),
         "out/student.json": resolve_artifact("student.json").exists(),
         "out/live_decisions.csv": resolve_artifact("live_decisions.csv").exists(),
-        "out/human_gate_log.jsonl": resolve_artifact("human_gate_log.jsonl").exists(),
+        "out/gate_log.jsonl": resolve_artifact("gate_log.jsonl").exists() or resolve_artifact("human_gate_log.jsonl").exists(),
     }
     status_lines = [
         f"- {'🟢 **LIVE**' if ok else '🟡 **PLACEHOLDER**'} `{name}`"
@@ -609,6 +548,17 @@ with st.sidebar:
     st.markdown("\n".join(status_lines))
     if st.button("🔄 Refresh outputs"):
         st.rerun()
+
+    st.divider()
+    st.subheader("🛡️ Human Gate (#14)")
+    gate_page_path = C.ROOT / "pages" / "2_Human_gate.py"
+    if gate_page_path.is_file():
+        st.page_link("pages/2_Human_gate.py", label="Open Human Gate (AMBER Queue)", icon="🛡️")
+    else:
+        st.markdown(
+            "👉 **[Human Gate (`pages/2_Human_gate.py`)](/Human_gate)** — "
+            "Clears `AMBER` queue & unlocks verified dataset export (`harald/gate`)."
+        )
 
     promo_candidates = [O / "promo" / "surgproof_promo.mp4", O / "promo" / "surgatlas_promo.mp4"]
     for promo_path in promo_candidates:
@@ -628,11 +578,10 @@ with st.sidebar:
     else:
         st.caption("[PLACEHOLDER — No trace yet in out/trace.jsonl.]")
 
-tab_live, tab_gate, tab_proof, tab_watch = st.tabs([
+tab_live, tab_proof, tab_watch = st.tabs([
     "⚡ 1 · Live Judge Test (<3 min)",
-    "🛡️ 2 · Human Gate (AMBER Queue)",
-    "📊 3 · Proof (CholecSeg8k)",
-    "🎬 4 · Watch, Manual & Any Surgery",
+    "📊 2 · Proof (CholecSeg8k & External Sets)",
+    "🎬 3 · Watch, Manual & Any Surgery",
 ])
 
 # ==============================================================================
@@ -643,8 +592,16 @@ with tab_live:
     st.info(
         "**Judging test ('live, real input, under 3 minutes'):** `out/manual.json` is cached; a judge picks any held-out test video (1–6); "
         "SurgProof labels ~20 frames with Gemini 3.8 Flash, runs blind crop verification + sceptical critic, escalates the uncertain band to "
-        "**Gemini 4 Argon**, routes remaining `AMBER` claims to the **Human Gate**, and reveals accuracy against hidden ground truth."
+        "**Gemini 4 Argon**, routes remaining `AMBER` claims to the **Human Gate (`pages/2_Human_gate.py`)**, and reveals accuracy against hidden ground truth."
     )
+    gate_page_live = C.ROOT / "pages" / "2_Human_gate.py"
+    if gate_page_live.is_file():
+        st.page_link("pages/2_Human_gate.py", label="🛡️ Go to Human Gate (AMBER Approval Queue & Locked Export)", icon="🛡️")
+    else:
+        st.markdown(
+            "🛡️ **Human Gate (`pages/2_Human_gate.py`):** Uncertain (`AMBER`) labels from this live run are routed to the "
+            "[**Human Gate page**](/Human_gate) (`pages/2_Human_gate.py`, owned by `harald/gate`), where dataset export stays locked until every `AMBER` item is cleared."
+        )
 
     idx_live_path = C.DATA_DIR / "index.csv"
     if not idx_live_path.exists():
@@ -751,139 +708,7 @@ with tab_live:
             )
 
 # ==============================================================================
-# TAB 2: HUMAN GATE (AMBER QUEUE) — Issue #14
-# ==============================================================================
-with tab_gate:
-    st.header("Human Gate: People Stay in Control")
-    st.info(
-        "**Judging test ('people stay in control'):** The verifier outputs `accept`, `reject`, or `AMBER` (abstain). "
-        "Every `AMBER` label must be reviewed by a human before dataset export unlocks. Every approval or correction is logged to `out/human_gate_log.jsonl`."
-    )
-
-    live_dec_cand = resolve_artifact("live_decisions.csv")
-    full_dec_cand = resolve_artifact("decisions.csv")
-    source_options = []
-    if live_dec_cand.exists():
-        source_options.append(("Live Judge Run (`out/live_decisions.csv`)", live_dec_cand))
-    if full_dec_cand.exists():
-        source_options.append(("Full CholecSeg8k Run (`out/decisions.csv`)", full_dec_cand))
-
-    reviewer_name = st.text_input("Active Human Reviewer (logged on every approval/correction)", value="Nir Mathur (KCL Medical Student)")
-    gate_log = load_human_gate_log()
-
-    if not source_options:
-        st.warning(
-            "**[PLACEHOLDER — Awaiting `out/live_decisions.csv` or `out/decisions.csv`]**\n\n"
-            "Run the Live Judge Test (Tab 1) or `python accept.py` to populate the AMBER queue. "
-            "The export button below remains strictly **LOCKED** until decisions exist and all AMBER items are cleared."
-        )
-        hg1, hg2, hg3, hg4 = st.columns(4)
-        hg1.metric("Auto-accepted (`accept`)", "PENDING")
-        hg2.metric("Auto-rejected (`reject`)", "PENDING")
-        hg3.metric("AMBER queue pending", "PENDING")
-        hg4.metric("Cleared by human", len(gate_log))
-        st.download_button(
-            "🔒 Export verified dataset (LOCKED — awaiting verifier decisions & empty AMBER queue)",
-            data="{}",
-            file_name="verified_dataset.json",
-            disabled=True,
-        )
-    else:
-        picked_src_label = st.radio(
-            "Decision source for Human Gate",
-            [lbl for lbl, _ in source_options],
-            horizontal=True,
-        )
-        picked_src_path = dict(source_options)[picked_src_label]
-        gate_df = pd.read_csv(picked_src_path)
-        pending_amber, cleared_amber, gate_summary = compute_amber_queue(gate_df, gate_log)
-
-        hg1, hg2, hg3, hg4 = st.columns(4)
-        hg1.metric("Auto-accepted (`accept`)", gate_summary["n_accept"])
-        hg2.metric("Auto-rejected (`reject`)", gate_summary["n_reject"])
-        hg3.metric("AMBER queue pending human", gate_summary["n_amber_pending"])
-        hg4.metric("AMBER cleared by human", gate_summary["n_amber_cleared"])
-
-        export_payload = json.dumps(build_verified_export(gate_df, gate_log), indent=2)
-        if gate_summary["export_unlocked"]:
-            (O / "verified_export.json").write_text(export_payload)
-            st.success("🔓 **All AMBER labels cleared!** Verified dataset export is now UNLOCKED.")
-        else:
-            st.warning(
-                f"🔒 **Export Locked:** {gate_summary['n_amber_pending']} `AMBER` label(s) require human sign-off before export unlocks."
-            )
-
-        st.download_button(
-            "🔓 Export verified dataset (`verified_dataset.json`)"
-            if gate_summary["export_unlocked"]
-            else f"🔒 Export verified dataset (LOCKED — clear {gate_summary['n_amber_pending']} AMBER item(s) first)",
-            data=export_payload,
-            file_name="verified_dataset.json",
-            mime="application/json",
-            disabled=not gate_summary["export_unlocked"],
-        )
-
-        if not pending_amber.empty:
-            st.subheader(f"Pending AMBER Queue ({len(pending_amber)} items)")
-            vid_col_g = "video" if "video" in pending_amber.columns else "video_id"
-            idx_gate = pd.read_csv(C.DATA_DIR / "index.csv").set_index("frame_id") if (C.DATA_DIR / "index.csv").exists() else None
-
-            if st.button(f"⚡ Batch-approve all {len(pending_amber)} pending AMBER items with agent's tentative call (logged under {reviewer_name})"):
-                for r in pending_amber.itertuples():
-                    tentative = int(getattr(r, "final_present", getattr(r, "present", 0)))
-                    record_human_gate_decision(
-                        reviewer=reviewer_name,
-                        frame_id=r.frame_id,
-                        video=getattr(r, vid_col_g, ""),
-                        key=r.key,
-                        agent_status=r.status,
-                        agent_present=tentative,
-                        human_action="batch_approve_tentative",
-                        human_present=tentative,
-                    )
-                st.rerun()
-
-            for item_idx, r in enumerate(pending_amber.head(15).itertuples()):
-                fid = str(r.frame_id)
-                k = str(r.key)
-                vid = str(getattr(r, vid_col_g, ""))
-                tentative = int(getattr(r, "final_present", getattr(r, "present", 0)))
-                f_path = getattr(r, "frame_path", None)
-                if (not f_path or pd.isna(f_path)) and idx_gate is not None and fid in idx_gate.index:
-                    val = idx_gate.loc[fid, "path"]
-                    f_path = val.iloc[0] if isinstance(val, pd.Series) else val
-
-                with st.container(border=True):
-                    ac1, ac2, ac3 = st.columns([1.2, 2, 1.3])
-                    with ac1:
-                        row_df = pd.DataFrame([r._asdict()])
-                        st.image(draw(f_path, row_df, reveal=False, frame_id=fid), width="stretch")
-                    with ac2:
-                        st.markdown(f"**Frame `{fid}` (`{vid}`) · Structure: `{k}`**")
-                        st.markdown(
-                            f"- **Tentative call:** `{'PRESENT (1)' if tentative else 'ABSENT (0)'}` "
-                            f"(Flash conf `{getattr(r, 'conf', 0.0):.2f}`, trust `{getattr(r, 'trust', 0.0):.2f}`, reviewer `{getattr(r, 'final_by', 'flash')}`)\n"
-                            f"- **Labeller evidence:** {getattr(r, 'evidence', 'n/a')}\n"
-                            f"- **Blind crop check (`pv_match`):** `{getattr(r, 'pv_match', None)}` "
-                            f"| **Critic (`p_wrong={getattr(r, 'p_wrong', 0.5):.2f}`):** {getattr(r, 'critic', 'n/a')}"
-                        )
-                    with ac3:
-                        if st.button("✅ Approve PRESENT (1)", key=f"hg_pres_{fid}_{k}_{item_idx}"):
-                            record_human_gate_decision(reviewer_name, fid, vid, k, r.status, tentative, "approve_present", 1)
-                            st.rerun()
-                        if st.button("🚫 Approve ABSENT (0)", key=f"hg_abs_{fid}_{k}_{item_idx}"):
-                            record_human_gate_decision(reviewer_name, fid, vid, k, r.status, tentative, "approve_absent", 0)
-                            st.rerun()
-                        if st.button("🗑️ Reject / Exclude", key=f"hg_rej_{fid}_{k}_{item_idx}"):
-                            record_human_gate_decision(reviewer_name, fid, vid, k, r.status, tentative, "reject_exclude", None)
-                            st.rerun()
-
-    if gate_log:
-        st.subheader("Human Gate Audit Log (`out/human_gate_log.jsonl`)")
-        st.dataframe(pd.DataFrame(gate_log), width="stretch")
-
-# ==============================================================================
-# TAB 3: PROOF (CHOLECSEG8K & SPECIALIST STUDENT) — Act 2
+# TAB 2: PROOF (CHOLECSEG8K & SPECIALIST STUDENT) — Act 2
 # ==============================================================================
 with tab_proof:
     st.header("Proof: CholecSeg8k, labels hidden from the agent")
@@ -1095,6 +920,56 @@ with tab_proof:
     if eval_report_md.exists():
         with st.expander("View Full Independent Evaluation Audit Report (`out/eval_report.md`)"):
             st.markdown(eval_report_md.read_text())
+
+    # External Held-Out Validation Sets (#16: Endoscapes2023 & CholecT50)
+    ext_root = C.DATA_DIR / "external"
+    ext_sets = [
+        ("endoscapes2023", "Endoscapes2023 (CAMMA Strasbourg — 50 unseen videos, scorable: gallbladder & cystic_duct)"),
+        ("cholect50", "CholecT50 (Disjoint non-CholecSeg8k videos — scorable: grasper & l_hook)"),
+    ]
+    if any((ext_root / slug / "index.csv").exists() for slug, _ in ext_sets):
+        st.divider()
+        st.subheader("External Zero-Shot Held-Out Datasets (`Endoscapes2023` & `CholecT50`)")
+        st.caption(
+            "Evaluated with the exact same frozen manual and prompts (zero re-tuning). "
+            "Unannotated classes in each external dataset carry `gt_<key> = -1` and are excluded from scoring."
+        )
+        for slug, title in ext_sets:
+            ext_idx_p = ext_root / slug / "index.csv"
+            if not ext_idx_p.exists():
+                continue
+            ext_idx_df = pd.read_csv(ext_idx_p)
+            ext_test_df = ext_idx_df[ext_idx_df["split"] == "test"] if "split" in ext_idx_df.columns else ext_idx_df
+            ext_blank_p = resolve_artifact(f"labels_{slug}_blank.jsonl")
+            ext_man_p = resolve_artifact(f"labels_{slug}_manual.jsonl")
+            ext_b_stats = score_jsonl_against_index(ext_blank_p, ext_idx_df, split_filter="test") if ext_blank_p.exists() else None
+            ext_m_stats = score_jsonl_against_index(ext_man_p, ext_idx_df, split_filter="test") if ext_man_p.exists() else None
+
+            with st.container(border=True):
+                st.markdown(f"**{title}**")
+                ec1, ec2, ec3, ec4 = st.columns(4)
+                ec1.metric("External test frames", int(len(ext_test_df)))
+                ec2.metric("Unseen test videos", int(ext_test_df["video"].nunique()) if "video" in ext_test_df.columns else 0)
+                if ext_b_stats:
+                    ec3.metric(
+                        "Blank baseline (scorable labels)",
+                        f"{ext_b_stats['acc_all_6'] * 100:.1f}%",
+                        ", ".join(f"{k}={v*100:.1f}%" for k, v in ext_b_stats["per_key"].items()),
+                    )
+                else:
+                    ec3.metric("Blank baseline [PLACEHOLDER]", "PENDING")
+                if ext_m_stats:
+                    delta_ext = (
+                        f"{(ext_m_stats['acc_all_6'] - ext_b_stats['acc_all_6']) * 100:+.1f} pts vs blank"
+                        if ext_b_stats else ", ".join(f"{k}={v*100:.1f}%" for k, v in ext_m_stats["per_key"].items())
+                    )
+                    ec4.metric(
+                        "Frozen Manual (scorable labels)",
+                        f"{ext_m_stats['acc_all_6'] * 100:.1f}%",
+                        delta_ext,
+                    )
+                else:
+                    ec4.metric("Frozen Manual [PLACEHOLDER]", "PENDING")
 
 # ==============================================================================
 # TAB 4: WATCH, MANUAL & ANY SURGERY — Act 3 + Manual + Act 1

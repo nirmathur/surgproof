@@ -48,7 +48,11 @@ class Verdict(BaseModel):
 
 
 def _pv_ok(val) -> bool:
-    return bool(pd.notna(val) and val)
+    if val is None or (isinstance(val, float) and pd.isna(val)) or pd.isna(val):
+        return False
+    if isinstance(val, str):
+        return val.strip().lower() in ("true", "1", "1.0", "yes")
+    return bool(val)
 
 
 def trust(r):
@@ -91,10 +95,10 @@ async def main(use_argon, argon_budget):
     d["frame_path"] = d.frame_id.map(idx.path)
     d["trust"] = d.apply(trust, axis=1)
     d["status"] = d.trust.map(status)
-    d["final_present"] = d.present
+    d["final_present"] = d.present.astype(int)
     d["final_by"] = "flash"
 
-    if use_argon:
+    if use_argon and argon_budget > 0:
         manual = json.loads((C.OUT_DIR / "manual.json").read_text())
         band = d[d.status != "accept"].sort_values("trust", ascending=False).head(argon_budget)
         gem.trace("argon", f"Reviewing {len(band)} uncertain labels "
@@ -105,11 +109,17 @@ async def main(use_argon, argon_budget):
             d.at[i, "final_by"] = "argon"
             if v["confidence"] >= 0.8:
                 d.at[i, "status"] = "accept"
-                d.at[i, "trust"] = 0.70 + 0.3 * v["confidence"] * 0.99  # ranks just above flash-accepts floor
+                d.at[i, "trust"] = 0.70 + 0.3 * v["confidence"] * 0.99
+            elif v["confidence"] < 0.35:
+                d.at[i, "status"] = "reject"
             else:
                 d.at[i, "status"] = "AMBER"
     d.to_csv(C.OUT_DIR / "decisions.csv", index=False)
-    evaluate_decisions(C.DATA_DIR, C.OUT_DIR)
+    if C.OUT_DIR.resolve() == (C.ROOT / "out").resolve():
+        coord_dec = C.ROOT / "coord" / "artifacts" / "decisions.csv"
+        coord_dec.parent.mkdir(parents=True, exist_ok=True)
+        d.to_csv(coord_dec, index=False)
+    return evaluate_decisions(C.DATA_DIR, C.OUT_DIR)
 
 
 if __name__ == "__main__":
