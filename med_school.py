@@ -46,6 +46,18 @@ class Manual(BaseModel):
     general_rules: list[str]
 
 
+class _ManualResponseSchema(BaseModel):
+    """Gemini Developer API response_schema (avoids dict additionalProperties in Source)."""
+    procedure: str
+    phases: list[str]
+    structures: list[Cue]
+    critical_events: list[str]
+    general_rules: list[str]
+
+
+_ManualResponseSchema.__name__ = "Manual"
+
+
 class VideoLesson(BaseModel):
     rules: list[str]                 # visual rules learned from the narration
     moments: list[str]               # "mm:ss - what the surgeon said / showed"
@@ -302,11 +314,11 @@ async def build_manual(procedure, keys=None, video_urls=()):
         "ONLY when distinct free liquid red blood or dark pooled blood clot is visible and NOT normal "
         "reddish-brown liver parenchyma, pink serosa, or dry cautery char).\n\n"
         f"RESEARCH NOTES:\n{notes}\n\nVIDEO LESSONS:\n{lesson_txt}",
-        model=C.ARGON, schema=Manual, tag="manual")
+        model=C.ARGON, schema=_ManualResponseSchema, tag="manual")
     if isinstance(manual, dict) and not manual.get("sources"):
         manual = {
             "procedure": manual.get("procedure", procedure),
-            "sources": build_sources_list(procedure, keys, video_urls, lessons),
+            "sources": build_sources_list(procedure, [s.get("key", "") for s in manual.get("structures", []) if isinstance(s, dict)] or keys, video_urls, lessons),
             **{k: v for k, v in manual.items() if k not in ("procedure", "sources")},
         }
     manual = validate_manual(manual, keys)
