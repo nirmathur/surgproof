@@ -120,23 +120,23 @@ async def main(
 
     # Write Amber Loop log (`out/amber_rounds.jsonl`) and verified dataset (`out/verified_dataset.jsonl`)
     out_dir_for_aux = dest.parent
-    rounds_path = out_dir_for_aux / "amber_rounds.jsonl"
+    suffix = dest.stem.removeprefix("decisions") if dest.stem.startswith("decisions_") else ""
+    rounds_path = out_dir_for_aux / f"amber_rounds{suffix}.jsonl"
     rounds_path.write_text(
         "\n".join(json.dumps(rec) for rec in round_logs) + ("\n" if round_logs else "")
     )
-    verified_ds_path = out_dir_for_aux / "verified_dataset.jsonl"
+    verified_ds_path = out_dir_for_aux / f"verified_dataset{suffix}.jsonl"
     export_verified_dataset_jsonl(d, manual, verified_ds_path)
 
-    # Mirror to coord/artifacts/ ONLY when writing to the real shared out/decisions.csv
+    # Mirror to shared coord/artifacts/ ONLY when writing to the real shared out/decisions.csv
     real_out_dec = (C.ROOT / "out" / "decisions.csv").resolve()
-    shared_roots = {C.ROOT.resolve(), C.OUT_DIR.resolve().parent}
+    shared_root = C.OUT_DIR.resolve().parent
     if dest.resolve() == real_out_dec:
-        for s_root in shared_roots:
-            coord_dir = s_root / "coord" / "artifacts"
-            coord_dir.mkdir(parents=True, exist_ok=True)
-            d.to_csv(coord_dir / "decisions.csv", index=False)
-            (coord_dir / "amber_rounds.jsonl").write_text(rounds_path.read_text())
-            (coord_dir / "verified_dataset.jsonl").write_text(verified_ds_path.read_text())
+        coord_dir = shared_root / "coord" / "artifacts"
+        coord_dir.mkdir(parents=True, exist_ok=True)
+        d.to_csv(coord_dir / "decisions.csv", index=False)
+        (coord_dir / "amber_rounds.jsonl").write_text(rounds_path.read_text())
+        (coord_dir / "verified_dataset.jsonl").write_text(verified_ds_path.read_text())
 
     if skip_eval or dest.resolve() != (C.OUT_DIR / "decisions.csv").resolve():
         return summarize_decisions_zero_label(d)
@@ -146,10 +146,9 @@ async def main(
     res_path = C.OUT_DIR / "results.json"
     res_path.write_text(json.dumps(res, indent=2))
     if dest.resolve() == real_out_dec:
-        for s_root in shared_roots:
-            coord_res = s_root / "coord" / "artifacts" / "results.json"
-            coord_res.parent.mkdir(parents=True, exist_ok=True)
-            coord_res.write_text(json.dumps(res, indent=2))
+        coord_res = shared_root / "coord" / "artifacts" / "results.json"
+        coord_res.parent.mkdir(parents=True, exist_ok=True)
+        coord_res.write_text(json.dumps(res, indent=2))
     return res
 
 
@@ -160,6 +159,7 @@ if __name__ == "__main__":
     ap.add_argument("--amber-rounds", type=int, default=DEFAULT_AMBER_ROUNDS)
     ap.add_argument("--labels", type=str, default=None, help="Optional input JSONL path")
     ap.add_argument("--out", type=str, default=None, help="Optional output CSV path")
+    ap.add_argument("--index", type=str, default=None, help="Optional index CSV path")
     ap.add_argument("--skip-eval", action="store_true", help="Skip post-decision evaluation")
     a = ap.parse_args()
     asyncio.run(
@@ -169,6 +169,7 @@ if __name__ == "__main__":
             amber_rounds=a.amber_rounds,
             labels_path=a.labels,
             out_path=a.out,
+            index_path=a.index,
             skip_eval=a.skip_eval,
         )
     )

@@ -1491,7 +1491,24 @@ def render_human_gate_page() -> None:
                         st.rerun()
 
         st.subheader(f"All Pending Residual AMBER Items ({len(pending_df)})")
-        for idx, r in enumerate(pending_df.itertuples()):
+        page_slice = pending_df
+        page_offset = 0
+        if len(pending_df) > 25:
+            page_size = 20
+            n_pages = (len(pending_df) + page_size - 1) // page_size
+            pg_idx = st.number_input(
+                f"Queue Page (20 AMBER cards per page, {n_pages} page(s) total)",
+                min_value=1,
+                max_value=n_pages,
+                value=1,
+                step=1,
+                key="amber_queue_page",
+            )
+            page_offset = (int(pg_idx) - 1) * page_size
+            page_slice = pending_df.iloc[page_offset : page_offset + page_size]
+
+        for local_idx, r in enumerate(page_slice.itertuples()):
+            idx = page_offset + local_idx
             r_fid = str(r.frame_id)
             r_k = str(r.key)
             r_vid = str(getattr(r, "video", getattr(r, "video_id", "")))
