@@ -25,6 +25,7 @@ def _sample_manual_dict(keys=None) -> dict:
     keys = keys or list(C.LABELS)
     return {
         "procedure": "laparoscopic cholecystectomy",
+        "sources": med_school.DEFAULT_LAP_CHOLE_SOURCES,
         "phases": [
             "Port placement and diagnostic laparoscopy",
             "Exposure and fundus retraction",
@@ -52,9 +53,14 @@ def test_pydantic_schemas_and_validate_manual():
     m = med_school.Manual.model_validate(d)
     assert m.procedure == "laparoscopic cholecystectomy"
     assert len(m.structures) == len(C.LABELS)
+    assert len(m.sources) >= 1
+    assert m.sources[0].url == med_school.DEFAULT_LAP_CHOLE_VIDEO
+    assert m.sources[0].is_real_intraop_footage is False
+    assert set(C.LABELS).issubset(m.sources[0].structure_timestamps.keys())
 
     validated = med_school.validate_manual(d, list(C.LABELS))
     assert [s["key"] for s in validated["structures"]] == list(C.LABELS)
+    assert len(validated["sources"]) >= 1
 
     # Missing required key should raise ValueError
     broken = _sample_manual_dict(keys=["grasper", "liver"])
@@ -85,7 +91,9 @@ def test_build_manual_mocked(monkeypatch):
         if tag == "watch":
             return {"rules": ["Rule 1: clear hepatocystic triangle"], "moments": ["01:20 - fundus retracted"]}
         if tag == "manual":
-            return _sample_manual_dict()
+            d = _sample_manual_dict()
+            d.pop("sources", None)
+            return d
         raise AssertionError(f"Unexpected tag: {tag}")
 
     monkeypatch.setattr(med_school.gem, "call", fake_call)
@@ -101,6 +109,10 @@ def test_build_manual_mocked(monkeypatch):
     )
     assert "Dense research notes" in notes
     assert [s["key"] for s in manual["structures"]] == keys
+    assert len(manual["sources"]) >= 2
+    assert manual["sources"][0]["url"] == "https://www.youtube.com/watch?v=PNydeaI2WIU"
+    assert manual["sources"][0]["is_real_intraop_footage"] is False
+    assert set(keys).issubset(manual["sources"][0]["structure_timestamps"].keys())
     tags = [c["tag"] for c in calls]
     assert "research" in tags
     assert "watch" in tags
@@ -110,7 +122,7 @@ def test_build_manual_mocked(monkeypatch):
 def test_generated_manual_artifact_if_present():
     candidates = [
         C.OUT_DIR / "manual.json",
-         Path(__file__).resolve().parent.parent / "coord" / "artifacts" / "manual.json",
+        Path(__file__).resolve().parent.parent / "coord" / "artifacts" / "manual.json",
     ]
     present = [p for p in candidates if p.exists()]
     if not present:
@@ -118,6 +130,14 @@ def test_generated_manual_artifact_if_present():
     for path in present:
         data = json.loads(path.read_text())
         m = med_school.Manual.model_validate(data)
+        assert len(m.sources) >= 2, f"Missing sources[] in {path}"
+        video_sources = [s for s in m.sources if "PNydeaI2WIU" in s.url]
+        assert len(video_sources) == 1, f"Missing PNydeaI2WIU video source in {path}"
+        vs = video_sources[0]
+        assert vs.title == "Ellie Scrubs In: Laparoscopic Cholecystectomy"
+        assert vs.is_real_intraop_footage is False
+        assert "static" in vs.real_intraop_footage_note.lower()
+        assert set(C.LABELS).issubset(vs.structure_timestamps.keys())
         by_key = {s.key: s for s in m.structures}
         assert set(C.LABELS).issubset(by_key.keys()), f"Missing keys in {path}: {set(C.LABELS) - by_key.keys()}"
         for k in C.LABELS:
