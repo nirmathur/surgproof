@@ -456,7 +456,7 @@ def compose_illustrative_shot(
 
 def load_real_pipeline_metrics(out_dir: Path = OUT_DIR) -> Dict[str, Any]:
     """Read ONLY real pipeline outputs from out/ (and coord/artifacts/). Never fabricates numbers."""
-    coord_dir = ROOT / "coord" / "artifacts"
+    coord_dir = (ROOT / "coord" / "artifacts") if Path(out_dir).resolve() == OUT_DIR.resolve() else (Path(out_dir) / "_coord_artifacts")
 
     def _read_json(candidates: Sequence[Path]) -> Tuple[Optional[ Any], Optional[str]]:
         for p in candidates:
