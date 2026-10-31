@@ -667,39 +667,39 @@
       ],
       [
         0.833,
-        0.9733
+        0.9867
       ],
       [
         0.844,
-        0.9605
+        0.9868
       ],
       [
         0.856,
-        0.961
+        0.987
       ],
       [
         0.867,
-        0.9615
+        0.9872
       ],
       [
         0.878,
-        0.962
+        0.9873
       ],
       [
         0.889,
-        0.9625
+        0.9875
       ],
       [
         0.9,
-        0.963
+        0.9877
       ],
       [
         0.911,
-        0.9634
+        0.9878
       ],
       [
         0.922,
-        0.9639
+        0.9759
       ],
       [
         0.933,
@@ -707,7 +707,7 @@
       ],
       [
         0.944,
-        0.9647
+        0.9529
       ],
       [
         0.956,
@@ -732,14 +732,14 @@
     ],
     "coverage_at_95": 0.956,
     "acc_at_60": 1.0,
-    "aurc": 0.0099
+    "aurc": 0.0077
   },
   "accepted": {
-    "coverage": 0.822,
-    "accuracy": 0.9865,
-    "escalated_share": 0.178,
-    "amber_share": 0.122,
-    "rejected_share": 0.056
+    "coverage": 0.911,
+    "accuracy": 0.9878,
+    "escalated_share": 0.089,
+    "amber_share": 0.022,
+    "rejected_share": 0.067
   },
   "blank_single_conf": {
     "curve": [
@@ -958,7 +958,7 @@
     "blood": 1.0,
     "cystic_duct": 1.0,
     "gallbladder": 1.0,
-    "grasper": 0.929,
+    "grasper": 0.933,
     "l_hook": 1.0,
     "liver": 1.0
   },
@@ -974,13 +974,76 @@
   ],
   "accepted_5_informative": {
     "n_test_labels_excl_liver": 75,
-    "n_accepted_excl_liver": 66,
-    "coverage": 0.88,
-    "accuracy": 0.9848,
-    "mean_per_label_accuracy": 0.9858,
-    "escalated_share": 0.12,
-    "amber_share": 0.053,
-    "rejected_share": 0.067
+    "n_accepted_excl_liver": 68,
+    "coverage": 0.907,
+    "accuracy": 0.9853,
+    "mean_per_label_accuracy": 0.9866,
+    "escalated_share": 0.093,
+    "amber_share": 0.013,
+    "rejected_share": 0.08
+  },
+  "amber_loop": {
+    "max_rounds": 3,
+    "ambers_by_round_all": [
+      37,
+      12,
+      9,
+      2
+    ],
+    "ambers_by_round_test": [
+      15,
+      7,
+      4,
+      2
+    ],
+    "ambers_by_round_test_excl_liver": [
+      8,
+      6,
+      3,
+      1
+    ],
+    "per_round_test": [
+      {
+        "round": 0,
+        "ambers_remaining": 15,
+        "ambers_remaining_excl_liver": 8,
+        "resolved_in_round": 0,
+        "accepted_count": 70,
+        "rejected_count": 5,
+        "accepted_count_excl_liver": 62,
+        "rejected_count_excl_liver": 5
+      },
+      {
+        "round": 1,
+        "ambers_remaining": 7,
+        "ambers_remaining_excl_liver": 6,
+        "resolved_in_round": 8,
+        "accepted_count": 78,
+        "rejected_count": 5,
+        "accepted_count_excl_liver": 64,
+        "rejected_count_excl_liver": 5
+      },
+      {
+        "round": 2,
+        "ambers_remaining": 4,
+        "ambers_remaining_excl_liver": 3,
+        "resolved_in_round": 3,
+        "accepted_count": 80,
+        "rejected_count": 6,
+        "accepted_count_excl_liver": 66,
+        "rejected_count_excl_liver": 6
+      },
+      {
+        "round": 3,
+        "ambers_remaining": 2,
+        "ambers_remaining_excl_liver": 1,
+        "resolved_in_round": 2,
+        "accepted_count": 82,
+        "rejected_count": 6,
+        "accepted_count_excl_liver": 68,
+        "rejected_count_excl_liver": 6
+      }
+    ]
   },
   "upper_bound_note": "upper_bound_calibrated is fit on the calib split only and is reported strictly as an upper bound. liver has 100% prevalence in CholecSeg8k and is excluded from headline_labels (accepted_5_informative)."
 }
