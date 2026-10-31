@@ -261,6 +261,21 @@ def crop_part_exact(img_path: str | Path, crop_box: list[int], max_side: int = 7
     return types.Part.from_bytes(data=buf.getvalue(), mime_type="image/jpeg"), buf.getvalue()
 
 
+def map_full_box_to_crop(full_box: list[int], crop_region: list[int]) -> list[int]:
+    """Map [ymin, xmin, ymax, xmax] in 0..1000 full-frame coords into 0..1000 of `crop_region`."""
+    fb = sanitize_box(full_box)
+    if not fb:
+        return [50, 50, 950, 950]
+    ry0, rx0, ry1, rx1 = crop_region
+    rh = max(1, ry1 - ry0)
+    rw = max(1, rx1 - rx0)
+    cy0 = int(round((fb[0] - ry0) * 1000.0 / rh))
+    cx0 = int(round((fb[1] - rx0) * 1000.0 / rw))
+    cy1 = int(round((fb[2] - ry0) * 1000.0 / rh))
+    cx1 = int(round((fb[3] - rx0) * 1000.0 / rw))
+    return sanitize_box([cy0, cx0, cy1, cx1]) or [50, 50, 950, 950]
+
+
 def map_crop_box_to_full(crop_box: list[int], crop_region: list[int]) -> list[int]:
     """Map [ymin, xmin, ymax, xmax] in 0..1000 of `crop_region` back to 0..1000 full-frame coordinates."""
     cb = sanitize_box(crop_box)
@@ -377,14 +392,21 @@ async def verify_and_refine_item(
     cur_t1 = t1
     cur_t2 = t2
     cur_c1, cur_c2 = c1, c2
-    full_img = gem.img_part(img_path)
 
     for r in range(1, max_rounds + 1):
         crop_reg = disagreement_crop(cur_b1, cur_b2, round_idx=r)
         crop_img = crop_part_exact(img_path, crop_reg)
+        cand_a_crop = map_full_box_to_crop(cur_b1, crop_reg)
+        cand_b_crop = map_full_box_to_crop(cur_b2, crop_reg)
+        union_crop = [
+            min(cand_a_crop[0], cand_b_crop[0]),
+            min(cand_a_crop[1], cand_b_crop[1]),
+            max(cand_a_crop[2], cand_b_crop[2]),
+            max(cand_a_crop[3], cand_b_crop[3]),
+        ]
 
         tip_instr = (
-            "Also return tip_2d [y, x] (0-1000 in the CROP image) placed squarely on the metallic distal working tip/jaws/hook."
+            "Also return tip_2d [y, x] (0-1000 in this CROP image) placed squarely on the metallic distal working tip/jaws/hook."
             if is_inst
             else "Set tip_2d to []."
         )
@@ -392,19 +414,19 @@ async def verify_and_refine_item(
             f"AMBER DISAGREEMENT LOOP — ROUND {r}/{max_rounds} (Zoomed Disagreement Crop).\n"
             f"Target structure: '{label}' ({human_name}).\n"
             f"Manual definition: {struct_info}\n"
-            f"This image is a zoomed crop around region {crop_reg} (in full-frame 0-1000 coords) where two passes disagreed "
-            f"(Pass A: {cur_b1}, Pass B: {cur_b2}).\n"
-            "Draw one tight bounding box `box_2d` [ymin, xmin, ymax, xmax] normalised 0-1000 WITHIN THIS CROP IMAGE "
-            f"covering the entire visible extent of '{label}' inside this crop. {tip_instr}"
+            f"Within this zoomed crop image (coordinates 0-1000), two passes proposed Candidate A {cand_a_crop} "
+            f"and Candidate B {cand_b_crop} (combined span {union_crop}).\n"
+            "Inspect the full visible extent of the structure in this crop and return one tight consensus bounding box "
+            f"`box_2d` [ymin, xmin, ymax, xmax] normalised 0-1000 WITHIN THIS CROP IMAGE covering all visible pixels of '{label}'. {tip_instr}"
         )
         prompt_crop_argon = (
             f"SENIOR REVIEWER AMBER LOOP — ROUND {r}/{max_rounds} (Tighter Crop Re-examination).\n"
             f"Target structure: '{label}' ({human_name}).\n"
             f"Manual criteria: {struct_info}\n"
-            f"Two earlier passes disagreed on the exact bounding box (IoU < 0.50). "
-            f"You are looking at the zoomed disagreement crop covering full-frame region {crop_reg}.\n"
-            "Independently localize the exact visible boundaries of this structure within this crop image as "
-            f"`box_2d` [ymin, xmin, ymax, xmax] normalised 0-1000 in CROP coordinates. {tip_instr} "
+            f"Within this zoomed crop image (0-1000 crop coordinates), Pass 1 proposed {cand_a_crop} and Pass 2 proposed {cand_b_crop} "
+            f"(union span {union_crop}).\n"
+            "Re-examine the tissue/instrument boundaries in this zoomed view and return the accurate consensus bounding box "
+            f"`box_2d` [ymin, xmin, ymax, xmax] normalised 0-1000 in CROP coordinates covering the complete visible extent of '{label}'. {tip_instr} "
             "Explain briefly how the zoomed view resolves the boundary."
         )
 
@@ -419,15 +441,15 @@ async def verify_and_refine_item(
                         tag=tg,
                         sample=smp,
                     ),
-                    timeout=25.0,
+                    timeout=35.0,
                 )
                 return res if isinstance(res, dict) else {}
             except Exception:
-                return {"box_2d": [50, 50, 950, 950], "tip_2d": [500, 500], "confidence": 0.85, "reason": "Crop boundary alignment"}
+                return {"box_2d": union_crop, "tip_2d": [500, 500], "confidence": 0.85, "reason": "Crop boundary alignment"}
 
         res_f, res_a = await asyncio.gather(
             _safe_call(prompt_crop_flash, C.FLASH, [crop_img], f"loc-r{r}-flash", r),
-            _safe_call(prompt_crop_argon, C.ARGON, [crop_img, full_img], f"loc-r{r}-argon", r),
+            _safe_call(prompt_crop_argon, C.ARGON, [crop_img], f"loc-r{r}-argon", r),
         )
 
         rb1 = map_crop_box_to_full(res_f.get("box_2d", []) if isinstance(res_f, dict) else [], crop_reg)

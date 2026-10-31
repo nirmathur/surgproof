@@ -182,9 +182,12 @@ def load_accepted_present_rows(
 
     pres_col = "final_present" if "final_present" in dec_df.columns else "present"
     pos_mask = pd.to_numeric(dec_df[pres_col], errors="coerce").fillna(0).astype(int) == 1
-    raw_pos_mask = pd.to_numeric(dec_df["present"], errors="coerce").fillna(0).astype(int) == 1
     acc_mask = dec_df["status"].astype(str).isin({"accept"})
-    showcase_mask = (dec_df["frame_id"].astype(str) == "video12_15750_15758") & raw_pos_mask
+    showcase_mask = (
+        (dec_df["frame_id"].astype(str) == "video12_15750_15758")
+        & pos_mask
+        & (dec_df["status"].astype(str) != "reject")
+    )
     accepted_pos = dec_df[(pos_mask & acc_mask) | showcase_mask].copy()
     return accepted_pos
 
@@ -303,7 +306,7 @@ async def localize_frame(
                     tag=tg,
                     sample=0,
                 ),
-                timeout=25.0,
+                timeout=35.0,
             )
             return res if isinstance(res, dict) else {}
         except Exception:
@@ -333,10 +336,7 @@ async def localize_frame(
     final_phase = ph2 if ph2_conf >= ph1_conf else ph1
     final_phase_conf = round(0.5 * (ph1_conf + ph2_conf), 4)
 
-    frame_annotations: list[dict[str, Any]] = []
-    frame_rounds: list[dict[str, Any]] = []
-
-    for label in present_keys:
+    async def _process_single_label(label: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         is_inst = label in INSTRUMENT_KEYS
         m1 = map1.get(label, {})
         m2 = map2.get(label, {})
@@ -344,7 +344,6 @@ async def localize_frame(
         raw_b1 = m1.get("box", [])
         prior_b = prior_boxes.get(label, [])
         if prior_b and raw_b1:
-            # Both prior_b and raw_b1 come from gemini-3.8-flash; combine if overlapping else keep pv-verified prior_b
             b1 = average_boxes(prior_b, raw_b1, 0.6, 0.4) if box_iou(prior_b, raw_b1) >= 0.40 else prior_b
         else:
             b1 = prior_b or raw_b1 or m2.get("box", []) or [100, 100, 900, 900]
@@ -394,8 +393,6 @@ async def localize_frame(
             "status": resolved["status"],
             "ts": round(time.time(), 3),
         }
-        frame_annotations.append(ann_row)
-        frame_rounds.extend(rounds_log)
 
         if live_file is not None:
             line = json.dumps(ann_row) + "\n"
@@ -408,6 +405,13 @@ async def localize_frame(
                 with open(live_file, "a", encoding="utf-8") as lf:
                     lf.write(line)
                     lf.flush()
+        return ann_row, rounds_log
+
+    label_results = await asyncio.gather(*[_process_single_label(lbl) for lbl in present_keys])
+    frame_annotations: list[dict[str, Any]] = [r[0] for r in label_results]
+    frame_rounds: list[dict[str, Any]] = []
+    for _, r_log in label_results:
+        frame_rounds.extend(r_log)
 
     gem.trace(
         "localize",
@@ -455,14 +459,20 @@ async def main(
     if not df.empty:
         df["_is_showcase"] = (df["frame_id"].astype(str) == "video12_15750_15758").astype(int)
         df["_is_test"] = (df["split"].astype(str) == "test").astype(int)
+        df["_has_inst"] = df["key"].astype(str).isin(INSTRUMENT_KEYS).astype(int)
         ordered = (
             df.groupby("frame_id", as_index=False)
             .agg(
                 _is_showcase=("_is_showcase", "max"),
                 _is_test=("_is_test", "max"),
                 _from_dec=("_from_decisions_csv", "max"),
+                _has_inst=("_has_inst", "max"),
+                _n_keys=("key", "count"),
             )
-            .sort_values(["_is_showcase", "_is_test", "_from_dec", "frame_id"], ascending=[False, False, False, True])
+            .sort_values(
+                ["_is_showcase", "_is_test", "_from_dec", "_has_inst", "_n_keys", "frame_id"],
+                ascending=[False, False, False, False, False, True],
+            )
         )
         frame_order = ordered["frame_id"].astype(str).tolist()
 
@@ -527,7 +537,7 @@ async def main(
                 existing_anns[(str(a["frame_id"]), str(a["label"]))] = a
             all_rounds_list.extend(f_rnds)
 
-        # Checkpoint out/annotations.jsonl and out/localize_rounds.jsonl after every batch
+        # Checkpoint out/annotations.jsonl, out/localize_rounds.jsonl, and out/localize_results.json after every batch
         all_anns_list = list(existing_anns.values())
         with open(ann_file, "w", encoding="utf-8") as af:
             for a in all_anns_list:
@@ -535,6 +545,13 @@ async def main(
         with open(rnd_file, "w", encoding="utf-8") as rf:
             for r in all_rounds_list:
                 rf.write(json.dumps(r) + "\n")
+        if not skip_eval and all_anns_list:
+            evaluate_annotations(
+                annotations_path=ann_file,
+                index_path=index_path,
+                rounds_path=rnd_file,
+                out_path=res_file,
+            )
 
     # Ensure files exist even if todo_fids was empty
     all_anns_list = list(existing_anns.values())
@@ -568,7 +585,7 @@ if __name__ == "__main__":
     ap.add_argument("--iou-thresh", type=float, default=IOU_ACCEPT_THRESHOLD, help="Box IoU threshold (default: 0.5)")
     ap.add_argument("--no-resume", action="store_true", help="Re-run from scratch ignoring existing annotations.jsonl")
     ap.add_argument("--skip-eval", action="store_true", help="Skip post-hoc verify_localize evaluation")
-    ap.add_argument("--batch-size", type=int, default=10, help="Frames per checkpoint batch")
+    ap.add_argument("--batch-size", type=int, default=4, help="Frames per checkpoint batch")
     args = ap.parse_args()
 
     split_tuple = tuple(s.strip() for s in args.splits.split(",") if s.strip())
