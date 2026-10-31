@@ -1,0 +1,15 @@
+.env
+cache/
+data/
+__pycache__/
+*.npy
+out/evidence/
+out/demo_preview.html
+out/gt_presence.parquet
+out/mock_labels.parquet
+out/claims_scored.parquet
+kb/raw/
+kb/raw_http/
+kb/passages.parquet
+.venv-clip/
+out/events.jsonl

@@ -1,0 +1,60 @@
+# All narrator parameters. Paths are relative to the repo root.
+seed: 0
+paths:
+  data_root: data/cholecseg8k/CholecSeg8k       # read-only dataset
+  tracker_flags: out/flags.parquet              # tracker output (repo root out/)
+  tracker_detections: out/tracker/detections_{source}.parquet
+  labels_glob: out/labels_*.jsonl               # labeller output, when it exists
+  kb: narrator/kb
+  cache: narrator/cache
+  out: narrator/out
+  eval: narrator/out/eval
+
+models:                 # chosen at 13:16 from client.models.list()
+  fast_model: gemini-3.8-flash
+  judge_model: gemini-4-argon
+  embed_model: gemini-embedding-2
+  tts_model: gemini-3.8-flash-tts
+
+llm:
+  concurrency: 16
+  max_retries: 5
+  budget_usd: 40.0           # hard cap; wrapper refuses new calls beyond it
+  # rough $/1M tokens for the running cost estimate (input, output)
+  price: {gemini-3.8-flash: [0.3, 2.5], gemini-4-argon: [2.0, 12.0], gemini-embedding-2: [0.15, 0.0], gemini-3.8-flash-tts: [0.5, 10.0]}
+
+split:                  # same as tracker/config.yaml and prepare_data.py
+  test:  [video09, video12, video17, video28, video48, video55]
+  tune:  [video01, video18, video20, video24, video25, video26, video27, video35, video37, video43, video52]
+
+presence:
+  min_frac: 0.005            # task spec: class present if > 0.5% of pixels
+  min_cc_frac: 0.001         # connected components below this are not boxed
+
+mock:
+  seed: 0
+  p_drop: 0.08               # present label dropped
+  p_spurious: 0.04           # absent label added
+  p_swap: 0.04               # grasper<->l_hook, liver<->gallbladder
+  p_uncertain: 0.10          # accepted label downgraded to uncertain
+
+events:
+  frame_stride: 8            # sample every 8th frame (10 per 80-frame clip)
+  min_event_frames: 2        # an observation must hold for >=2 sampled frames to be an event
+  blood_growth: 1.5          # area ratio to call "blood grows"
+  moving_px: 6.0             # camera-compensated centroid speed (px/frame) to call "moving"
+
+claims:
+  frames_per_clip: 5         # frames shown to Gemini per clip
+  max_side: 640
+  window_frames: 40          # narration window (2 per 80-frame clip)
+  max_clips: null            # null = all; set an int for smoke tests
+
+check:
+  l5_sample: null            # null = all observed claims
+  l6_sample: 60              # perturbation sample size
+  l7_top_k: 4
+  l7_http_only: true       # L7 retrieves only directly fetched passages (grounding text is Gemini-written)
+  uncertain_suspicion: 0.6   # median tracker suspicion over the window above this -> L4 hedge
+
+scored_classes: [grasper, l_hook, liver, gallbladder, cystic_duct, blood]

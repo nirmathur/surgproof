@@ -1,0 +1,19 @@
+{
+  "accepted": true,
+  "model": "fast_model",
+  "tests": [
+    {
+      "url": "https://www.youtube.com/watch?v=wd8NnqnMS68",
+      "accepted": true,
+      "response": "This presentation, delivered by Steven Strasberg, MD at the SAGES 2016 Surgical Spring Week, discusses strategies for safe dissection and the importance of obtaining the Critical View of Safety during cholecystectomy to prevent bile duct injuries.",
+      "error": null
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=Bj_NnN2WGiM",
+      "accepted": true,
+      "response": "This video features a medical lecture by a doctor discussing how to safely perform a laparoscopic cholecystectomy procedure.",
+      "error": null
+    }
+  ],
+  "note": "Gemini API accepts direct YouTube URLs via FileData(file_uri=...)."
+}

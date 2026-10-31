@@ -1,0 +1,69 @@
+{
+ "rules_total": 39,
+ "quote_verified": 15,
+ "grounding_only": 6,
+ "not_found": 18,
+ "seed_only": 17,
+ "judge_verified": 13,
+ "per_file": {
+  "phases.yaml": {
+   "total": 6,
+   "verified": 0
+  },
+  "cvs.yaml": {
+   "total": 7,
+   "verified": 5
+  },
+  "grading.yaml": {
+   "total": 4,
+   "verified": 2
+  },
+  "conditions.yaml": {
+   "total": 4,
+   "verified": 0
+  },
+  "anatomy.yaml": {
+   "total": 5,
+   "verified": 3
+  },
+  "findings.yaml": {
+   "total": 3,
+   "verified": 1
+  },
+  "implications.yaml": {
+   "total": 2,
+   "verified": 1
+  },
+  "decisions.yaml": {
+   "total": 8,
+   "verified": 3
+  }
+ },
+ "http_sources": [
+  "alius_2023",
+  "cholec80",
+  "cholect50",
+  "endoscapes",
+  "madni2018",
+  "mascagni_2026",
+  "nassar",
+  "parkland",
+  "strasberg_2010",
+  "tg18",
+  "yildirim_2022"
+ ],
+ "grounding_sources": [
+  "nassar",
+  "sages2020",
+  "sages_guideline",
+  "sages_q1",
+  "sages_q13",
+  "sages_q2_q9",
+  "sages_q4_q17",
+  "statpearls",
+  "strasberg2010",
+  "strasberg_2010",
+  "way_2003"
+ ],
+ "rule": "verified = quote found verbatim in directly fetched source text"
+}
