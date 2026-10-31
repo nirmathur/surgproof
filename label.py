@@ -18,7 +18,9 @@ import math
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 from pydantic import BaseModel
+from sklearn.linear_model import LogisticRegression
 
 import config as C
 import gem
@@ -134,7 +136,13 @@ def label_prompt(manual):
             "If present, give a tight box_2d [ymin,xmin,ymax,xmax] normalised 0-1000; if absent, []. "
             "Evidence: one short phrase on what you saw.")
     if manual:
-        base += "\n\nUse this labelling manual you wrote earlier:\n" + json.dumps(manual)
+        core_keys = ("procedure", "phases", "structures", "critical_events", "general_rules")
+        core_manual = (
+            {k: manual[k] for k in core_keys if k in manual}
+            if isinstance(manual, dict) and any(k in manual for k in core_keys)
+            else manual
+        )
+        base += "\n\nUse this labelling manual you wrote earlier:\n" + json.dumps(core_manual)
     return base
 
 
