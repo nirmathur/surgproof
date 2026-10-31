@@ -87,3 +87,18 @@ def test_index_csv_contract_if_built():
         assert f"gt_{k}" in df.columns
         assert f"frac_{k}" in df.columns
         assert set(df[f"gt_{k}"].unique()) <= {0, 1}
+
+
+def test_features_npy_contract_if_built():
+    """Verify built data/features.npy is aligned with data/index.csv and finite."""
+    idx_path = C.DATA_DIR / "index.csv"
+    feat_path = C.DATA_DIR / "features.npy"
+    if not idx_path.exists() or not feat_path.exists():
+        return
+    df = pd.read_csv(idx_path)
+    X = np.load(feat_path)
+    assert X.shape == (len(df), 768)
+    assert X.dtype == np.float32
+    assert np.isfinite(X).all()
+    assert float(X.std()) > 0.01
+
