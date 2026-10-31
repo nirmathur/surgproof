@@ -597,11 +597,15 @@ def test_human_gate_page_passes_lanes_integrity_patterns():
         GATE_PAGE_PATH,
         Path(C.ROOT) / "web" / "serve.py",
         Path(C.ROOT) / "web" / "gate.js",
+        Path(C.ROOT) / "web" / "ui" / "src" / "FinalPass.tsx",
     ]
     fails = []
     for target in targets:
         assert target.is_file(), f"Missing expected gate file: {target}"
-        for i, line in enumerate(target.read_text(encoding="utf-8").splitlines(), 1):
+        txt = target.read_text(encoding="utf-8")
+        if target.name == "FinalPass.tsx":
+            assert "gt_present" not in txt and "gt_correct" not in txt
+        for i, line in enumerate(txt.splitlines(), 1):
             s = line.strip()
             if s.startswith("#") or "integrity: allow" in s:
                 continue
