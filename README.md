@@ -2,6 +2,8 @@
 
 **No human labels. Only proof.**
 
+**Demo video:** https://drive.google.com/open?id=1UfRDw7hE2OxEk_wMoK98qnTvxrzuAZT5  (also in `docs/media/surgproof_submission.mp4`)
+
 ## The problem
 Surgical AI is starved of expert labels. *"The major bottleneck for data annotation in surgical applications is access to expert knowledge."* (Maier-Hein et al., surgical data science consensus, 2022; quote verified verbatim against the saved source in `docs/research/sources/`). Today's best annotation tools (Supervisely, CVAT, Encord) still need a human to seed every object, fix every tracking error and review every frame.
 
