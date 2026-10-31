@@ -115,9 +115,10 @@ async def main(use_argon, argon_budget):
             else:
                 d.at[i, "status"] = "AMBER"
     d.to_csv(C.OUT_DIR / "decisions.csv", index=False)
-    coord_dec = C.ROOT / "coord" / "artifacts" / "decisions.csv"
-    coord_dec.parent.mkdir(parents=True, exist_ok=True)
-    d.to_csv(coord_dec, index=False)
+    if C.OUT_DIR.resolve() == (C.ROOT / "out").resolve():
+        coord_dec = C.ROOT / "coord" / "artifacts" / "decisions.csv"
+        coord_dec.parent.mkdir(parents=True, exist_ok=True)
+        d.to_csv(coord_dec, index=False)
     return evaluate_decisions(C.DATA_DIR, C.OUT_DIR)
 
 
