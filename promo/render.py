@@ -980,6 +980,14 @@ def run_pipeline(
         shot_paths.append(out_mp4)
 
         if only_shot and shot.shot_id != only_shot:
+            if out_mp4.is_file() and probe_video(out_mp4).get("valid"):
+                meta = probe_video(out_mp4)
+                manifest["shots"][shot.shot_id] = {
+                    "filename": shot.filename,
+                    "duration_sec": meta.get("duration_sec", 0.0),
+                    "caption": shot.caption,
+                    "word_count": shot.word_count,
+                }
             continue
 
         if refresh_slot_only and shot.index != 6 and out_mp4.is_file() and probe_video(out_mp4).get("valid"):

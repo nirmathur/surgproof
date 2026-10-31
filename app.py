@@ -60,9 +60,10 @@ def resolve_artifact(rel_path: str | Path) -> Path:
     p = O / rel_path
     if p.exists():
         return p
-    alt = COORD_ARTIFACTS / Path(rel_path).name
-    if alt.exists():
-        return alt
+    if O.resolve() == (C.ROOT / "out").resolve() or COORD_ARTIFACTS.resolve() != (C.ROOT / "coord" / "artifacts").resolve():
+        alt = COORD_ARTIFACTS / Path(rel_path).name
+        if alt.exists():
+            return alt
     return p
 
 
