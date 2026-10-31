@@ -147,3 +147,30 @@ def test_segment_and_verify_frame_amber_escalation(tmp_path: Path):
     assert rec["mask_iou"] >= 0.50
     assert (tmp_path / "masks" / "video12_15750_15750_gallbladder.png").is_file()
     assert len(rounds) >= 2
+
+
+def test_refine_worker_sdf_and_rgba_mask_loading(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "dummy-test-key")
+    from tools import refine_worker as RW
+
+    m1 = np.zeros((60, 80), dtype=bool)
+    m2 = np.zeros((60, 80), dtype=bool)
+    m1[10:40, 12:52] = True
+    m2[12:42, 14:54] = True
+
+    fused = RW.sdf_fuse_masks(m1, m2)
+    assert fused.shape == (60, 80)
+    assert fused.dtype == bool
+    # SDF consensus preserves boundary area better than strict intersection m1 & m2
+    assert int(fused.sum()) >= int((m1 & m2).sum())
+
+    rgba_path = tmp_path / "rgba_mask.png"
+    MW.save_rgba_mask_png(fused, "gallbladder", rgba_path)
+    loaded_2d = RW._load_mask_2d(str(rgba_path), (80, 60))
+    assert loaded_2d.shape == (60, 80)
+    assert np.array_equal(loaded_2d, fused)
+
+    pts = RW._safe_parse_polygon('```json\n{"polygon": [[100, 200], [300, 400], [500, 600]]}\n```')
+    assert len(pts) == 3
+    assert pts[0] == [100, 200]
+
