@@ -133,7 +133,7 @@ def main():
     (C.OUT_DIR / "manual.json").write_text(json.dumps(manual, indent=2))
     (C.OUT_DIR / "research_notes.md").write_text(notes)
     coord_dir = C.ROOT / "coord" / "artifacts"
-    if is_chole and coord_dir.is_dir():
+    if is_chole and C.OUT_DIR.resolve() == (C.ROOT / "out").resolve() and coord_dir.is_dir():
         (coord_dir / "manual.json").write_text(json.dumps(manual, indent=2))
     print(json.dumps(manual, indent=2)[:3000])
     print("\nsaved out/manual.json and out/research_notes.md")
