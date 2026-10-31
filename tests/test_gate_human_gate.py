@@ -543,3 +543,44 @@ def test_amber_loop_funnel_and_accepted_audit_sample():
     assert (sample_df["status"] == "accept").all()
 
 
+def test_real_decisions_csv_and_amber_rounds_jsonl_funnel_and_design_1d_fields(tmp_path):
+    """Verify pages/2_Human_gate.py against real out/decisions.csv and out/amber_rounds.jsonl on disk."""
+    gate = _load_gate_module()
+    dec_path = Path(C.OUT_DIR) / "decisions.csv"
+    if not dec_path.is_file():
+        dec_path = Path(C.ROOT) / "coord" / "artifacts" / "decisions.csv"
+    assert dec_path.is_file()
+
+    dec_df = gate.load_decisions_from_source(dec_path)
+    amber_rounds = gate.load_amber_rounds()
+    pending, _, summary = gate.compute_amber_queue(dec_df, [])
+    funnel = gate.compute_amber_funnel(dec_df, amber_rounds=amber_rounds, n_amber_pending_after_human=summary["n_amber_pending"])
+    assert len(funnel) >= 2
+    assert funnel[0]["ambers_remaining"] >= summary["n_amber_total"]
+
+    log_path = tmp_path / "gate_log.jsonl"
+    export_path = tmp_path / "verified_dataset.jsonl"
+    for r in pending.itertuples():
+        m_p = int(getattr(r, "final_present", getattr(r, "present", 0)))
+        gate.record_gate_decision(
+            reviewer="Dr. Release Reviewer",
+            frame_id=str(r.frame_id),
+            key=str(r.key),
+            action="approve",
+            human_present=m_p,
+            item_type="amber",
+            log_path=log_path,
+        )
+
+    gate_log = gate.load_gate_log(log_path)
+    assert gate_log[0]["item_type"] == "amber"
+    exported = gate.export_verified_dataset(dec_df, gate_log, out_path=export_path, amber_rounds=amber_rounds)
+    assert len(exported) == summary["n_accept"] + summary["n_amber_total"]
+    for row in exported:
+        assert "manual_sources" in row and len(row["manual_sources"]) > 0
+        assert "audit_signed_off_by" in row
+        assert "released_at" in row
+        assert "provenance" in row
+
+
+
