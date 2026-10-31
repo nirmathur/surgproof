@@ -41,7 +41,7 @@ try:
             A[mm.group(1)] = {"mins": int((now-t)//60), "doing": (nx.group(1) if nx else txt)[:110]}
 except Exception: pass
 mp4 = glob.glob(p("out/promo/*.mp4"))
-appr = any(c["body"].startswith("[nir-director]") and "APPROVED" in c["body"] for c in (cs if 'cs' in dir() else []))
+appr = any(c["body"].startswith("[nir-director]") and re.search(r"\bAPPROVED:\s*\S*out/promo/\S+\.mp4", c["body"]) for c in (cs if 'cs' in dir() else []))
 stage("promo video", 100 if appr else min(len(mp4)/8*60, 60), f"{len(mp4)} clips; " + ("director APPROVED" if appr else "not approved by nir-director"))
 dl = dt.datetime.now().replace(hour=15, minute=15, second=0)
 mins = int((dl - dt.datetime.now()).total_seconds() // 60)
