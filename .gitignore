@@ -2,11 +2,10 @@
 .env
 .env.*
 !.env.example
-# data, cache, outputs (CholecSeg8k is not ours to redistribute)
+# data, cache, outputs (full raw CholecSeg8k is not redistributed; small demo bundle in web/data is tracked)
 /raw
 /data
 /out
-/web/data
 cache.sqlite
 *.sqlite
 *.npy

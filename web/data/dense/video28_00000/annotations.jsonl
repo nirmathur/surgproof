@@ -1,0 +1,320 @@
+{"frame": "frame_13", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460982.509096}
+{"frame": "frame_12", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460983.5290089}
+{"frame": "frame_13", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460983.805221}
+{"frame": "frame_0", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460985.5559192}
+{"frame": "frame_13", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460986.1807842}
+{"frame": "frame_0", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460986.955903}
+{"frame": "frame_11", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460987.4743109}
+{"frame": "frame_10", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460987.590773}
+{"frame": "frame_12", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460988.694593}
+{"frame": "frame_11", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460989.217118}
+{"frame": "frame_12", "label": "gallbladder", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460991.9835489}
+{"frame": "frame_0", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460992.444468, "mask_path": "out/dense/video28_00000/frame_0_liver.png"}
+{"frame": "frame_10", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460994.5785651}
+{"frame": "frame_14", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460994.774902}
+{"frame": "frame_14", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460996.0541902}
+{"frame": "frame_10", "label": "gallbladder", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460997.162606}
+{"frame": "frame_15", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460999.425337}
+{"frame": "frame_14", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793460999.444493}
+{"frame": "frame_15", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461000.243584}
+{"frame": "frame_16", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461002.638608}
+{"frame": "frame_16", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461002.926851}
+{"frame": "frame_15", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461003.993859}
+{"frame": "frame_10", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461007.767234, "mask_path": "out/dense/video28_00000/frame_10_liver.png"}
+{"frame": "frame_15", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461008.10211, "mask_path": "out/dense/video28_00000/frame_15_liver.png"}
+{"frame": "frame_17", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461009.209186}
+{"frame": "frame_17", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461010.253664}
+{"frame": "frame_0", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461010.498498}
+{"frame": "frame_17", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461011.409562}
+{"frame": "frame_14", "label": "liver", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461011.922227}
+{"frame": "frame_18", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461012.865946}
+{"frame": "frame_16", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461014.728265}
+{"frame": "frame_18", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461016.149245}
+{"frame": "frame_19", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461019.383072}
+{"frame": "frame_17", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461019.83138, "mask_path": "out/dense/video28_00000/frame_17_liver.png"}
+{"frame": "frame_19", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461020.502626}
+{"frame": "frame_13", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461022.7610612, "mask_path": "out/dense/video28_00000/frame_13_liver.png"}
+{"frame": "frame_11", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461023.2581708, "mask_path": "out/dense/video28_00000/frame_11_liver.png"}
+{"frame": "frame_18", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461023.296777, "mask_path": "out/dense/video28_00000/frame_18_liver.png"}
+{"frame": "frame_11", "label": "gallbladder", "present_votes": 2, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461023.468819, "mask_path": "out/dense/video28_00000/frame_11_gallbladder.png"}
+{"frame": "frame_1", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461024.182406}
+{"frame": "frame_18", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461024.3335528}
+{"frame": "frame_1", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461025.396323}
+{"frame": "frame_20", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461025.8587992}
+{"frame": "frame_16", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461026.130466, "mask_path": "out/dense/video28_00000/frame_16_liver.png"}
+{"frame": "frame_19", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461027.104324}
+{"frame": "frame_20", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461027.1845691}
+{"frame": "frame_20", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461029.201359}
+{"frame": "frame_12", "label": "liver", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461032.192529}
+{"frame": "frame_21", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461032.8713799}
+{"frame": "frame_21", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461033.280596}
+{"frame": "frame_22", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461036.542559}
+{"frame": "frame_23", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461036.7662148}
+{"frame": "frame_22", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461037.189331}
+{"frame": "frame_22", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461037.416727}
+{"frame": "frame_19", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461037.687445, "mask_path": "out/dense/video28_00000/frame_19_liver.png"}
+{"frame": "frame_21", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461037.804189}
+{"frame": "frame_1", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461039.261251, "mask_path": "out/dense/video28_00000/frame_1_liver.png"}
+{"frame": "frame_23", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461039.398871}
+{"frame": "frame_24", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461039.877443}
+{"frame": "frame_24", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461041.826821}
+{"frame": "frame_23", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461044.9968379}
+{"frame": "frame_22", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461045.315912, "mask_path": "out/dense/video28_00000/frame_22_liver.png"}
+{"frame": "frame_24", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461045.499222}
+{"frame": "frame_20", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461047.570694, "mask_path": "out/dense/video28_00000/frame_20_liver.png"}
+{"frame": "frame_1", "label": "gallbladder", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461048.099207}
+{"frame": "frame_25", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461048.303699}
+{"frame": "frame_25", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461048.732167}
+{"frame": "frame_25", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461048.8341088}
+{"frame": "frame_26", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461050.735408}
+{"frame": "frame_23", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461051.034753, "mask_path": "out/dense/video28_00000/frame_23_liver.png"}
+{"frame": "frame_27", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461051.340197}
+{"frame": "frame_26", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461052.29746}
+{"frame": "frame_21", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461052.322006, "mask_path": "out/dense/video28_00000/frame_21_liver.png"}
+{"frame": "frame_27", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461053.685296}
+{"frame": "frame_26", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461056.8222668}
+{"frame": "frame_27", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461057.3787498}
+{"frame": "frame_28", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461058.040063}
+{"frame": "frame_25", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461058.087509, "mask_path": "out/dense/video28_00000/frame_25_liver.png"}
+{"frame": "frame_28", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461060.67682}
+{"frame": "frame_29", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461060.8473222}
+{"frame": "frame_24", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461061.3791842, "mask_path": "out/dense/video28_00000/frame_24_liver.png"}
+{"frame": "frame_29", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461062.0386539}
+{"frame": "frame_28", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461062.248916}
+{"frame": "frame_29", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461062.390184}
+{"frame": "frame_2", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461064.399759}
+{"frame": "frame_2", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461065.38831}
+{"frame": "frame_27", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461063.387035, "mask_path": "out/dense/video28_00000/frame_27_liver.png"}
+{"frame": "frame_30", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461070.784874}
+{"frame": "frame_28", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461071.012444, "mask_path": "out/dense/video28_00000/frame_28_liver.png"}
+{"frame": "frame_30", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461072.801087}
+{"frame": "frame_2", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461073.150301, "mask_path": "out/dense/video28_00000/frame_2_liver.png"}
+{"frame": "frame_31", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461074.151485}
+{"frame": "frame_32", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461074.3119738}
+{"frame": "frame_32", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461074.856063}
+{"frame": "frame_30", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461075.710303, "mask_path": "out/dense/video28_00000/frame_30_liver.png"}
+{"frame": "frame_26", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461075.913234, "mask_path": "out/dense/video28_00000/frame_26_liver.png"}
+{"frame": "frame_29", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461077.269703, "mask_path": "out/dense/video28_00000/frame_29_liver.png"}
+{"frame": "frame_33", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461080.808811}
+{"frame": "frame_33", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461082.764201}
+{"frame": "frame_31", "label": "gallbladder", "present_votes": 2, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461083.3142378, "mask_path": "out/dense/video28_00000/frame_31_gallbladder.png"}
+{"frame": "frame_34", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461086.4308631}
+{"frame": "frame_35", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461086.872021}
+{"frame": "frame_34", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461087.007019}
+{"frame": "frame_2", "label": "gallbladder", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461087.204349, "mask_path": "out/dense/video28_00000/frame_2_gallbladder.png"}
+{"frame": "frame_35", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461087.250266}
+{"frame": "frame_31", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461091.655385}
+{"frame": "frame_30", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461095.3249679}
+{"frame": "frame_32", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461095.403729, "mask_path": "out/dense/video28_00000/frame_32_liver.png"}
+{"frame": "frame_31", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461095.5895832, "mask_path": "out/dense/video28_00000/frame_31_liver.png"}
+{"frame": "frame_32", "label": "gallbladder", "present_votes": 2, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461096.673564, "mask_path": "out/dense/video28_00000/frame_32_gallbladder.png"}
+{"frame": "frame_36", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461096.9244459}
+{"frame": "frame_36", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461098.098918}
+{"frame": "frame_34", "label": "gallbladder", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461100.347608, "mask_path": "out/dense/video28_00000/frame_34_gallbladder.png"}
+{"frame": "frame_37", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461101.9631932}
+{"frame": "frame_37", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461102.426259}
+{"frame": "frame_33", "label": "gallbladder", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461103.8112798, "mask_path": "out/dense/video28_00000/frame_33_gallbladder.png"}
+{"frame": "frame_36", "label": "gallbladder", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461104.582041, "mask_path": "out/dense/video28_00000/frame_36_gallbladder.png"}
+{"frame": "frame_36", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461106.346046, "mask_path": "out/dense/video28_00000/frame_36_liver.png"}
+{"frame": "frame_38", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461108.950659}
+{"frame": "frame_33", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461109.777738, "mask_path": "out/dense/video28_00000/frame_33_liver.png"}
+{"frame": "frame_39", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461109.939428}
+{"frame": "frame_37", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461110.160436, "mask_path": "out/dense/video28_00000/frame_37_liver.png"}
+{"frame": "frame_39", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461110.828346}
+{"frame": "frame_35", "label": "gallbladder", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461111.3598871, "mask_path": "out/dense/video28_00000/frame_35_gallbladder.png"}
+{"frame": "frame_38", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461112.564859}
+{"frame": "frame_37", "label": "gallbladder", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461114.7796931}
+{"frame": "frame_3", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461116.4015}
+{"frame": "frame_39", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461118.501212, "mask_path": "out/dense/video28_00000/frame_39_liver.png"}
+{"frame": "frame_34", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461119.236278, "mask_path": "out/dense/video28_00000/frame_34_liver.png"}
+{"frame": "frame_3", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461120.0486631}
+{"frame": "frame_40", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461124.144025}
+{"frame": "frame_40", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461126.05854}
+{"frame": "frame_41", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461126.340582}
+{"frame": "frame_41", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461126.927542}
+{"frame": "frame_41", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461127.305851}
+{"frame": "frame_42", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461129.732161}
+{"frame": "frame_38", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461129.903868, "mask_path": "out/dense/video28_00000/frame_38_liver.png"}
+{"frame": "frame_40", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461130.032208}
+{"frame": "frame_3", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461130.7607198, "mask_path": "out/dense/video28_00000/frame_3_liver.png"}
+{"frame": "frame_42", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461131.998435, "mask_path": "out/dense/video28_00000/frame_42_liver.png"}
+{"frame": "frame_38", "label": "gallbladder", "present_votes": 2, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461134.190659, "mask_path": "out/dense/video28_00000/frame_38_gallbladder.png"}
+{"frame": "frame_42", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461135.432558}
+{"frame": "frame_3", "label": "gallbladder", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461135.5035899, "mask_path": "out/dense/video28_00000/frame_3_gallbladder.png"}
+{"frame": "frame_41", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461136.272071, "mask_path": "out/dense/video28_00000/frame_41_liver.png"}
+{"frame": "frame_43", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461136.32706}
+{"frame": "frame_40", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461136.915784, "mask_path": "out/dense/video28_00000/frame_40_liver.png"}
+{"frame": "frame_43", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461137.8942301}
+{"frame": "frame_43", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461138.086693}
+{"frame": "frame_42", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461138.4312909}
+{"frame": "frame_43", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461138.8799932, "mask_path": "out/dense/video28_00000/frame_43_liver.png"}
+{"frame": "frame_44", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461140.991851}
+{"frame": "frame_44", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461141.0818079}
+{"frame": "frame_45", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461142.245478}
+{"frame": "frame_45", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461143.6495192}
+{"frame": "frame_45", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461144.605071, "mask_path": "out/dense/video28_00000/frame_45_liver.png"}
+{"frame": "frame_44", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461144.718209}
+{"frame": "frame_45", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461145.1410198}
+{"frame": "frame_44", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461147.0260239, "mask_path": "out/dense/video28_00000/frame_44_liver.png"}
+{"frame": "frame_46", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461148.745122}
+{"frame": "frame_46", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461149.420782}
+{"frame": "frame_39", "label": "gallbladder", "present_votes": 2, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461150.342462, "mask_path": "out/dense/video28_00000/frame_39_gallbladder.png"}
+{"frame": "frame_47", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461151.7535481}
+{"frame": "frame_48", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461152.809176}
+{"frame": "frame_47", "label": "gallbladder", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461153.119141}
+{"frame": "frame_35", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461154.648213, "mask_path": "out/dense/video28_00000/frame_35_liver.png"}
+{"frame": "frame_48", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461155.5994802, "mask_path": "out/dense/video28_00000/frame_48_liver.png"}
+{"frame": "frame_47", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461156.14575, "mask_path": "out/dense/video28_00000/frame_47_liver.png"}
+{"frame": "frame_46", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461156.999407}
+{"frame": "frame_49", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461157.209165}
+{"frame": "frame_46", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461158.085975, "mask_path": "out/dense/video28_00000/frame_46_liver.png"}
+{"frame": "frame_49", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461158.284652}
+{"frame": "frame_47", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461159.571976}
+{"frame": "frame_48", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461161.373942}
+{"frame": "frame_4", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461162.0736158}
+{"frame": "frame_4", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461163.1022239}
+{"frame": "frame_48", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461166.598165}
+{"frame": "frame_50", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461167.2821918}
+{"frame": "frame_50", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461167.741697, "mask_path": "out/dense/video28_00000/frame_50_liver.png"}
+{"frame": "frame_51", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461168.310936}
+{"frame": "frame_50", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461170.2317288}
+{"frame": "frame_51", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461170.917297}
+{"frame": "frame_49", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461171.413623}
+{"frame": "frame_52", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461171.864011}
+{"frame": "frame_52", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461172.151393}
+{"frame": "frame_4", "label": "gallbladder", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461176.060458, "mask_path": "out/dense/video28_00000/frame_4_gallbladder.png"}
+{"frame": "frame_53", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461176.387131}
+{"frame": "frame_50", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461176.564652}
+{"frame": "frame_51", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461177.044693}
+{"frame": "frame_49", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461179.276094, "mask_path": "out/dense/video28_00000/frame_49_liver.png"}
+{"frame": "frame_53", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461181.141524}
+{"frame": "frame_52", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461181.88431}
+{"frame": "frame_54", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461182.670634}
+{"frame": "frame_54", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461184.909481}
+{"frame": "frame_53", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461185.767463, "mask_path": "out/dense/video28_00000/frame_53_liver.png"}
+{"frame": "frame_55", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461187.895214}
+{"frame": "frame_55", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461187.9409769}
+{"frame": "frame_56", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461189.7049432}
+{"frame": "frame_56", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461190.011709}
+{"frame": "frame_53", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461190.549131}
+{"frame": "frame_54", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461190.8955631}
+{"frame": "frame_57", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461195.951545}
+{"frame": "frame_57", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461196.678941}
+{"frame": "frame_57", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461197.577157}
+{"frame": "frame_56", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461197.578946}
+{"frame": "frame_56", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461198.8723168, "mask_path": "out/dense/video28_00000/frame_56_liver.png"}
+{"frame": "frame_51", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461200.2329018, "mask_path": "out/dense/video28_00000/frame_51_liver.png"}
+{"frame": "frame_57", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461200.316609, "mask_path": "out/dense/video28_00000/frame_57_liver.png"}
+{"frame": "frame_58", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461204.453202}
+{"frame": "frame_59", "label": "gallbladder", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461205.197869}
+{"frame": "frame_58", "label": "grasper", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461205.410665}
+{"frame": "frame_55", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461205.751644}
+{"frame": "frame_54", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461206.230527, "mask_path": "out/dense/video28_00000/frame_54_liver.png"}
+{"frame": "frame_55", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461206.746598, "mask_path": "out/dense/video28_00000/frame_55_liver.png"}
+{"frame": "frame_58", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461207.454164}
+{"frame": "frame_60", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461212.0544431, "mask_path": "out/dense/video28_00000/frame_60_liver.png"}
+{"frame": "frame_4", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461212.1727948, "mask_path": "out/dense/video28_00000/frame_4_liver.png"}
+{"frame": "frame_58", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461213.3483179, "mask_path": "out/dense/video28_00000/frame_58_liver.png"}
+{"frame": "frame_52", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461213.867983, "mask_path": "out/dense/video28_00000/frame_52_liver.png"}
+{"frame": "frame_59", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461214.152413, "mask_path": "out/dense/video28_00000/frame_59_liver.png"}
+{"frame": "frame_60", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461215.378486}
+{"frame": "frame_61", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461215.470113}
+{"frame": "frame_59", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461216.223037}
+{"frame": "frame_60", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461219.859618}
+{"frame": "frame_61", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461220.956256}
+{"frame": "frame_5", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461221.123777}
+{"frame": "frame_5", "label": "gallbladder", "present_votes": 2, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461221.272002}
+{"frame": "frame_62", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461223.040149}
+{"frame": "frame_61", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461224.142289}
+{"frame": "frame_63", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461227.395745}
+{"frame": "frame_62", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461228.083005}
+{"frame": "frame_60", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461230.152736}
+{"frame": "frame_62", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461231.251355}
+{"frame": "frame_59", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461231.254256}
+{"frame": "frame_63", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461231.56879, "mask_path": "out/dense/video28_00000/frame_63_liver.png"}
+{"frame": "frame_64", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461232.669491}
+{"frame": "frame_63", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461234.341119}
+{"frame": "frame_63", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461235.6619892}
+{"frame": "frame_64", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461235.860289}
+{"frame": "frame_65", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461236.2869709}
+{"frame": "frame_65", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461236.6146638}
+{"frame": "frame_64", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461237.2378812}
+{"frame": "frame_61", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461238.420477, "mask_path": "out/dense/video28_00000/frame_61_liver.png"}
+{"frame": "frame_65", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461239.867508}
+{"frame": "frame_64", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461240.1877801, "mask_path": "out/dense/video28_00000/frame_64_liver.png"}
+{"frame": "frame_66", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461244.008987}
+{"frame": "frame_62", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461244.755404, "mask_path": "out/dense/video28_00000/frame_62_liver.png"}
+{"frame": "frame_67", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461245.403316, "mask_path": "out/dense/video28_00000/frame_67_liver.png"}
+{"frame": "frame_67", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461245.729886}
+{"frame": "frame_66", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461247.451788}
+{"frame": "frame_68", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461247.519947}
+{"frame": "frame_68", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461247.625858, "mask_path": "out/dense/video28_00000/frame_68_liver.png"}
+{"frame": "frame_66", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461249.265677}
+{"frame": "frame_68", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461250.3621728}
+{"frame": "frame_69", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461251.015574, "mask_path": "out/dense/video28_00000/frame_69_liver.png"}
+{"frame": "frame_66", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461251.604631, "mask_path": "out/dense/video28_00000/frame_66_liver.png"}
+{"frame": "frame_69", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461252.416142}
+{"frame": "frame_69", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461252.590545}
+{"frame": "frame_67", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461253.394136}
+{"frame": "frame_68", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461254.189717}
+{"frame": "frame_65", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461256.061889, "mask_path": "out/dense/video28_00000/frame_65_liver.png"}
+{"frame": "frame_69", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461256.93822}
+{"frame": "frame_6", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461258.968986}
+{"frame": "frame_5", "label": "liver", "present_votes": 2, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461259.23271, "mask_path": "out/dense/video28_00000/frame_5_liver.png"}
+{"frame": "frame_70", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461260.969086}
+{"frame": "frame_70", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461260.9707441}
+{"frame": "frame_67", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461261.789012}
+{"frame": "frame_71", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461262.8528209}
+{"frame": "frame_71", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461263.665003}
+{"frame": "frame_6", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461265.732682}
+{"frame": "frame_5", "label": "l_hook", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461266.906314}
+{"frame": "frame_72", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461267.0617259}
+{"frame": "frame_70", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461267.279688}
+{"frame": "frame_71", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461269.38111, "mask_path": "out/dense/video28_00000/frame_71_liver.png"}
+{"frame": "frame_73", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461273.091285}
+{"frame": "frame_73", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461273.2108328}
+{"frame": "frame_71", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461273.231348}
+{"frame": "frame_70", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461274.1256561, "mask_path": "out/dense/video28_00000/frame_70_liver.png"}
+{"frame": "frame_72", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461274.5756001}
+{"frame": "frame_74", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461275.227106}
+{"frame": "frame_72", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461275.528556}
+{"frame": "frame_74", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461277.064064}
+{"frame": "frame_73", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461277.269343}
+{"frame": "frame_75", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461278.442382}
+{"frame": "frame_6", "label": "gallbladder", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461278.961594, "mask_path": "out/dense/video28_00000/frame_6_gallbladder.png"}
+{"frame": "frame_73", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461281.791552, "mask_path": "out/dense/video28_00000/frame_73_liver.png"}
+{"frame": "frame_74", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461282.559032}
+{"frame": "frame_76", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461284.906147}
+{"frame": "frame_77", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461286.1415622}
+{"frame": "frame_75", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461286.668702}
+{"frame": "frame_74", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461287.6716218, "mask_path": "out/dense/video28_00000/frame_74_liver.png"}
+{"frame": "frame_77", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461289.662441}
+{"frame": "frame_72", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461290.8161511, "mask_path": "out/dense/video28_00000/frame_72_liver.png"}
+{"frame": "frame_76", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461291.398751}
+{"frame": "frame_6", "label": "liver", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461292.428745}
+{"frame": "frame_78", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461293.138237}
+{"frame": "frame_78", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461293.43778}
+{"frame": "frame_77", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461293.621825}
+{"frame": "frame_76", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461297.25645}
+{"frame": "frame_79", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461299.009356}
+{"frame": "frame_77", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461300.2889102, "mask_path": "out/dense/video28_00000/frame_77_liver.png"}
+{"frame": "frame_7", "label": "gallbladder", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461300.596787}
+{"frame": "frame_79", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461300.78736}
+{"frame": "frame_75", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461301.161145, "mask_path": "out/dense/video28_00000/frame_75_liver.png"}
+{"frame": "frame_8", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461302.9713862}
+{"frame": "frame_78", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461303.485764, "mask_path": "out/dense/video28_00000/frame_78_liver.png"}
+{"frame": "frame_78", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461305.825415}
+{"frame": "frame_76", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461306.111956, "mask_path": "out/dense/video28_00000/frame_76_liver.png"}
+{"frame": "frame_7", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461306.17695}
+{"frame": "frame_8", "label": "l_hook", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461310.0907142}
+{"frame": "frame_7", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461311.9697}
+{"frame": "frame_9", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461319.69047}
+{"frame": "frame_7", "label": "liver", "present_votes": 2, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461320.219658, "mask_path": "out/dense/video28_00000/frame_7_liver.png"}
+{"frame": "frame_9", "label": "gallbladder", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461322.6632051}
+{"frame": "frame_9", "label": "l_hook", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461326.541525}
+{"frame": "frame_8", "label": "gallbladder", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461327.745674}
+{"frame": "frame_75", "label": "grasper", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461331.7886982}
+{"frame": "frame_79", "label": "liver", "present_votes": 3, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461332.391336, "mask_path": "out/dense/video28_00000/frame_79_liver.png"}
+{"frame": "frame_79", "label": "gallbladder", "present_votes": 0, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461338.857976}
+{"frame": "frame_8", "label": "liver", "present_votes": 2, "present": true, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461344.915495, "mask_path": "out/dense/video28_00000/frame_8_liver.png"}
+{"frame": "frame_9", "label": "liver", "present_votes": 1, "present": false, "source": "gemini-3.8-flash polygons, 3 drafts, majority", "ts": 1793461361.6154041}

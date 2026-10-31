@@ -1,0 +1,21 @@
+{
+ "clip": "video28_00000",
+ "method": "keyframes every s-th frame (AI, 3-draft majority), forward optical-flow propagation between; every frame scored vs GT afterwards",
+ "results": {
+  "1": {
+   "mean_iou_all_frames": 0.6595,
+   "n_frame_masks": 80,
+   "ai_calls_per_second_of_video": 300.0
+  },
+  "5": {
+   "mean_iou_all_frames": 0.5597,
+   "n_frame_masks": 80,
+   "ai_calls_per_second_of_video": 60.0
+  },
+  "10": {
+   "mean_iou_all_frames": 0.5534,
+   "n_frame_masks": 80,
+   "ai_calls_per_second_of_video": 30.0
+  }
+ }
+}

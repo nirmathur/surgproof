@@ -288,6 +288,8 @@
       const fnum = parts[2];
       return {
         imgCandidates: [
+          `data/frames/${frameId}.jpg`,
+          `/web/data/frames/${frameId}.jpg`,
           `data/frames/${frameId}.png`,
           `/web/data/frames/${frameId}.png`,
           `/out/web_data/frames/${frameId}.png`,

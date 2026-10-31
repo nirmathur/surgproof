@@ -1,7 +1,7 @@
-/Users/haraldstuge/Documents/Prosjekter/surgatlas/narrator/showcase.py:107: RuntimeWarning: coroutine 'gather.<locals>._run' was never awaited
+narrator/showcase.py:107: RuntimeWarning: coroutine 'gather.<locals>._run' was never awaited
   layer_results[lname] = [{"result": "abstain", "reason": str(e), "hedge": False}] * len(claims)
 RuntimeWarning: Enable tracemalloc to get the object allocation traceback
-/Users/haraldstuge/Documents/Prosjekter/surgatlas/narrator/showcase.py:107: RuntimeWarning: coroutine 'evaluate_claim' was never awaited
+narrator/showcase.py:107: RuntimeWarning: coroutine 'evaluate_claim' was never awaited
   layer_results[lname] = [{"result": "abstain", "reason": str(e), "hedge": False}] * len(claims)
 RuntimeWarning: Enable tracemalloc to get the object allocation traceback
 [showcase] Running showcase on https://www.youtube.com/watch?v=PuC7iJffTpw
@@ -11,6 +11,6 @@ RuntimeWarning: Enable tracemalloc to get the object allocation traceback
 [showcase] Error running L7: asyncio.run() cannot be called from a running event loop
 [showcase] Running reference policy review on checked claims...
 [showcase] Successfully wrote:
-  - /Users/haraldstuge/Documents/Prosjekter/surgatlas/narrator/out/showcase/claims.jsonl
-  - /Users/haraldstuge/Documents/Prosjekter/surgatlas/narrator/out/showcase/review.json
-  - /Users/haraldstuge/Documents/Prosjekter/surgatlas/narrator/out/showcase/narration.jsonl
+  - narrator/out/showcase/claims.jsonl
+  - narrator/out/showcase/review.json
+  - narrator/out/showcase/narration.jsonl

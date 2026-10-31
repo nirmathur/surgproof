@@ -142,8 +142,11 @@ def load_safe_index_map(index_csv_path: Path = DEFAULT_INDEX_CSV) -> dict[str, d
             else:
                 raw_rel = raw_path.lstrip("/")
             safe_row["path"] = raw_path
-            web_frame = WEB_DIR / "data" / "frames" / f"{fid}.png"
-            if web_frame.exists():
+            web_frame_jpg = WEB_DIR / "data" / "frames" / f"{fid}.jpg"
+            web_frame_png = WEB_DIR / "data" / "frames" / f"{fid}.png"
+            if web_frame_jpg.exists():
+                safe_row["img_url"] = f"/data/frames/{fid}.jpg"
+            elif web_frame_png.exists():
                 safe_row["img_url"] = f"/data/frames/{fid}.png"
             elif raw_rel:
                 safe_row["img_url"] = f"/{raw_rel}"
@@ -185,9 +188,13 @@ def load_sanitized_decisions(
     annotations_jsonl: Path = DEFAULT_ANNOTATIONS_JSONL,
     labels_jsonl: Path = DEFAULT_LABELS_JSONL,
 ) -> list[dict[str, Any]]:
-    """Read out/decisions.csv and strip any non-contract ground-truth columns."""
+    """Read out/decisions.csv (or coord/artifacts/decisions.csv) and strip any non-contract ground-truth columns."""
     if not decisions_csv_path.exists():
-        return []
+        coord_dec = REPO_ROOT / "coord" / "artifacts" / "decisions.csv"
+        if decisions_csv_path == DEFAULT_DECISIONS_CSV and coord_dec.exists():
+            decisions_csv_path = coord_dec
+        else:
+            return []
     idx_map = load_safe_index_map(index_csv_path)
     box_map = load_spatial_box_map(annotations_jsonl, labels_jsonl)
     rows: list[dict[str, Any]] = []
@@ -951,28 +958,57 @@ class SurgProofRequestHandler(SimpleHTTPRequestHandler):
 
         # Direct web/ match (e.g., index.html, app.js, style.css, viewer.js, timeline.js, gate.js, data/video12.json)
         cand_web = (WEB_DIR / clean_rel).resolve()
-        if str(cand_web).startswith(str(WEB_DIR.resolve())) and cand_web.exists():
-            return str(cand_web)
+        if str(cand_web).startswith(str(WEB_DIR.resolve())):
+            if cand_web.exists():
+                return str(cand_web)
+            if cand_web.suffix == ".png" and cand_web.with_suffix(".jpg").exists():
+                return str(cand_web.with_suffix(".jpg"))
 
         # Strip leading 'web/' if requested as /web/...
         if clean_rel.startswith("web/"):
             sub = clean_rel[len("web/") :]
             cand_sub = (WEB_DIR / sub).resolve()
-            if str(cand_sub).startswith(str(WEB_DIR.resolve())) and cand_sub.exists():
-                return str(cand_sub)
+            if str(cand_sub).startswith(str(WEB_DIR.resolve())):
+                if cand_sub.exists():
+                    return str(cand_sub)
+                if cand_sub.suffix == ".png" and cand_sub.with_suffix(".jpg").exists():
+                    return str(cand_sub.with_suffix(".jpg"))
 
-        # Safe fallback to repo root for out/, data/, raw/
+        # Safe fallback to repo root for out/, data/, raw/, coord/ and committed web/data bundle
         for allowed_prefix in ("out/", "data/", "raw/", "coord/"):
             if clean_rel.startswith(allowed_prefix):
                 cand_repo = (REPO_ROOT / clean_rel).resolve()
                 if cand_repo.exists():
                     return str(cand_repo)
+                if cand_repo.suffix == ".png" and cand_repo.with_suffix(".jpg").exists():
+                    return str(cand_repo.with_suffix(".jpg"))
             marker = "/" + allowed_prefix
             if marker in ("/" + clean_rel):
                 tail = ("/" + clean_rel).split(marker, 1)[1].lstrip("/")
                 cand_tail = (REPO_ROOT / allowed_prefix / tail).resolve()
                 if cand_tail.exists():
                     return str(cand_tail)
+                if cand_tail.suffix == ".png" and cand_tail.with_suffix(".jpg").exists():
+                    return str(cand_tail.with_suffix(".jpg"))
+
+        if clean_rel.startswith("out/"):
+            sub_out = clean_rel[len("out/") :]
+            for fb_base in (WEB_DIR / "data", REPO_ROOT / "coord" / "artifacts"):
+                cand_fb = (fb_base / sub_out).resolve()
+                if cand_fb.exists():
+                    return str(cand_fb)
+                if cand_fb.suffix == ".png" and cand_fb.with_suffix(".jpg").exists():
+                    return str(cand_fb.with_suffix(".jpg"))
+
+        if clean_rel.startswith("raw/CholecSeg8k/"):
+            parts = clean_rel.split("/")
+            if len(parts) >= 5:
+                clip_id, fname = parts[3], parts[4]
+                cand_dense = WEB_DIR / "data" / "dense" / clip_id / fname
+                if cand_dense.exists():
+                    return str(cand_dense)
+                if cand_dense.suffix == ".png" and cand_dense.with_suffix(".jpg").exists():
+                    return str(cand_dense.with_suffix(".jpg"))
 
         return str(cand_web)
 

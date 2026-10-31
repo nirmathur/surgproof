@@ -1,0 +1,2409 @@
+{
+  "video": "video12",
+  "count": 3591,
+  "updated_at": 1793460682.493,
+  "n_frames_with_boxes": 80,
+  "n_frames_with_masks": 80,
+  "annotations": [
+    {
+      "frame_id": "video28_00240_264",
+      "video": "video28",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4806,
+      "mask_path": "out/masks_vote3/video28_00240_264_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460433.486312
+    },
+    {
+      "frame_id": "video28_00240_256",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5845,
+      "mask_path": "out/masks_vote3/video28_00240_256_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460441.3093529
+    },
+    {
+      "frame_id": "video28_00240_264",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5566,
+      "mask_path": "out/masks_vote3/video28_00240_264_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460444.785092
+    },
+    {
+      "frame_id": "video28_00240_288",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5259,
+      "mask_path": "out/masks_vote3/video28_00240_288_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460447.946084
+    },
+    {
+      "frame_id": "video28_00240_312",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7681,
+      "mask_path": "out/masks_vote3/video28_00240_312_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460449.583421
+    },
+    {
+      "frame_id": "video28_00240_304",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6111,
+      "mask_path": "out/masks_vote3/video28_00240_304_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460450.2157068
+    },
+    {
+      "frame_id": "video28_00240_240",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6434,
+      "mask_path": "out/masks_vote3/video28_00240_240_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460451.0231
+    },
+    {
+      "frame_id": "video28_00320_320",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7771,
+      "mask_path": "out/masks_vote3/video28_00320_320_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460451.926075
+    },
+    {
+      "frame_id": "video28_00240_312",
+      "video": "video28",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4406,
+      "mask_path": "out/masks_vote3/video28_00240_312_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460457.852787
+    },
+    {
+      "frame_id": "video28_00320_344",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8199,
+      "mask_path": "out/masks_vote3/video28_00320_344_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460462.911526
+    },
+    {
+      "frame_id": "video28_00320_336",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8555,
+      "mask_path": "out/masks_vote3/video28_00320_336_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460472.8457642
+    },
+    {
+      "frame_id": "video28_00320_328",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7997,
+      "mask_path": "out/masks_vote3/video28_00320_328_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460473.431118
+    },
+    {
+      "frame_id": "video28_00320_352",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8016,
+      "mask_path": "out/masks_vote3/video28_00320_352_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460476.1437492
+    },
+    {
+      "frame_id": "video28_00320_320",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5916,
+      "mask_path": "out/masks_vote3/video28_00320_320_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460477.654985
+    },
+    {
+      "frame_id": "video28_00320_328",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7215,
+      "mask_path": "out/masks_vote3/video28_00320_328_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460483.009036
+    },
+    {
+      "frame_id": "video28_00320_360",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6694,
+      "mask_path": "out/masks_vote3/video28_00320_360_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460483.768629
+    },
+    {
+      "frame_id": "video28_00320_360",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.653,
+      "mask_path": "out/masks_vote3/video28_00320_360_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460484.2954948
+    },
+    {
+      "frame_id": "video28_00240_296",
+      "video": "video28",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.499,
+      "mask_path": "out/masks_vote3/video28_00240_296_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460486.406112
+    },
+    {
+      "frame_id": "video28_00320_368",
+      "video": "video28",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.2222,
+      "mask_path": "out/masks_vote3/video28_00320_368_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460495.640853
+    },
+    {
+      "frame_id": "video28_00320_392",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8801,
+      "mask_path": "out/masks_vote3/video28_00320_392_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460497.572148
+    },
+    {
+      "frame_id": "video28_00320_376",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.877,
+      "mask_path": "out/masks_vote3/video28_00320_376_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460501.359553
+    },
+    {
+      "frame_id": "video28_00320_384",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8025,
+      "mask_path": "out/masks_vote3/video28_00320_384_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460505.1734111
+    },
+    {
+      "frame_id": "video28_00320_384",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8261,
+      "mask_path": "out/masks_vote3/video28_00320_384_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460508.46686
+    },
+    {
+      "frame_id": "video28_00320_368",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7296,
+      "mask_path": "out/masks_vote3/video28_00320_368_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460509.458379
+    },
+    {
+      "frame_id": "video28_00320_376",
+      "video": "video28",
+      "label": "l_hook",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4189,
+      "mask_path": "out/masks_vote3/video28_00320_376_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460510.540431
+    },
+    {
+      "frame_id": "video28_00400_400",
+      "video": "video28",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.349,
+      "mask_path": "out/masks_vote3/video28_00400_400_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460511.3546822
+    },
+    {
+      "frame_id": "video28_00320_392",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9237,
+      "mask_path": "out/masks_vote3/video28_00320_392_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460511.9279912
+    },
+    {
+      "frame_id": "video28_00320_384",
+      "video": "video28",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3655,
+      "mask_path": "out/masks_vote3/video28_00320_384_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460519.0422552
+    },
+    {
+      "frame_id": "video28_00400_400",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9032,
+      "mask_path": "out/masks_vote3/video28_00400_400_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460520.991039
+    },
+    {
+      "frame_id": "video28_00400_400",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5763,
+      "mask_path": "out/masks_vote3/video28_00400_400_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460522.419752
+    },
+    {
+      "frame_id": "video28_00400_416",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5854,
+      "mask_path": "out/masks_vote3/video28_00400_416_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460524.868333
+    },
+    {
+      "frame_id": "video28_00400_416",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8614,
+      "mask_path": "out/masks_vote3/video28_00400_416_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460528.766612
+    },
+    {
+      "frame_id": "video28_00400_408",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9179,
+      "mask_path": "out/masks_vote3/video28_00400_408_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460528.853738
+    },
+    {
+      "frame_id": "video28_00320_392",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7122,
+      "mask_path": "out/masks_vote3/video28_00320_392_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460532.7610838
+    },
+    {
+      "frame_id": "video28_00400_424",
+      "video": "video28",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.38,
+      "mask_path": "out/masks_vote3/video28_00400_424_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460535.222717
+    },
+    {
+      "frame_id": "video28_00400_424",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8758,
+      "mask_path": "out/masks_vote3/video28_00400_424_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460538.668347
+    },
+    {
+      "frame_id": "video28_00400_448",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7175,
+      "mask_path": "out/masks_vote3/video28_00400_448_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460545.2856278
+    },
+    {
+      "frame_id": "video28_00400_440",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9045,
+      "mask_path": "out/masks_vote3/video28_00400_440_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460548.0600371
+    },
+    {
+      "frame_id": "video28_00400_448",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8443,
+      "mask_path": "out/masks_vote3/video28_00400_448_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460558.272095
+    },
+    {
+      "frame_id": "video28_00400_408",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6067,
+      "mask_path": "out/masks_vote3/video28_00400_408_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460559.595739
+    },
+    {
+      "frame_id": "video28_00400_440",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6548,
+      "mask_path": "out/masks_vote3/video28_00400_440_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460562.9415271
+    },
+    {
+      "frame_id": "video28_00400_440",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6917,
+      "mask_path": "out/masks_vote3/video28_00400_440_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460564.003535
+    },
+    {
+      "frame_id": "video28_00400_448",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7816,
+      "mask_path": "out/masks_vote3/video28_00400_448_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460570.3048918
+    },
+    {
+      "frame_id": "video28_00400_432",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5606,
+      "mask_path": "out/masks_vote3/video28_00400_432_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460572.191339
+    },
+    {
+      "frame_id": "video28_00400_456",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6186,
+      "mask_path": "out/masks_vote3/video28_00400_456_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460572.562597
+    },
+    {
+      "frame_id": "video28_00400_456",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8667,
+      "mask_path": "out/masks_vote3/video28_00400_456_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460573.325015
+    },
+    {
+      "frame_id": "video28_00400_432",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5458,
+      "mask_path": "out/masks_vote3/video28_00400_432_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460574.84218
+    },
+    {
+      "frame_id": "video28_00400_472",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9029,
+      "mask_path": "out/masks_vote3/video28_00400_472_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460583.914337
+    },
+    {
+      "frame_id": "video28_00400_464",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8891,
+      "mask_path": "out/masks_vote3/video28_00400_464_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460585.800812
+    },
+    {
+      "frame_id": "video28_00480_480",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9475,
+      "mask_path": "out/masks_vote3/video28_00480_480_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460587.911961
+    },
+    {
+      "frame_id": "video28_00480_488",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7022,
+      "mask_path": "out/masks_vote3/video28_00480_488_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460595.2149792
+    },
+    {
+      "frame_id": "video28_00480_488",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.915,
+      "mask_path": "out/masks_vote3/video28_00480_488_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460596.031429
+    },
+    {
+      "frame_id": "video28_00480_496",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8783,
+      "mask_path": "out/masks_vote3/video28_00480_496_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460607.0256069
+    },
+    {
+      "frame_id": "video28_00480_480",
+      "video": "video28",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3194,
+      "mask_path": "out/masks_vote3/video28_00480_480_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460610.124395
+    },
+    {
+      "frame_id": "video28_00400_472",
+      "video": "video28",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3173,
+      "mask_path": "out/masks_vote3/video28_00400_472_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460619.975486
+    },
+    {
+      "frame_id": "video28_00480_488",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5394,
+      "mask_path": "out/masks_vote3/video28_00480_488_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460620.66493
+    },
+    {
+      "frame_id": "video28_00400_456",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6828,
+      "mask_path": "out/masks_vote3/video28_00400_456_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460623.4531698
+    },
+    {
+      "frame_id": "video28_00480_496",
+      "video": "video28",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4451,
+      "mask_path": "out/masks_vote3/video28_00480_496_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460628.797947
+    },
+    {
+      "frame_id": "video28_00480_496",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8023,
+      "mask_path": "out/masks_vote3/video28_00480_496_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460629.361341
+    },
+    {
+      "frame_id": "video28_00480_504",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6648,
+      "mask_path": "out/masks_vote3/video28_00480_504_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460631.365652
+    },
+    {
+      "frame_id": "video28_00480_504",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.938,
+      "mask_path": "out/masks_vote3/video28_00480_504_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460632.378622
+    },
+    {
+      "frame_id": "video28_00480_512",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9295,
+      "mask_path": "out/masks_vote3/video28_00480_512_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460638.149776
+    },
+    {
+      "frame_id": "video28_00480_520",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9449,
+      "mask_path": "out/masks_vote3/video28_00480_520_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460643.7495942
+    },
+    {
+      "frame_id": "video28_00400_464",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5164,
+      "mask_path": "out/masks_vote3/video28_00400_464_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460649.4456162
+    },
+    {
+      "frame_id": "video28_00480_512",
+      "video": "video28",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3367,
+      "mask_path": "out/masks_vote3/video28_00480_512_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460656.777164
+    },
+    {
+      "frame_id": "video28_00480_528",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7859,
+      "mask_path": "out/masks_vote3/video28_00480_528_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460657.1748722
+    },
+    {
+      "frame_id": "video28_00480_528",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9476,
+      "mask_path": "out/masks_vote3/video28_00480_528_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460658.872607
+    },
+    {
+      "frame_id": "video28_00480_536",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6865,
+      "mask_path": "out/masks_vote3/video28_00480_536_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460662.0210838
+    },
+    {
+      "frame_id": "video28_00480_544",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6684,
+      "mask_path": "out/masks_vote3/video28_00480_544_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460667.813708
+    },
+    {
+      "frame_id": "video28_00480_536",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8855,
+      "mask_path": "out/masks_vote3/video28_00480_536_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460670.148352
+    },
+    {
+      "frame_id": "video28_00480_536",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6554,
+      "mask_path": "out/masks_vote3/video28_00480_536_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460674.621769
+    },
+    {
+      "frame_id": "video28_00480_544",
+      "video": "video28",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6746,
+      "mask_path": "out/masks_vote3/video28_00480_544_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460675.186635
+    },
+    {
+      "frame_id": "video28_00480_520",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.794,
+      "mask_path": "out/masks_vote3/video28_00480_520_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460678.290577
+    },
+    {
+      "frame_id": "video28_00480_544",
+      "video": "video28",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9005,
+      "mask_path": "out/masks_vote3/video28_00480_544_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460679.504417
+    },
+    {
+      "frame_id": "video28_00480_552",
+      "video": "video28",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7249,
+      "mask_path": "out/masks_vote3/video28_00480_552_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460679.658633
+    },
+    {
+      "frame_id": "video48_00561_561",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.677,
+      "mask_path": "out/masks_vote3/video48_00561_561_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460294.716073
+    },
+    {
+      "frame_id": "video48_00561_577",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7972,
+      "mask_path": "out/masks_vote3/video48_00561_577_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460298.555403
+    },
+    {
+      "frame_id": "video48_00561_569",
+      "video": "video48",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4162,
+      "mask_path": "out/masks_vote3/video48_00561_569_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460301.340051
+    },
+    {
+      "frame_id": "video48_00561_585",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3431,
+      "mask_path": "out/masks_vote3/video48_00561_585_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460303.945667
+    },
+    {
+      "frame_id": "video48_00561_577",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8562,
+      "mask_path": "out/masks_vote3/video48_00561_577_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460304.049879
+    },
+    {
+      "frame_id": "video48_00561_569",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5604,
+      "mask_path": "out/masks_vote3/video48_00561_569_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460311.609803
+    },
+    {
+      "frame_id": "video48_00561_593",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4254,
+      "mask_path": "out/masks_vote3/video48_00561_593_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460313.035668
+    },
+    {
+      "frame_id": "video48_00561_561",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6244,
+      "mask_path": "out/masks_vote3/video48_00561_561_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460318.6288111
+    },
+    {
+      "frame_id": "video48_00561_569",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7714,
+      "mask_path": "out/masks_vote3/video48_00561_569_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460327.711607
+    },
+    {
+      "frame_id": "video48_00561_601",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8492,
+      "mask_path": "out/masks_vote3/video48_00561_601_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460329.26096
+    },
+    {
+      "frame_id": "video48_00561_585",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6333,
+      "mask_path": "out/masks_vote3/video48_00561_585_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460329.643201
+    },
+    {
+      "frame_id": "video48_00561_593",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.817,
+      "mask_path": "out/masks_vote3/video48_00561_593_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460336.702162
+    },
+    {
+      "frame_id": "video48_00561_609",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6438,
+      "mask_path": "out/masks_vote3/video48_00561_609_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460338.635482
+    },
+    {
+      "frame_id": "video48_00561_601",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.723,
+      "mask_path": "out/masks_vote3/video48_00561_601_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460341.207445
+    },
+    {
+      "frame_id": "video48_00561_609",
+      "video": "video48",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5447,
+      "mask_path": "out/masks_vote3/video48_00561_609_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460344.388891
+    },
+    {
+      "frame_id": "video48_00561_609",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7986,
+      "mask_path": "out/masks_vote3/video48_00561_609_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460347.456387
+    },
+    {
+      "frame_id": "video48_00561_601",
+      "video": "video48",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.1914,
+      "mask_path": "out/masks_vote3/video48_00561_601_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460359.0247738
+    },
+    {
+      "frame_id": "video48_00561_625",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7185,
+      "mask_path": "out/masks_vote3/video48_00561_625_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460361.092562
+    },
+    {
+      "frame_id": "video48_00561_617",
+      "video": "video48",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5435,
+      "mask_path": "out/masks_vote3/video48_00561_617_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460361.739682
+    },
+    {
+      "frame_id": "video48_00561_633",
+      "video": "video48",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4888,
+      "mask_path": "out/masks_vote3/video48_00561_633_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460362.137054
+    },
+    {
+      "frame_id": "video48_00561_593",
+      "video": "video48",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3576,
+      "mask_path": "out/masks_vote3/video48_00561_593_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460367.3825998
+    },
+    {
+      "frame_id": "video48_00561_617",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6536,
+      "mask_path": "out/masks_vote3/video48_00561_617_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460367.955353
+    },
+    {
+      "frame_id": "video48_00561_633",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.181,
+      "mask_path": "out/masks_vote3/video48_00561_633_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460369.274405
+    },
+    {
+      "frame_id": "video48_00561_625",
+      "video": "video48",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6386,
+      "mask_path": "out/masks_vote3/video48_00561_625_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460370.357919
+    },
+    {
+      "frame_id": "video48_00641_641",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4752,
+      "mask_path": "out/masks_vote3/video48_00641_641_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460374.8916311
+    },
+    {
+      "frame_id": "video48_00641_641",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9429,
+      "mask_path": "out/masks_vote3/video48_00641_641_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460376.8223639
+    },
+    {
+      "frame_id": "video48_00641_649",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8281,
+      "mask_path": "out/masks_vote3/video48_00641_649_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460382.868393
+    },
+    {
+      "frame_id": "video48_00641_657",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5009,
+      "mask_path": "out/masks_vote3/video48_00641_657_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460382.961601
+    },
+    {
+      "frame_id": "video48_00641_657",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8162,
+      "mask_path": "out/masks_vote3/video48_00641_657_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460383.631505
+    },
+    {
+      "frame_id": "video48_00641_665",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6324,
+      "mask_path": "out/masks_vote3/video48_00641_665_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460385.4026182
+    },
+    {
+      "frame_id": "video48_00641_649",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5221,
+      "mask_path": "out/masks_vote3/video48_00641_649_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460389.956146
+    },
+    {
+      "frame_id": "video48_00641_681",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5892,
+      "mask_path": "out/masks_vote3/video48_00641_681_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460392.021035
+    },
+    {
+      "frame_id": "video48_00641_673",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5151,
+      "mask_path": "out/masks_vote3/video48_00641_673_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460392.544161
+    },
+    {
+      "frame_id": "video48_00641_673",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8821,
+      "mask_path": "out/masks_vote3/video48_00641_673_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460394.925963
+    },
+    {
+      "frame_id": "video48_00641_665",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6677,
+      "mask_path": "out/masks_vote3/video48_00641_665_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460396.062496
+    },
+    {
+      "frame_id": "video48_00641_681",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8961,
+      "mask_path": "out/masks_vote3/video48_00641_681_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460399.660897
+    },
+    {
+      "frame_id": "video48_00641_689",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.92,
+      "mask_path": "out/masks_vote3/video48_00641_689_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460404.909555
+    },
+    {
+      "frame_id": "video48_00641_705",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4615,
+      "mask_path": "out/masks_vote3/video48_00641_705_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460408.037778
+    },
+    {
+      "frame_id": "video48_00641_689",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.2904,
+      "mask_path": "out/masks_vote3/video48_00641_689_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460409.849237
+    },
+    {
+      "frame_id": "video48_00641_697",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9444,
+      "mask_path": "out/masks_vote3/video48_00641_697_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460411.043915
+    },
+    {
+      "frame_id": "video48_00641_697",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5531,
+      "mask_path": "out/masks_vote3/video48_00641_697_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460411.457011
+    },
+    {
+      "frame_id": "video48_00641_705",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8868,
+      "mask_path": "out/masks_vote3/video48_00641_705_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460412.366693
+    },
+    {
+      "frame_id": "video48_00561_633",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4402,
+      "mask_path": "out/masks_vote3/video48_00561_633_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460415.100926
+    },
+    {
+      "frame_id": "video48_00641_713",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9179,
+      "mask_path": "out/masks_vote3/video48_00641_713_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460421.514405
+    },
+    {
+      "frame_id": "video48_00801_801",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5824,
+      "mask_path": "out/masks_vote3/video48_00801_801_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460422.952105
+    },
+    {
+      "frame_id": "video48_00641_713",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5441,
+      "mask_path": "out/masks_vote3/video48_00641_713_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460423.245934
+    },
+    {
+      "frame_id": "video48_00801_817",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8309,
+      "mask_path": "out/masks_vote3/video48_00801_817_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460427.411306
+    },
+    {
+      "frame_id": "video48_00801_817",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6936,
+      "mask_path": "out/masks_vote3/video48_00801_817_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460428.419196
+    },
+    {
+      "frame_id": "video48_00801_809",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4313,
+      "mask_path": "out/masks_vote3/video48_00801_809_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460428.7824
+    },
+    {
+      "frame_id": "video48_00801_801",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9257,
+      "mask_path": "out/masks_vote3/video48_00801_801_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460429.243886
+    },
+    {
+      "frame_id": "video48_00801_809",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9311,
+      "mask_path": "out/masks_vote3/video48_00801_809_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460429.293018
+    },
+    {
+      "frame_id": "video48_00801_841",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3455,
+      "mask_path": "out/masks_vote3/video48_00801_841_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460437.184708
+    },
+    {
+      "frame_id": "video48_00801_841",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9079,
+      "mask_path": "out/masks_vote3/video48_00801_841_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460437.631695
+    },
+    {
+      "frame_id": "video48_00801_833",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.2537,
+      "mask_path": "out/masks_vote3/video48_00801_833_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460439.203799
+    },
+    {
+      "frame_id": "video48_00801_833",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9288,
+      "mask_path": "out/masks_vote3/video48_00801_833_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460439.353738
+    },
+    {
+      "frame_id": "video48_00801_849",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3433,
+      "mask_path": "out/masks_vote3/video48_00801_849_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460439.907808
+    },
+    {
+      "frame_id": "video48_00801_825",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9181,
+      "mask_path": "out/masks_vote3/video48_00801_825_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460440.398798
+    },
+    {
+      "frame_id": "video48_00801_825",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5381,
+      "mask_path": "out/masks_vote3/video48_00801_825_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460443.304798
+    },
+    {
+      "frame_id": "video48_00801_849",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9209,
+      "mask_path": "out/masks_vote3/video48_00801_849_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460447.5941179
+    },
+    {
+      "frame_id": "video48_00801_857",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8279,
+      "mask_path": "out/masks_vote3/video48_00801_857_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460452.49572
+    },
+    {
+      "frame_id": "video48_00801_857",
+      "video": "video48",
+      "label": "grasper",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3091,
+      "mask_path": "out/masks_vote3/video48_00801_857_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460454.024897
+    },
+    {
+      "frame_id": "video48_00801_865",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6464,
+      "mask_path": "out/masks_vote3/video48_00801_865_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460456.064715
+    },
+    {
+      "frame_id": "video48_00801_873",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8536,
+      "mask_path": "out/masks_vote3/video48_00801_873_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460456.775811
+    },
+    {
+      "frame_id": "video48_00801_865",
+      "video": "video48",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8832,
+      "mask_path": "out/masks_vote3/video48_00801_865_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460457.944531
+    },
+    {
+      "frame_id": "video48_00801_873",
+      "video": "video48",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7212,
+      "mask_path": "out/masks_vote3/video48_00801_873_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460460.175114
+    },
+    {
+      "frame_id": "video55_00508_524",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.759,
+      "mask_path": "out/masks_vote3/video55_00508_524_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460288.744461
+    },
+    {
+      "frame_id": "video55_00508_516",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8039,
+      "mask_path": "out/masks_vote3/video55_00508_516_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460292.409438
+    },
+    {
+      "frame_id": "video55_00508_508",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8891,
+      "mask_path": "out/masks_vote3/video55_00508_508_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460292.559248
+    },
+    {
+      "frame_id": "video55_00508_524",
+      "video": "video55",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7678,
+      "mask_path": "out/masks_vote3/video55_00508_524_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460294.722054
+    },
+    {
+      "frame_id": "video55_00508_508",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9025,
+      "mask_path": "out/masks_vote3/video55_00508_508_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460297.723736
+    },
+    {
+      "frame_id": "video55_00508_524",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8194,
+      "mask_path": "out/masks_vote3/video55_00508_524_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460301.18343
+    },
+    {
+      "frame_id": "video55_00508_532",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6544,
+      "mask_path": "out/masks_vote3/video55_00508_532_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460304.4694579
+    },
+    {
+      "frame_id": "video55_00508_508",
+      "video": "video55",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.2954,
+      "mask_path": "out/masks_vote3/video55_00508_508_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460304.723906
+    },
+    {
+      "frame_id": "video55_00508_516",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6515,
+      "mask_path": "out/masks_vote3/video55_00508_516_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460313.008665
+    },
+    {
+      "frame_id": "video55_00508_532",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8605,
+      "mask_path": "out/masks_vote3/video55_00508_532_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460316.304319
+    },
+    {
+      "frame_id": "video55_00508_540",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7278,
+      "mask_path": "out/masks_vote3/video55_00508_540_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460319.154021
+    },
+    {
+      "frame_id": "video55_00508_548",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6803,
+      "mask_path": "out/masks_vote3/video55_00508_548_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460327.0137112
+    },
+    {
+      "frame_id": "video55_00508_540",
+      "video": "video55",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7845,
+      "mask_path": "out/masks_vote3/video55_00508_540_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460328.862491
+    },
+    {
+      "frame_id": "video55_00508_548",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7176,
+      "mask_path": "out/masks_vote3/video55_00508_548_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460329.7242858
+    },
+    {
+      "frame_id": "video55_00508_556",
+      "video": "video55",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8965,
+      "mask_path": "out/masks_vote3/video55_00508_556_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460344.8388748
+    },
+    {
+      "frame_id": "video55_00508_548",
+      "video": "video55",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3314,
+      "mask_path": "out/masks_vote3/video55_00508_548_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460347.838472
+    },
+    {
+      "frame_id": "video55_00508_556",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6843,
+      "mask_path": "out/masks_vote3/video55_00508_556_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460351.553524
+    },
+    {
+      "frame_id": "video55_00508_540",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6362,
+      "mask_path": "out/masks_vote3/video55_00508_540_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460355.322512
+    },
+    {
+      "frame_id": "video55_00508_556",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7637,
+      "mask_path": "out/masks_vote3/video55_00508_556_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460357.9448042
+    },
+    {
+      "frame_id": "video55_00508_532",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7351,
+      "mask_path": "out/masks_vote3/video55_00508_532_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460358.2525928
+    },
+    {
+      "frame_id": "video55_00508_540",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7702,
+      "mask_path": "out/masks_vote3/video55_00508_540_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460360.6082802
+    },
+    {
+      "frame_id": "video55_00508_564",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8377,
+      "mask_path": "out/masks_vote3/video55_00508_564_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460365.3184729
+    },
+    {
+      "frame_id": "video55_00508_564",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7533,
+      "mask_path": "out/masks_vote3/video55_00508_564_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460367.41842
+    },
+    {
+      "frame_id": "video55_00508_580",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.2599,
+      "mask_path": "out/masks_vote3/video55_00508_580_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460378.017559
+    },
+    {
+      "frame_id": "video55_00508_572",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7803,
+      "mask_path": "out/masks_vote3/video55_00508_572_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460380.487326
+    },
+    {
+      "frame_id": "video55_00508_580",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9177,
+      "mask_path": "out/masks_vote3/video55_00508_580_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460382.493522
+    },
+    {
+      "frame_id": "video55_00508_572",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8,
+      "mask_path": "out/masks_vote3/video55_00508_572_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460393.595715
+    },
+    {
+      "frame_id": "video55_00508_580",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8239,
+      "mask_path": "out/masks_vote3/video55_00508_580_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460396.993257
+    },
+    {
+      "frame_id": "video55_00508_572",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7586,
+      "mask_path": "out/masks_vote3/video55_00508_572_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460401.077943
+    },
+    {
+      "frame_id": "video55_00588_588",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8131,
+      "mask_path": "out/masks_vote3/video55_00588_588_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460402.376191
+    },
+    {
+      "frame_id": "video55_00588_588",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9096,
+      "mask_path": "out/masks_vote3/video55_00588_588_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460404.915158
+    },
+    {
+      "frame_id": "video55_00508_556",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4046,
+      "mask_path": "out/masks_vote3/video55_00508_556_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460408.301655
+    },
+    {
+      "frame_id": "video55_00588_596",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9044,
+      "mask_path": "out/masks_vote3/video55_00588_596_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460414.5685709
+    },
+    {
+      "frame_id": "video55_00508_564",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8183,
+      "mask_path": "out/masks_vote3/video55_00508_564_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460415.088413
+    },
+    {
+      "frame_id": "video55_00588_588",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6878,
+      "mask_path": "out/masks_vote3/video55_00588_588_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460417.297735
+    },
+    {
+      "frame_id": "video55_00588_596",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3415,
+      "mask_path": "out/masks_vote3/video55_00588_596_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460418.386913
+    },
+    {
+      "frame_id": "video55_00588_596",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8391,
+      "mask_path": "out/masks_vote3/video55_00588_596_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460422.428781
+    },
+    {
+      "frame_id": "video55_00588_604",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9152,
+      "mask_path": "out/masks_vote3/video55_00588_604_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460422.491843
+    },
+    {
+      "frame_id": "video55_00588_604",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8554,
+      "mask_path": "out/masks_vote3/video55_00588_604_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460435.9151921
+    },
+    {
+      "frame_id": "video55_00588_620",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6686,
+      "mask_path": "out/masks_vote3/video55_00588_620_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460438.684394
+    },
+    {
+      "frame_id": "video55_00588_612",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8079,
+      "mask_path": "out/masks_vote3/video55_00588_612_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460438.686147
+    },
+    {
+      "frame_id": "video55_00588_604",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7066,
+      "mask_path": "out/masks_vote3/video55_00588_604_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460443.7861881
+    },
+    {
+      "frame_id": "video55_00588_620",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6466,
+      "mask_path": "out/masks_vote3/video55_00588_620_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460447.105473
+    },
+    {
+      "frame_id": "video55_00508_548",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5885,
+      "mask_path": "out/masks_vote3/video55_00508_548_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460450.947382
+    },
+    {
+      "frame_id": "video55_00588_620",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8877,
+      "mask_path": "out/masks_vote3/video55_00588_620_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460452.6957738
+    },
+    {
+      "frame_id": "video55_00588_628",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3182,
+      "mask_path": "out/masks_vote3/video55_00588_628_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460452.836548
+    },
+    {
+      "frame_id": "video55_00588_612",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.826,
+      "mask_path": "out/masks_vote3/video55_00588_612_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460454.645378
+    },
+    {
+      "frame_id": "video55_00588_636",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4354,
+      "mask_path": "out/masks_vote3/video55_00588_636_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460470.924783
+    },
+    {
+      "frame_id": "video55_00588_628",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8182,
+      "mask_path": "out/masks_vote3/video55_00588_628_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460472.239806
+    },
+    {
+      "frame_id": "video55_00588_612",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7111,
+      "mask_path": "out/masks_vote3/video55_00588_612_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460472.973397
+    },
+    {
+      "frame_id": "video55_00588_636",
+      "video": "video55",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3934,
+      "mask_path": "out/masks_vote3/video55_00588_636_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460474.463583
+    },
+    {
+      "frame_id": "video55_00588_636",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7632,
+      "mask_path": "out/masks_vote3/video55_00588_636_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460476.220222
+    },
+    {
+      "frame_id": "video55_00588_636",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8292,
+      "mask_path": "out/masks_vote3/video55_00588_636_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460478.389684
+    },
+    {
+      "frame_id": "video55_00588_644",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7721,
+      "mask_path": "out/masks_vote3/video55_00588_644_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460479.050515
+    },
+    {
+      "frame_id": "video55_00588_628",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8637,
+      "mask_path": "out/masks_vote3/video55_00588_628_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460484.698721
+    },
+    {
+      "frame_id": "video55_00588_628",
+      "video": "video55",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.0878,
+      "mask_path": "out/masks_vote3/video55_00588_628_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460487.696973
+    },
+    {
+      "frame_id": "video55_00588_644",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7849,
+      "mask_path": "out/masks_vote3/video55_00588_644_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460487.833954
+    },
+    {
+      "frame_id": "video55_00588_644",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8105,
+      "mask_path": "out/masks_vote3/video55_00588_644_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460489.243632
+    },
+    {
+      "frame_id": "video55_00588_652",
+      "video": "video55",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.1037,
+      "mask_path": "out/masks_vote3/video55_00588_652_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460494.3034508
+    },
+    {
+      "frame_id": "video55_00588_652",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4455,
+      "mask_path": "out/masks_vote3/video55_00588_652_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460497.8014479
+    },
+    {
+      "frame_id": "video55_00588_660",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8774,
+      "mask_path": "out/masks_vote3/video55_00588_660_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460500.94551
+    },
+    {
+      "frame_id": "video55_00588_644",
+      "video": "video55",
+      "label": "liver",
+      "status": "accept",
+      "mean_pairwise_iou": 0.5373,
+      "mask_path": "out/masks_vote3/video55_00588_644_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460502.643656
+    },
+    {
+      "frame_id": "video55_00668_668",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6587,
+      "mask_path": "out/masks_vote3/video55_00668_668_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460506.8371809
+    },
+    {
+      "frame_id": "video55_00588_652",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8546,
+      "mask_path": "out/masks_vote3/video55_00588_652_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460508.770488
+    },
+    {
+      "frame_id": "video55_00588_660",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9003,
+      "mask_path": "out/masks_vote3/video55_00588_660_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460512.765399
+    },
+    {
+      "frame_id": "video55_00668_668",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8374,
+      "mask_path": "out/masks_vote3/video55_00668_668_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460515.896301
+    },
+    {
+      "frame_id": "video55_00588_660",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7595,
+      "mask_path": "out/masks_vote3/video55_00588_660_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460518.107146
+    },
+    {
+      "frame_id": "video55_00668_668",
+      "video": "video55",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.2959,
+      "mask_path": "out/masks_vote3/video55_00668_668_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460520.802141
+    },
+    {
+      "frame_id": "video55_00668_668",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8357,
+      "mask_path": "out/masks_vote3/video55_00668_668_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460522.0730739
+    },
+    {
+      "frame_id": "video55_00668_676",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8567,
+      "mask_path": "out/masks_vote3/video55_00668_676_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460524.022362
+    },
+    {
+      "frame_id": "video55_00588_652",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9146,
+      "mask_path": "out/masks_vote3/video55_00588_652_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460524.2204428
+    },
+    {
+      "frame_id": "video55_00668_684",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3814,
+      "mask_path": "out/masks_vote3/video55_00668_684_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460526.621525
+    },
+    {
+      "frame_id": "video55_00668_676",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6876,
+      "mask_path": "out/masks_vote3/video55_00668_676_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460529.6730509
+    },
+    {
+      "frame_id": "video55_00668_684",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8799,
+      "mask_path": "out/masks_vote3/video55_00668_684_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460534.102836
+    },
+    {
+      "frame_id": "video55_00668_684",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8987,
+      "mask_path": "out/masks_vote3/video55_00668_684_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460534.452951
+    },
+    {
+      "frame_id": "video55_00668_676",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4085,
+      "mask_path": "out/masks_vote3/video55_00668_676_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460538.814993
+    },
+    {
+      "frame_id": "video55_00668_692",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8275,
+      "mask_path": "out/masks_vote3/video55_00668_692_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460539.8690188
+    },
+    {
+      "frame_id": "video55_00668_700",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7726,
+      "mask_path": "out/masks_vote3/video55_00668_700_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460541.229706
+    },
+    {
+      "frame_id": "video55_00668_692",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.4196,
+      "mask_path": "out/masks_vote3/video55_00668_692_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460542.647169
+    },
+    {
+      "frame_id": "video55_00668_700",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6737,
+      "mask_path": "out/masks_vote3/video55_00668_700_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460544.127862
+    },
+    {
+      "frame_id": "video55_00668_692",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.912,
+      "mask_path": "out/masks_vote3/video55_00668_692_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460549.203398
+    },
+    {
+      "frame_id": "video55_00668_716",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7715,
+      "mask_path": "out/masks_vote3/video55_00668_716_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460551.396789
+    },
+    {
+      "frame_id": "video55_00668_716",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7588,
+      "mask_path": "out/masks_vote3/video55_00668_716_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460553.046955
+    },
+    {
+      "frame_id": "video55_00668_708",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9,
+      "mask_path": "out/masks_vote3/video55_00668_708_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460554.400976
+    },
+    {
+      "frame_id": "video55_00668_708",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6243,
+      "mask_path": "out/masks_vote3/video55_00668_708_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460556.939015
+    },
+    {
+      "frame_id": "video55_00668_708",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8876,
+      "mask_path": "out/masks_vote3/video55_00668_708_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460559.014248
+    },
+    {
+      "frame_id": "video55_00668_700",
+      "video": "video55",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.1775,
+      "mask_path": "out/masks_vote3/video55_00668_700_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460560.681725
+    },
+    {
+      "frame_id": "video55_00668_700",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8404,
+      "mask_path": "out/masks_vote3/video55_00668_700_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460562.690204
+    },
+    {
+      "frame_id": "video55_00668_732",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6396,
+      "mask_path": "out/masks_vote3/video55_00668_732_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460569.405569
+    },
+    {
+      "frame_id": "video55_00668_724",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3607,
+      "mask_path": "out/masks_vote3/video55_00668_724_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460570.698912
+    },
+    {
+      "frame_id": "video55_00668_724",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.6915,
+      "mask_path": "out/masks_vote3/video55_00668_724_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460570.882854
+    },
+    {
+      "frame_id": "video55_00668_716",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.9092,
+      "mask_path": "out/masks_vote3/video55_00668_716_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460572.4686751
+    },
+    {
+      "frame_id": "video55_00668_724",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8766,
+      "mask_path": "out/masks_vote3/video55_00668_724_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460578.226559
+    },
+    {
+      "frame_id": "video55_00668_732",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8585,
+      "mask_path": "out/masks_vote3/video55_00668_732_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460580.2405
+    },
+    {
+      "frame_id": "video55_00668_724",
+      "video": "video55",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.1871,
+      "mask_path": "out/masks_vote3/video55_00668_724_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460584.5471969
+    },
+    {
+      "frame_id": "video55_00668_732",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.895,
+      "mask_path": "out/masks_vote3/video55_00668_732_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460585.4807
+    },
+    {
+      "frame_id": "video55_00668_740",
+      "video": "video55",
+      "label": "grasper",
+      "status": "accept",
+      "mean_pairwise_iou": 0.8932,
+      "mask_path": "out/masks_vote3/video55_00668_740_grasper.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460591.013244
+    },
+    {
+      "frame_id": "video55_00668_740",
+      "video": "video55",
+      "label": "liver",
+      "status": "AMBER",
+      "mean_pairwise_iou": 0.3125,
+      "mask_path": "out/masks_vote3/video55_00668_740_liver.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460595.645429
+    },
+    {
+      "frame_id": "video55_00668_740",
+      "video": "video55",
+      "label": "l_hook",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7695,
+      "mask_path": "out/masks_vote3/video55_00668_740_l_hook.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460596.386728
+    },
+    {
+      "frame_id": "video55_00668_740",
+      "video": "video55",
+      "label": "gallbladder",
+      "status": "accept",
+      "mean_pairwise_iou": 0.7684,
+      "mask_path": "out/masks_vote3/video55_00668_740_gallbladder.png",
+      "mask_source": "gemini-3.8-flash polygons, 3 drafts, majority vote",
+      "ts": 1793460599.398017
+    }
+  ]
+}

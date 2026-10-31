@@ -1,0 +1,52 @@
+{
+  "test_videos": [
+    {
+      "video": "video09",
+      "n_frames": 30,
+      "n_frames_with_boxes": 2,
+      "n_frames_with_masks": 24,
+      "n_frames_with_polygons": 24,
+      "n_frames_with_phase": 2
+    },
+    {
+      "video": "video17",
+      "n_frames": 40,
+      "n_frames_with_boxes": 2,
+      "n_frames_with_masks": 36,
+      "n_frames_with_polygons": 36,
+      "n_frames_with_phase": 2
+    },
+    {
+      "video": "video28",
+      "n_frames": 70,
+      "n_frames_with_boxes": 2,
+      "n_frames_with_masks": 68,
+      "n_frames_with_polygons": 68,
+      "n_frames_with_phase": 2
+    },
+    {
+      "video": "video48",
+      "n_frames": 30,
+      "n_frames_with_boxes": 2,
+      "n_frames_with_masks": 30,
+      "n_frames_with_polygons": 30,
+      "n_frames_with_phase": 2
+    },
+    {
+      "video": "video55",
+      "n_frames": 30,
+      "n_frames_with_boxes": 2,
+      "n_frames_with_masks": 30,
+      "n_frames_with_polygons": 30,
+      "n_frames_with_phase": 2
+    },
+    {
+      "video": "video12",
+      "n_frames": 80,
+      "n_frames_with_boxes": 80,
+      "n_frames_with_masks": 80,
+      "n_frames_with_polygons": 80,
+      "n_frames_with_phase": 80
+    }
+  ]
+}
