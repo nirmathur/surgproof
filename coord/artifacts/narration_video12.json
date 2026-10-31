@@ -498,6 +498,1489 @@
           ]
         }
       ]
+    },
+    {
+      "frame_id": "video12_15830_15830",
+      "narration": "The laparoscopic grasper maintains traction on the gallbladder while the L-hook electrocautery continues dividing fibrous attachments along the dissection plane. I am not yet confident in confirming the liver margins under this view.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15830",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15830",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15830",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15830",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15830",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscopic grasper maintains traction on the gallbladder while the L-hook electrocautery continues dividing fibrous attachments along the dissection plane. I am not yet confident in confirming the liver margins under this view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15830"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video12_15830_15830"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_15830_15838",
+      "narration": "The grasper maintains steady traction on the gallbladder while the L-hook electrocautery is used to dissect the peritoneal attachments along the plane. I am not yet confident in confirming the exact margins of the liver in this view.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15838",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15838",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15838",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15838",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15838",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The grasper maintains steady traction on the gallbladder while the L-hook electrocautery is used to dissect the peritoneal attachments along the plane. I am not yet confident in confirming the exact margins of the liver in this view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15838"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video12_15830_15838"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_15830_15846",
+      "narration": "The grasper provides steady retraction on the gallbladder to clearly display the interface with the liver. The L-hook electrocautery precisely divides the peritoneal attachments to advance the dissection.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15846",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15846",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15846",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15846",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15846",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15846",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The grasper provides steady retraction on the gallbladder to clearly display the interface with the liver. The L-hook electrocautery precisely divides the peritoneal attachments to advance the dissection.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15846"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_15830_15854",
+      "narration": "The grasper maintains upward traction on the gallbladder to clearly expose the dissection plane along the liver. Meanwhile, the L-hook electrocautery divides the fibrous attachments to carefully separate the gallbladder from the hepatic bed.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15854",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15854",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15854",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15854",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15854",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15854",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The grasper maintains upward traction on the gallbladder to clearly expose the dissection plane along the liver. Meanwhile, the L-hook electrocautery divides the fibrous attachments to carefully separate the gallbladder from the hepatic bed.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15854"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_15830_15862",
+      "narration": "The L-hook electrocautery continues dividing the fibrous attachments along the junction between the gallbladder and the liver. Simultaneously, the grasper provides steady traction to keep the dissection plane clearly exposed.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15862",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15862",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15862",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15862",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15862",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15862",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dividing the fibrous attachments along the junction between the gallbladder and the liver. Simultaneously, the grasper provides steady traction to keep the dissection plane clearly exposed.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15862"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_15830_15870",
+      "narration": "The L-hook electrocautery continues dissecting the peritoneal attachment along the junction between the gallbladder and the liver bed. Retraction applied by the grasper maintains necessary tension across the tissue plane.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15870",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15870",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15870",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15870",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15870",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15870",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissecting the peritoneal attachment along the junction between the gallbladder and the liver bed. Retraction applied by the grasper maintains necessary tension across the tissue plane.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15870"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_15830_15878",
+      "narration": "The L-hook electrocautery continues dissecting the peritoneal attachments between the gallbladder and the liver. Retraction provided by the grasper maintains tension across the tissue plane to ensure a clear dissection boundary.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15878",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15878",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15878",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15878",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15878",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15878",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissecting the peritoneal attachments between the gallbladder and the liver. Retraction provided by the grasper maintains tension across the tissue plane to ensure a clear dissection boundary.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15878"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_15830_15886",
+      "narration": "The L-hook electrocautery continues careful dissection of the peritoneal reflection between the gallbladder and liver bed. Dynamic grasper retraction sustains tension on the tissue plane to safely expose the dissection margin.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15886",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15886",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15886",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15886",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15886",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15886",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues careful dissection of the peritoneal reflection between the gallbladder and liver bed. Dynamic grasper retraction sustains tension on the tissue plane to safely expose the dissection margin.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15886"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_15830_15894",
+      "narration": "The L-hook electrocautery continues dividing the peritoneal attachments separating the gallbladder from the liver bed. Continuous tension applied by the grasper maintains clear visualization along the dissection plane.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15894",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15894",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15894",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15894",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15894",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15894",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dividing the peritoneal attachments separating the gallbladder from the liver bed. Continuous tension applied by the grasper maintains clear visualization along the dissection plane.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15894"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_15830_15902",
+      "narration": "The L-hook electrocautery continues dissecting along the cystic plate, separating the gallbladder from the underlying liver bed. Traction applied by the grasper maintains appropriate tension along the plane, ensuring careful separation without injuring the hepatic parenchyma.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_15830_15902",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15902",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15902",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15902",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_15830_15902",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_15830_15902",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissecting along the cystic plate, separating the gallbladder from the underlying liver bed. Traction applied by the grasper maintains appropriate tension along the plane, ensuring careful separation without injuring the hepatic parenchyma.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_15830_15902"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19500",
+      "narration": "The L-hook electrocautery continues retrograde dissection along the cystic plate to release the gallbladder from the liver bed under steady grasper retraction. Minor reddish discoloration is visible along the raw plane, though I am not yet confident whether active free blood is present.",
+      "unsure_about": [
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19500",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19500",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19500",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19500",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19500",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues retrograde dissection along the cystic plate to release the gallbladder from the liver bed under steady grasper retraction. Minor reddish discoloration is visible along the raw plane, though I am not yet confident whether active free blood is present.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19500"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19500"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19508",
+      "narration": "The L-hook electrocautery advances along the plane between the gallbladder and the liver bed to separate the attachments under steady grasper retraction. Reddish discoloration persists along the dissected plate, though I am not yet confident whether active free blood is present.",
+      "unsure_about": [
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19508",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19508",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19508",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19508",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19508",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery advances along the plane between the gallbladder and the liver bed to separate the attachments under steady grasper retraction. Reddish discoloration persists along the dissected plate, though I am not yet confident whether active free blood is present.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19508"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19508"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19516",
+      "narration": "The L-hook electrocautery continues dividing fibrous attachments to detach the gallbladder under firm grasper tension. At this stage, I am not yet confident in definitively identifying the exposed liver parenchyma or confirming the presence of free blood.",
+      "unsure_about": [
+        "liver",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19516",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19516",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19516",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19516",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dividing fibrous attachments to detach the gallbladder under firm grasper tension. At this stage, I am not yet confident in definitively identifying the exposed liver parenchyma or confirming the presence of free blood.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19516"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video12_19500_19516"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19516"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19524",
+      "narration": "The L-hook electrocautery continues dissecting the gallbladder away from the liver bed while graspers maintain stable traction. The liver parenchyma and cystic plate plane remain clearly visualized as retrograde separation proceeds.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19524",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19524",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19524",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19524",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19524",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_19500_19524",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissecting the gallbladder away from the liver bed while graspers maintain stable traction. The liver parenchyma and cystic plate plane remain clearly visualized as retrograde separation proceeds.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19524"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19532",
+      "narration": "The L-hook electrocautery continues dissecting along the cystic plate to release the gallbladder from the underlying liver bed. Subserosal separation is carried out along the avascular plane, although we are not yet confident identifying any grasper or extravasated blood in this view.",
+      "unsure_about": [
+        "grasper",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19532",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19532",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19532",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19532",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissecting along the cystic plate to release the gallbladder from the underlying liver bed. Subserosal separation is carried out along the avascular plane, although we are not yet confident identifying any grasper or extravasated blood in this view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19532"
+          ]
+        },
+        {
+          "text": "grasper (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19532"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19532"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19540",
+      "narration": "The L-hook electrocautery continues separating the gallbladder under retraction provided by the grasper, with no cystic duct visible in this field. We are not yet confident in confirming the underlying liver boundaries or any free extravasated blood.",
+      "unsure_about": [
+        "liver",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19540",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19540",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19540",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19540",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues separating the gallbladder under retraction provided by the grasper, with no cystic duct visible in this field. We are not yet confident in confirming the underlying liver boundaries or any free extravasated blood.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19540"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video12_19500_19540"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19540"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19548",
+      "narration": "The L-hook electrocautery and grasper continue tissue dissection adjacent to the liver bed, with no visible cystic duct or active extravasated blood. We are not yet confident in confirming the full margins of the gallbladder at this stage.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19548",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19548",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19548",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19548",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_19500_19548",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery and grasper continue tissue dissection adjacent to the liver bed, with no visible cystic duct or active extravasated blood. We are not yet confident in confirming the full margins of the gallbladder at this stage.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19548"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19548"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19556",
+      "narration": "The L-hook electrocautery continues dissection separating the gallbladder from the liver bed, with the cystic duct not visible in this view. We remain cautious as we are not yet confident in confirming any graspers or traces of free blood in the field.",
+      "unsure_about": [
+        "grasper",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19556",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19556",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19556",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19556",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissection separating the gallbladder from the liver bed, with the cystic duct not visible in this view. We remain cautious as we are not yet confident in confirming any graspers or traces of free blood in the field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19556"
+          ]
+        },
+        {
+          "text": "grasper (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19556"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19556"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19564",
+      "narration": "The L-hook electrocautery divides attachments between the gallbladder and the liver bed while a laparoscopic grasper maintains tissue tension. The cystic duct is not in view, and no free blood is seen.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19564",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19564",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19564",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19564",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19564",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_19500_19564",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery divides attachments between the gallbladder and the liver bed while a laparoscopic grasper maintains tissue tension. The cystic duct is not in view, and no free blood is seen.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19564"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19500_19572",
+      "narration": "The L-hook electrocautery continues freeing the gallbladder from the liver bed under grasper traction, with no visible cystic duct in the current field. Dissection is proceeding in this plane, though we are not yet confident regarding the presence of blood along the dissected surface.",
+      "unsure_about": [
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19500_19572",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19572",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19572",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19572",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19500_19572",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues freeing the gallbladder from the liver bed under grasper traction, with no visible cystic duct in the current field. Dissection is proceeding in this plane, though we are not yet confident regarding the presence of blood along the dissected surface.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19500_19572"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19500_19572"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19580",
+      "narration": "The grasper continues providing retraction to separate the gallbladder from the underlying liver bed, while the cystic duct remains outside the field of view. We are not yet confident in identifying the L-hook electrocautery or any pooling blood along the dissection interface.",
+      "unsure_about": [
+        "l_hook",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19580",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19580",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19580",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19580",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The grasper continues providing retraction to separate the gallbladder from the underlying liver bed, while the cystic duct remains outside the field of view. We are not yet confident in identifying the L-hook electrocautery or any pooling blood along the dissection interface.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19580"
+          ]
+        },
+        {
+          "text": "l_hook (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19580"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19580"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19588",
+      "narration": "The L-hook electrocautery divides the fibrous attachments between the gallbladder and the liver bed while the grasper maintains steady retraction. The cystic duct remains out of view, and we are not yet confident in identifying extravasated blood along the active dissection line.",
+      "unsure_about": [
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19588",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19588",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19588",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19588",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19588",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery divides the fibrous attachments between the gallbladder and the liver bed while the grasper maintains steady retraction. The cystic duct remains out of view, and we are not yet confident in identifying extravasated blood along the active dissection line.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19588"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19588"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19596",
+      "narration": "The L-hook electrocautery continues dissecting the gallbladder along the subserosal plane, while the cystic duct is not visible. At this moment, we are not yet confident in confirming the liver boundaries, grasper engagement, or active blood pooling.",
+      "unsure_about": [
+        "grasper",
+        "liver",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19596",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19596",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19596",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissecting the gallbladder along the subserosal plane, while the cystic duct is not visible. At this moment, we are not yet confident in confirming the liver boundaries, grasper engagement, or active blood pooling.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19596"
+          ]
+        },
+        {
+          "text": "grasper (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video12_19580_19596"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video12_19580_19596"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19596"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19604",
+      "narration": "The L-hook electrocautery continues dissecting the gallbladder off the adjacent liver bed. We are not yet confident in confirming the presence of any active bleeding or pooled blood.",
+      "unsure_about": [
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19604",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video12_19580_19604",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19604",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19604",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19604",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissecting the gallbladder off the adjacent liver bed. We are not yet confident in confirming the presence of any active bleeding or pooled blood.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19604"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19604"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19612",
+      "narration": "Under grasper retraction, the L-hook electrocautery methodically mobilizes the gallbladder from the underlying liver bed. We are not yet confident in confirming the presence of any extravasated blood or active bleeding.",
+      "unsure_about": [
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19612",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19612",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19612",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19612",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19612",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "Under grasper retraction, the L-hook electrocautery methodically mobilizes the gallbladder from the underlying liver bed. We are not yet confident in confirming the presence of any extravasated blood or active bleeding.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19612"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19612"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19620",
+      "narration": "The L-hook electrocautery continues to dissect the gallbladder off the glistening liver bed. We are not yet confident in identifying an engaged grasper or any free blood in the field.",
+      "unsure_about": [
+        "grasper",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19620",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19620",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19620",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19620",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues to dissect the gallbladder off the glistening liver bed. We are not yet confident in identifying an engaged grasper or any free blood in the field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19620"
+          ]
+        },
+        {
+          "text": "grasper (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video12_19580_19620"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19620"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19628",
+      "narration": "The L-hook electrocautery continues retrogradely developing the dissection plane to separate the gallbladder from the liver bed. At this point, we are not yet confident in confirming the presence of an engaged grasper or extravasated blood.",
+      "unsure_about": [
+        "grasper",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19628",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19628",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19628",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19628",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues retrogradely developing the dissection plane to separate the gallbladder from the liver bed. At this point, we are not yet confident in confirming the presence of an engaged grasper or extravasated blood.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19628"
+          ]
+        },
+        {
+          "text": "grasper (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19628"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19628"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19636",
+      "narration": "The L-hook electrocautery continues dissecting the peritoneal attachment to mobilize the gallbladder off the liver bed. While traction is being maintained, we are not yet confident in confirming the identification of an active grasper in this view.",
+      "unsure_about": [
+        "grasper"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19636",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19636",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19636",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19636",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_19580_19636",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissecting the peritoneal attachment to mobilize the gallbladder off the liver bed. While traction is being maintained, we are not yet confident in confirming the identification of an active grasper in this view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19636"
+          ]
+        },
+        {
+          "text": "grasper (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19636"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19644",
+      "narration": "The L-hook electrocautery continues mobilizing the gallbladder away from the liver bed. Traction is maintained with the laparoscopic grasper to keep the dissection plane well-exposed.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19644",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19644",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19644",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19644",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19644",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_19580_19644",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues mobilizing the gallbladder away from the liver bed. Traction is maintained with the laparoscopic grasper to keep the dissection plane well-exposed.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19644"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video12_19580_19652",
+      "narration": "The L-hook electrocautery continues dissecting the peritoneal and fibrous attachments separating the gallbladder from the liver bed. Retraction appears to be applied to provide exposure, though I am not yet confident in confirming the presence of a grasper at the margin.",
+      "unsure_about": [
+        "grasper"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video12_19580_19652",
+          "key": "l_hook",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19652",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19652",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video12_19580_19652",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video12_19580_19652",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The L-hook electrocautery continues dissecting the peritoneal and fibrous attachments separating the gallbladder from the liver bed. Retraction appears to be applied to provide exposure, though I am not yet confident in confirming the presence of a grasper at the margin.",
+          "status": "verified",
+          "evidence_frames": [
+            "video12_19580_19652"
+          ]
+        },
+        {
+          "text": "grasper (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video12_19580_19652"
+          ]
+        }
+      ]
     }
   ]
 }
