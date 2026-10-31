@@ -678,7 +678,35 @@ def format_markdown_report(res: dict) -> str:
 
     lines.extend([
         "",
-        "## 5. What a Judge Could Attack & Defenses",
+        "## 5. External Held-Out Datasets (Endoscapes2023 & CholecT50, Video-Level Cluster Bootstrap 95% CIs)",
+    ])
+    ext_val = res.get("external_validation", {})
+    if ext_val:
+        for ds_name, ds_info in ext_val.items():
+            lines.append(
+                f"- **{ds_name}** ({ds_info.get('n_frames')} frames, {ds_info.get('n_videos')} videos; "
+                f"scorable: `{ds_info.get('scorable_labels')}`, pos_counts: `{ds_info.get('pos_counts')}`)"
+            )
+            raw_ev = ds_info.get("raw_labels_eval")
+            if raw_ev and raw_ev.get("headline_5_labels_acc"):
+                h = raw_ev["headline_5_labels_acc"]
+                rc = raw_ev.get("headline_5_risk_coverage") or {}
+                lines.append(
+                    f"  - Raw (`{raw_ev['file']}`, {raw_ev['n_test_rows']} test rows, {raw_ev['n_test_videos']} videos): "
+                    f"scorable acc = `{h['point']:.4f}` (95% video CI `{h['ci95']}`), "
+                    f"coverage@95% = `{rc.get('coverage_at_95')}`, AURC = `{rc.get('aurc')}`"
+                )
+                per_l = ", ".join(
+                    f"{k}={v['acc']['point']:.3f} {v['acc']['ci95']} (pos={v['n_pos_gt']}/{v['n_frames']})"
+                    for k, v in raw_ev.get("per_label", {}).items()
+                )
+                lines.append(f"  - Per-label: {per_l}")
+    else:
+        lines.append("- *No external datasets found.*")
+
+    lines.extend([
+        "",
+        "## 6. What a Judge Could Attack & Defenses",
     ])
     for atk in res.get("judge_attack_vectors", []):
         lines.append(f"### [{atk['severity']}] {atk['id']} (`{atk['status']}`)")

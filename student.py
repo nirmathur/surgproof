@@ -53,14 +53,15 @@ def _l2_normalize(X):
     return X / np.maximum(norms, 1e-8)
 
 
-def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True):
+def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True, return_model=False):
     y = np.asarray(y, dtype=int)
     yte = np.asarray(yte, dtype=int)
     valid_tr = np.isin(y, [0, 1])
     X, y = X[valid_tr], y[valid_tr]
     if len(y) == 0:
-        return None, None
+        return (None, None, None) if return_model else (None, None)
     uniq = np.unique(y)
+    m = None
     if len(uniq) < 2:
         # Constant-class fallback so every source is evaluated across the same label set
         const_val = float(uniq[0])
@@ -75,7 +76,7 @@ def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True):
 
     valid_te = np.isin(yte, [0, 1])
     if not np.any(valid_te):
-        return {
+        res_unscorable = {
             "n_train": int(len(y)),
             "n_pos_train": int(y.sum()),
             "n_test_scorable": 0,
@@ -85,7 +86,8 @@ def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True):
             "informative": False,
             "excluded_from_headline": True,
             "unscorable_on_test": True,
-        }, p
+        }
+        return (res_unscorable, p, m) if return_model else (res_unscorable, p)
 
     yte_v = yte[valid_te]
     p_v = p[valid_te]
@@ -109,7 +111,75 @@ def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True):
         out["single_class_fallback"] = True
     if len(np.unique(yte_v)) == 2:
         out["auroc"] = round(float(roc_auc_score(yte_v, p_v)), 4)
-    return out, p
+    return (out, p, m) if return_model else (out, p)
+
+
+def _eval_trained_models_on_external(models_by_key_source: dict, const_by_key_source: dict, data_dir):
+    ext_root = data_dir / "external"
+    if not ext_root.exists():
+        return {}
+    ext_results = {}
+    for ext_idx_p in sorted(ext_root.glob("*/index.csv")):
+        ds_name = ext_idx_p.parent.name
+        feat_p = ext_idx_p.parent / "features.npy"
+        if not feat_p.exists():
+            continue
+        ext_idx = pd.read_csv(ext_idx_p)
+        ext_X = np.load(feat_p)
+        if len(ext_X) != len(ext_idx):
+            continue
+        te_mask = (ext_idx.split == "test").values if "split" in ext_idx.columns else np.ones(len(ext_idx), dtype=bool)
+        ext_te = ext_idx[te_mask]
+        X_ext_te = _l2_normalize(ext_X[te_mask])
+        if len(ext_te) == 0:
+            continue
+
+        per_label_ext = {}
+        for key in C.LABELS:
+            col = f"gt_{key}"
+            if col not in ext_te.columns:
+                continue
+            yte = ext_te[col].values
+            valid = np.isin(yte, [0, 1])
+            if not np.any(valid):
+                continue
+            yte_v = yte[valid].astype(int)
+            X_v = X_ext_te[valid]
+            per_label_ext[key] = {}
+            for name, m in models_by_key_source.get(key, {}).items():
+                if m is not None:
+                    p_v = m.predict_proba(X_v)[:, 1]
+                else:
+                    cval = const_by_key_source.get(key, {}).get(name, 0.0)
+                    p_v = np.full(len(yte_v), cval, dtype=float)
+                preds = (p_v >= 0.5).astype(int)
+                entry = {
+                    "n_test_scorable": int(len(yte_v)),
+                    "n_pos_test_gt": int(yte_v.sum()),
+                    "acc": round(float((preds == yte_v).mean()), 4),
+                    "f1": round(float(f1_score(yte_v, preds, zero_division=0)), 4),
+                    "is_upper_bound": bool(name in UPPER_BOUND_SOURCES),
+                }
+                if len(np.unique(yte_v)) == 2:
+                    entry["auroc"] = round(float(roc_auc_score(yte_v, p_v)), 4)
+                per_label_ext[key][name] = entry
+
+        mean_acc_ext, mean_auroc_ext = {}, {}
+        for name in SOURCE_ORDER:
+            vals = [per_label_ext[k][name]["acc"] for k in per_label_ext if name in per_label_ext[k]]
+            aucs = [per_label_ext[k][name]["auroc"] for k in per_label_ext if name in per_label_ext[k] and "auroc" in per_label_ext[k][name]]
+            if vals:
+                mean_acc_ext[name] = round(float(np.mean(vals)), 4)
+            if aucs:
+                mean_auroc_ext[name] = round(float(np.mean(aucs)), 4)
+        ext_results[ds_name] = {
+            "n_test_frames": int(len(ext_te)),
+            "scorable_labels": sorted(per_label_ext.keys()),
+            "mean_acc_by_source": mean_acc_ext,
+            "mean_auroc_by_source": mean_auroc_ext,
+            "per_label": per_label_ext,
+        }
+    return ext_results
 
 
 def _load_vote_source(tr):
@@ -162,6 +232,7 @@ def main():
         print("no vote labels found, skipping vote source")
 
     results, probs = {}, {"frame_id": te_idx.frame_id.values}
+    models_by_key_source, const_by_key_source = {}, {}
     for key in C.LABELS:
         yte = te_idx[f"gt_{key}"].values
         is_informative = (key not in UNINFORMATIVE_LABELS) and (len(np.unique(yte)) == 2)
@@ -175,19 +246,25 @@ def main():
         if vote is not None:
             sources["vote"] = vote[vote.key == key][["frame_id", "present"]]
         results[key] = {}
+        models_by_key_source[key] = {}
+        const_by_key_source[key] = {}
         for name in [s for s in SOURCE_ORDER if s in sources]:
             s = sources[name]
             s = s[s.frame_id.isin(row_of)]
             rows = [row_of[f] for f in s.frame_id]
-            r, p = fit_eval(
+            r, p, m = fit_eval(
                 X[rows],
                 s.present.values,
                 Xte,
                 yte,
                 is_upper_bound=(name in UPPER_BOUND_SOURCES),
                 informative=is_informative,
+                return_model=True,
             )
             results[key][name] = r
+            if r is not None:
+                models_by_key_source[key][name] = m
+                const_by_key_source[key][name] = float(s.present.values[0]) if len(s) else 0.0
             if p is not None:
                 probs[f"{key}__{name}"] = p
 
@@ -249,6 +326,7 @@ def main():
         ),
         "source_metadata": {k: v for k, v in SOURCE_META.items() if k in summary},
         "per_label": results,
+        "external_test_evaluation": _eval_trained_models_on_external(models_by_key_source, const_by_key_source, C.DATA_DIR),
     }
     (C.OUT_DIR / "student.json").write_text(json.dumps(out, indent=2))
     pd.DataFrame(probs).to_csv(C.OUT_DIR / "student_probs.csv", index=False)
