@@ -23,6 +23,12 @@ from pydantic import BaseModel
 import config as C
 import gem
 
+try:
+    gem._db.execute("PRAGMA journal_mode=WAL")
+    gem._db.execute("PRAGMA busy_timeout=30000")
+except Exception:
+    pass
+
 
 class Item(BaseModel):
     key: str
