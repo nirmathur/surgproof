@@ -78,6 +78,12 @@ def test_rendered_promo_cut_passes_director_checks():
     for sid, sinfo in m["shots"].items():
         wc = int(sinfo.get("word_count", 0))
         assert wc <= 6, f"Shot {sid} caption exceeds 6 words ({wc})"
+    s6 = m["shots"].get("shot_06_result", {})
+    if s6.get("hero_number"):
+        assert s6.get("hero_number_source"), "shot_06_result must report hero_number_source in manifest.json"
+    for s_key in ("shot_03_labels", "shot_04_verify"):
+        shown = m["shots"].get(s_key, {}).get("shown_labels")
+        assert isinstance(shown, list) and len(shown) > 0, f"{s_key} must record shown_labels in manifest.json"
 
 
 def test_promo_code_has_zero_fabricated_boxes_or_verdicts():

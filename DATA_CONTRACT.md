@@ -69,3 +69,14 @@ Legacy shape `{frame_id, narration, unsure_about[]}` (current narrate.py) still 
 `labels_smoke.jsonl`. Uses `frame_id, video, key, present, conf, box, evidence, pv_match, p_wrong, critic`, plus `status,
 final_present, final_by, frame_path` when decisions exist. Frame image from `frame_path`, else derived from `frame_id`.
 No accuracy is computed here (GT scoring comes from `results.json`).
+
+## Update 2026-10-31 14:05 (main merged; app.py = nir-demo's superset of the UI lane's tabs)
+- **results.json** now real (smoke: `n_test_labels = 90`). The loop tab also reads `n_test_labels`,
+  `accepted_5_informative.{accuracy, coverage, n_test_labels_excl_liver}` and
+  `amber_loop.{max_rounds, ambers_by_round_test[], per_round_test[]{accepted_count, rejected_count}}`.
+  Below 1000 scored test labels, the UI shows an "interim smoke run" warning.
+- **decisions.csv, student.json, amber_rounds.jsonl, verified_dataset.jsonl** are real in `coord/artifacts/` (DESIGN.md 1B/1D/4).
+- **Narration**: reads `narrator/out/claims.parquet` first (contract `coordination/contracts/narrator_outputs.md`):
+  `claim_id, clip_id, video_id, mode, t_start, t_end, text, verdict, L1..L7, P, source`, plus `narrator/out/evidence/index.json`.
+  Mapping: `speak` → verified; `drop` with any layer `fail` → contradicted; everything else → unsupported. Final narration = verified only.
+  Rows with `source = mock` are hidden. `gt_correct` is never shown. Falls back to `out/narration_<video>.json`.

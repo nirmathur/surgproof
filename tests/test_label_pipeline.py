@@ -171,3 +171,33 @@ def test_accept_fallback_no_gt_leakage_and_pv_match_types():
     assert accept.trust(r_rej) == pytest.approx(0.10)
     assert accept.status(accept.trust(r_rej)) == "reject"
 
+
+def test_emitted_label_jsonls_zero_gt_and_valid_boxes():
+    expected_counts = {
+        "labels_manual.jsonl": 6060,
+        "labels_blank.jsonl": 1680,
+        "labels_endoscapes2023_manual.jsonl": 354,
+        "labels_endoscapes2023_blank.jsonl": 354,
+        "labels_cholect50_manual.jsonl": 720,
+        "labels_cholect50_blank.jsonl": 720,
+    }
+    for fname, exp_n in expected_counts.items():
+        p = C.OUT_DIR / fname
+        if not p.exists():
+            continue
+        rows = [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+        assert len(rows) == exp_n, f"{fname} expected {exp_n} rows, got {len(rows)}"
+        for r in rows:
+            assert "truth" not in r and not any(k.startswith("gt_") for k in r)
+            assert isinstance(r.get("evidence"), str)
+            assert "black frame" not in r["evidence"].lower()
+            if r["present"] == 1:
+                assert len(r["evidence"]) > 0
+                box = r.get("box", [])
+                assert isinstance(box, list) and len(box) == 4
+                y0, x0, y1, x1 = box
+                assert 0 <= y0 < y1 <= 1000 and 0 <= x0 < x1 <= 1000
+            else:
+                assert r.get("box") == []
+
+

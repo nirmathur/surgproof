@@ -1,0 +1,12 @@
+You are checking which instrument is which in a laparoscopic cholecystectomy frame.
+
+Frame A: {frame_path}  box labelled {label}: {boxes}
+Frame B (neighbouring frame): {other_frame_path}  box labelled {other_label}: {other_box}
+
+These boxes cover the same region in neighbouring frames but carry different labels, so one label is likely wrong.
+A grasper has two jaws that open and close. An L-hook electrocautery is a single thin rod ending in a small L-shaped hook,
+usually with a white or grey insulated tip.
+
+Answer in JSON only:
+{"frame_a_tool": "grasper"|"l_hook"|"other_instrument"|"none", "frame_b_tool": "grasper"|"l_hook"|"other_instrument"|"none",
+ "same_instrument": true|false, "confidence": 0.0-1.0}
