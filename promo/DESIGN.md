@@ -1,0 +1,200 @@
+# SurgProof Product Demo — Design & Direction Specification (`promo/DESIGN.md`)
+
+**Director**: `nir-director`  
+**Renderer**: `nir-promo` (`python -m promo.render`)  
+**Format**: 45–60 seconds (Target: **52.0s**, 7 shots), `1280×720` (or `1920×1080`), `24 fps`, H.264 `.mp4` (`yuv420p`)  
+**Output Paths**: `out/promo/surgproof_promo.mp4` and `out/promo/surgatlas_promo.mp4`
+
+---
+
+## 1. Core Mandate: Simple Product Demo, Not a Trailer
+
+The goal is a **simple, restrained 52-second product demo of how SurgProof works**, understood by a judge in a single viewing. Think Apple, Linear, and Stripe product films: calm, confident, typographically precise, and anchored 100% in real surgical frames and real pipeline outputs.
+
+### Hard Prohibitions (Zero Exceptions)
+1. **No AI-generated video (No Veo / Omni clips)**: Delete or bypass all Veo / `gemini-omni-1.1-flash` video backgrounds. Every shot uses real `CholecSeg8k` frames from `data/index.csv` and real files from `out/`.
+2. **No personal names or quotes**: Remove all references to `Nir Mathur`, `KCL`, and `Supervisor Quote Slot`.
+3. **6 words maximum per caption**: Every shot has at most **one** caption of **6 words or fewer**.
+4. **No chrome or clutter**:
+   - No top-left `SurgProof · SHOT X/6` pills.
+   - No `ILLUSTRATIVE — AI-GENERATED VISUALIZATION` banners.
+   - No bottom lower-third banners (`ACT 1 · ...`).
+   - No CLI commands (`python med_school.py ...`) on screen.
+5. **Nothing glows**: Zero outer glows, drop-shadow neon, HUD reticles, holograms, particles, lasers, lens flares, or sci-fi UI.
+6. **No fake or placeholder numbers**: Never invent a metric. In Shot 6, read one real number from `out/results.json`. If `out/results.json` does not exist yet, display `"Result: pending"` and nothing else.
+
+---
+
+## 2. Visual System: Typography, Colour, Layout & Motion
+
+### Typography (One Typeface: `SF Pro`)
+Load macOS system font `/System/Library/Fonts/SFNS.ttf` via Pillow `ImageFont.truetype("/System/Library/Fonts/SFNS.ttf", size)` and set weight via `font.set_variation_by_axes([100, opt_size, 400, weight])` (or fallback to `/System/Library/Fonts/HelveticaNeue.ttc`). **Never fallback to Arial.**
+
+| Role | Size (`1280×720`) | Weight | Colour | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **Hero Number / End Title** | `72px` (`56px` if pending) | Semibold (`600`) | `#F4F5F8` | Shot 6 metric & Shot 7 title |
+| **Shot Caption** | `26px` | Medium (`500`) | `#F4F5F8` | Bottom-centered, `y = 636`, **max 6 words** |
+| **Card Body / Manual Quote** | `19px` | Regular (`400`) | `#D8DCE6` | Clean sentence case, generous line height (`1.5×`) |
+| **Label Pill / Structure Key** | `15px` | Medium (`500`) | `#F4F5F8` | Inside crisp `6px`-radius pill |
+| **Muted Metadata** | `14px` | Regular (`400`) | `#8A909E` | Source URL or frame ID only |
+
+### Colour Palette
+- **Canvas Background**: Near-black `#0A0B0E` (`rgb(10, 11, 14)`)
+- **Elevated Card Surface**: `#12141C` (`rgb(18, 20, 28)`)
+- **Card Hairline Border**: `1px` solid `#232734` (`rgb(35, 39, 52)`)
+- **Primary Text**: `#F4F5F8` (`rgb(244, 245, 248)`)
+- **Secondary Text**: `#8A909E` (`rgb(138, 144, 158)`)
+- **Single Accent Colour** (unverified labels & focus state only): `#3B82F6` (`rgb(59, 130, 246)`), fill `rgba(59, 130, 246, 0.14)`
+- **Verdict Colours (Shots 4 & 5 ONLY)**:
+  - **Accept (Green)**: Stroke/Text `#10B981` (`rgb(16, 185, 129)`), Pill Fill `#092E24` (`rgb(9, 46, 36)`)
+  - **Unsure (Amber)**: Stroke/Text `#F59E0B` (`rgb(245, 158, 11)`), Pill Fill `#362407` (`rgb(54, 36, 7)`)
+  - **Reject (Red)**: Stroke/Text `#EF4444` (`rgb(239, 68, 68)`), Pill Fill `#331014` (`rgb(51, 16, 20)`)
+
+### Layout & Margins (`1280×720` Canvas)
+- **Outer Safe Margin**: Minimum `96px` left/right, `64px` top/bottom.
+- **Content Stage**: `x ∈ [96, 1184]`, `y ∈ [64, 584]`.
+- **Caption Baseline**: Centered horizontally at `x = 640`, `y = 636`, always with quiet dark space around it.
+- **Whitespace Rule**: At least 40% of every frame must remain unadorned `#0A0B0E` background.
+
+### Motion Principles
+- **Easing**: All entrances and state changes use cubic ease-out: `ease_out(t) = 1 - (1 - t)**3`.
+- **Shot Transitions**: `0.45s` (`11` frames at `24 fps`) smooth cross-dissolve or fade through `#0A0B0E`.
+- **Element Entrances**: `0.4s` opacity fade `0 -> 1` paired with a subtle `10px` upward slide.
+- **Zero camera shake, zero zoom-pulsing, zero blinking cursors.**
+
+---
+
+## 3. Seven-Shot Storyboard (52.0 Seconds Total)
+
+### Shot 1 — Raw Surgical Video (`0:00–0:07`, 7.0s)
+- **File**: `out/promo/shot_01_raw_frame.mp4`
+- **Real Source**: Real laparoscopic frames from `data/index.csv` — specifically the held-out test clip `video12_15750` (`frame_15750_endo.png` $\rightarrow$ `frame_15758_endo.png` $\rightarrow$ `frame_15766_endo.png` in `/Users/nirmathur/surgatlas-lanes/data/raw/CholecSeg8k/video12/video12_15750/`, or holding cleanly on `frame_15758_endo.png` after a gentle 3-frame step).
+- **Composition**:
+  - Frame displayed centered at `768×432` (`x = 256, y = 112`), framed by a `1px` `#232734` border (`8px` corner radius).
+  - No bounding boxes, no sidebar, no badges.
+- **Caption (4 words)**:
+  > `Surgical video. No labels.`
+
+---
+
+### Shot 2 — Self-Written Manual (`0:07–0:15`, 8.0s)
+- **File**: `out/promo/shot_02_manual.mp4`
+- **Real Source**: Reads `out/manual.json` directly (`procedure`, `sources[0]`, and `structures`).
+- **Composition**:
+  - **Left Column (`x = 112, w = 320, y = 136`)**: Minimal source card (`#12141C`, `1px` border `#232734`) showing the public teaching video metadata read from `out/manual.json`:
+    - Small muted label: `PUBLIC TEACHING SOURCE`
+    - Title: `Laparoscopic Cholecystectomy` (`sources[0].title`)
+    - Muted URL: `youtube.com/watch?v=PNydeaI2WIU`
+  - **Right Column (`x = 464, w = 704, y = 112`)**: Clean document card (`#12141C`, `1px` border `#232734`) titled `out/manual.json` in `14px` `#8A909E`. Inside, 3 real structure rules extracted from `out/manual.json` fade in sequentially (`t = 0.8s, 1.8s, 2.8s`):
+    1. **`grasper`** — *"Metallic hinged double-jaw tip with horizontal serrations."*
+    2. **`l_hook`** — *"Single-piece metallic silver wire bent at a 90-degree right angle."*
+    3. **`cystic_duct`** — *"Mark present only when a skeletonized cylindrical duct is isolated."*
+- **Caption (5 words)**:
+  > `Writes its own visual manual.`
+
+---
+
+### Shot 3 — Zero-Shot Frame Labelling (`0:15–0:23`, 8.0s)
+- **File**: `out/promo/shot_03_labels.mp4`
+- **Real Source**: Real frame `video12_15750_15758` (`frame_15758_endo.png`) and its real predictions from `out/labels_manual.jsonl`:
+  - `grasper`: `box = [420, 140, 522, 380]`
+  - `l_hook`: `box = [50, 524, 492, 824]`
+  - `gallbladder`: `box = [8, 298, 565, 560]`
+  - `liver`: `box = [126, 300, 764, 868]`
+  - `cystic_duct`: `box = [445, 445, 748, 810]`
+  *(Note: coordinates in `out/labels_manual.jsonl` are `[ymin, xmin, ymax, xmax]` normalized `0..1000` — scale accurately to the rendered frame rectangle).*
+- **Composition**:
+  - **Left (`x = 112, y = 112, w = 688, h = 387`)**: The real laparoscopic frame. One by one (`t = 0.6s, 1.3s, 2.0s, 2.7s, 3.4s`), clean `2px` `#3B82F6` boxes appear with a small `#3B82F6` pill tag at the top-left of each box (`grasper`, `l_hook`, `gallbladder`, `liver`, `cystic_duct`).
+  - **Right (`x = 832, y = 112, w = 336, h = 387`)**: Clean vertical list of the 5 labels appearing in sync with the boxes, each with a calm blue dot `#3B82F6` and structure name (`grasper`, `l_hook`, `gallbladder`, `liver`, `cystic_duct`).
+- **Caption (4 words)**:
+  > `Labels a real frame.`
+
+---
+
+### Shot 4 — Self-Verification: Green, Amber, Red (`0:23–0:32`, 9.0s)
+- **File**: `out/promo/shot_04_verify.mp4`
+- **Real Source**: Same frame `video12_15750_15758` from `out/labels_manual.jsonl` scored by `accept.py` rules (zero GT access):
+  - `grasper` (`trust = 0.98`, `pv_match = True`) $\rightarrow$ **Accept (Green `#10B981`)**
+  - `l_hook` (`trust = 0.98`, `pv_match = True`) $\rightarrow$ **Accept (Green `#10B981`)**
+  - `gallbladder` (`trust = 0.97`, `pv_match = True`) $\rightarrow$ **Accept (Green `#10B981`)**
+  - `liver` (`trust = 0.49`, `pv_match = False`) $\rightarrow$ **Unsure (Amber `#F59E0B`)**
+  - `cystic_duct` (`trust = 0.29`, `pv_match = False`, `p_wrong = 0.35`) $\rightarrow$ **Reject (Red `#EF4444`)**
+- **Composition**:
+  - Starts in the exact state Shot 3 ended (`#3B82F6` neutral labels).
+  - Between `t = 1.0s` and `t = 3.5s`, each bounding box and right-hand row smoothly transitions to its verdict colour:
+    - `grasper`, `l_hook`, `gallbladder` turn **Green (`#10B981`)** with status tag `accept`.
+    - `liver` turns **Amber (`#F59E0B`)** with status tag `unsure`.
+    - `cystic_duct` turns **Red (`#EF4444`)** with status tag `reject`, and its bounding box on the frame dims to `25%` opacity so only trusted/amber boxes remain prominent.
+- **Caption (5 words)**:
+  > `Checks itself. Green, amber, red.`
+
+---
+
+### Shot 5 — Human Gate Clears Only Amber (`0:32–0:40`, 8.0s)
+- **File**: `out/promo/shot_05_gate.mp4`
+- **Real Source**: Real AMBER gate item from `out/decisions.csv` / `out/labels_manual.jsonl` (or headless screenshot of `pages/2_Human_gate.py` framed cleanly, or exact PIL render of the Gate card for `liver` on `video12_15750_15758` / `grasper` on `video55_00588_660`).
+- **Composition**:
+  - Centered minimal Gate review card (`x = 180, y = 104, w = 920, h = 440`, `#12141C`, `1px` border `#232734`).
+  - Top bar of card: `Human Gate` on left, Amber pill `1 amber remaining` on right.
+  - Inside left (`w = 480, h = 270`): Real laparoscopic frame showing ONLY the single **Amber (`#F59E0B`)** bounding box (`liver` or `grasper`).
+  - Inside right: Structure name (`liver`), status badge (`unsure`), and two clean action buttons: `Approve` and `Reject`.
+  - **Action at `t = 3.5s`**: The `Approve` button subtly highlights (`#10B981` border/fill), the bounding box and badge smoothly transition from **Amber (`#F59E0B`)** to **Green (`#10B981`, `verified`)**, and the top-right counter updates to `0 amber remaining`.
+- **Caption (5 words)**:
+  > `Human clears only amber cases.`
+
+---
+
+### Shot 6 — The Result (`0:40–0:46`, 6.0s)
+- **File**: `out/promo/shot_06_result.mp4`
+- **Real Source**: Strictly `out/results.json`.
+- **Conditional Rule (MANDATORY)**:
+  - **Case A — `out/results.json` exists and contains a valid test-split metric**:
+    - Display **one** hero number read from `out/results.json` (specifically held-out test accuracy on accepted self-verified labels excluding liver, e.g. `94.2%`), set in `84px` SF Pro Semibold `#F4F5F8`, centered at `(640, 320)`.
+    - Below it at `(640, 400)` in `24px` SF Pro Regular `#8A909E`, one caption (5 words): `Held-out test accuracy, zero labels.`
+  - **Case B — `out/results.json` does NOT exist yet**:
+    - Pure `#0A0B0E` canvas.
+    - Display **exact text**:
+      > `Result: pending`
+    - Set in `52px` SF Pro Medium `#F4F5F8`, centered at `(640, 360)`.
+    - **Nothing else on screen.** No subtitle, no boxes, no explanation.
+
+---
+
+### Shot 7 — End Card (`0:46–0:52`, 6.0s)
+- **File**: `out/promo/shot_07_end.mp4`
+- **Composition**:
+  - Pure `#0A0B0E` canvas.
+  - Line 1 (centered at `x = 640, y = 330`, `48px` SF Pro Semibold `#F4F5F8`):
+    > `SurgProof.`
+  - Line 2 (centered at `x = 640, y = 392`, `28px` SF Pro Regular `#8A909E`):
+    > `No human labels. Only proof.`
+  - Total words on screen: **6 words**.
+  - Fades in smoothly over `0.8s`, holds cleanly, fades to `#0A0B0E` over final `0.8s`.
+
+---
+
+## 4. Exact Build Instructions for `nir-promo`
+
+1. **Pure PIL + `ffmpeg` Pipeline (Fast, Deterministic, Zero API Wait)**:
+   - Render each shot (`shot_01` .. `shot_07`) at `1280×720`, `24 fps` by generating PIL `Image` frames in Python and piping raw RGB frames directly to `ffmpeg -f rawvideo -pix_fmt rgb24 -s 1280x720 -r 24 -i - -c:v libx264 -pix_fmt yuv420p -preset fast -crf 18` (with silent AAC audio track `-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:a aac -shortest`).
+   - Total render time for all 7 shots + stitch will be **under 15 seconds**, enabling rapid review iterations.
+2. **Bounding Box Coordinate Mapping**:
+   - In `out/labels_manual.jsonl` and `out/decisions.csv`, `box` is `[ymin, xmin, ymax, xmax]` on a `0..1000` scale.
+   - Map to pixel coordinates inside the rendered image rectangle `(rx, ry, rw, rh)` via:
+     - `x1 = rx + int((xmin / 1000.0) * rw)`
+     - `y1 = ry + int((ymin / 1000.0) * rh)`
+     - `x2 = rx + int((xmax / 1000.0) * rw)`
+     - `y2 = ry + int((ymax / 1000.0) * rh)`
+3. **Contact Sheet Generation for Review**:
+   - After stitching `out/promo/surgproof_promo.mp4` (and copying to `out/promo/surgatlas_promo.mp4`), always generate the review contact sheet:
+     ```bash
+     ffmpeg -y -i out/promo/surgproof_promo.mp4 -vf "fps=1/2,scale=480:-1,tile=4x4" out/promo/contact_sheet.png
+     ```
+4. **Word Count Verification**:
+   - Shot 1: `Surgical video. No labels.` (4 words)
+   - Shot 2: `Writes its own visual manual.` (5 words)
+   - Shot 3: `Labels a real frame.` (4 words)
+   - Shot 4: `Checks itself. Green, amber, red.` (5 words)
+   - Shot 5: `Human clears only amber cases.` (5 words)
+   - Shot 6: `Result: pending` (2 words) — or `<N>%` + `Held-out test accuracy, zero labels.` (6 words)
+   - Shot 7: `SurgProof. No human labels. Only proof.` (6 words)
