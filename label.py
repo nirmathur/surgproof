@@ -275,8 +275,15 @@ def evaluate_against_index(d, idx_df):
     acc_all = float(merged["ok"].mean())
     no_liver = merged[merged["key"] != "liver"]
     acc_no_liver = float(no_liver["ok"].mean()) if len(no_liver) else acc_all
+    core3 = merged[merged["key"].isin(["grasper", "l_hook", "gallbladder"])]
+    acc_core3 = float(core3["ok"].mean()) if len(core3) else acc_no_liver
     per_key = merged.groupby("key")["ok"].mean().round(3).to_dict()
-    return {"acc_excl_liver": round(acc_no_liver, 4), "acc_all": round(acc_all, 4), "per_key": per_key}
+    return {
+        "acc_excl_liver": round(acc_no_liver, 4),
+        "acc_core3": round(acc_core3, 4),
+        "acc_all": round(acc_all, 4),
+        "per_key": per_key,
+    }
 
 
 async def run(mode, splits, votes, limit, out_path=None, index_path=None, videos=None, manual_path=None):
@@ -315,7 +322,8 @@ async def run(mode, splits, votes, limit, out_path=None, index_path=None, videos
     if metrics:
         print(
             f"saved {path} ({len(recs)} rows, {d.frame_id.nunique()} frames, 0 GT fields in file). "
-            f"headline accuracy (excl. liver): {metrics['acc_excl_liver']:.3f} | all-6 raw acc: {metrics['acc_all']:.3f}",
+            f"headline acc (excl. liver): {metrics['acc_excl_liver']:.3f} | "
+            f"core-3 acc: {metrics['acc_core3']:.3f} | all-6 acc: {metrics['acc_all']:.3f}",
             flush=True,
         )
         print(pd.Series(metrics["per_key"], name="ok").to_string(), flush=True)
