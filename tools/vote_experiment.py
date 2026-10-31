@@ -53,14 +53,10 @@ def main():
     idx = {r["frame_id"]: r for r in csv.DictReader(open(f"{R}/data/index.csv"))}
     paths = {r["frame_id"]: r["frame_path"] for r in csv.DictReader(open(f"{R}/out/decisions.csv"))}
     recs = []
-    for v in ["video17", "video28", "video48", "video55"]:
-        f = f"{R}/out/polygons/{v}.jsonl"
-        if os.path.exists(f):
-            for l in open(f):
-                j = json.loads(l)
-                if j["status"] == "accept" and j["label"] in WV:
-                    fp = paths[j["frame_id"]]; j["frame_path"] = fp if os.path.isabs(fp) else os.path.join(R, fp)
-                    recs.append(j)
+    split = sys.argv[2] if len(sys.argv) > 2 else "test"
+    for r in csv.DictReader(open(f"{R}/out/decisions.csv")):
+        if r["split"] == split and r["status"] == "accept" and r["key"] in WV and str(r["final_present"]).strip() in ("1", "1.0", "True"):
+            fp = r["frame_path"]; recs.append({"frame_id": r["frame_id"], "label": r["key"], "frame_path": fp if os.path.isabs(fp) else os.path.join(R, fp)})
     recs = random.Random(0).sample(recs, min(n, len(recs)))
     rows = []
     with cf.ThreadPoolExecutor(12) as ex:
@@ -70,8 +66,8 @@ def main():
     keys = ["single", "two_pass_intersection", "vote3", "vote5", "union5"]
     summ = {k: {"mean_iou": round(float(np.mean([r[k] for r in rows])), 4),
                 "ge_0_5": round(float(np.mean([r[k] >= 0.5 for r in rows])), 3)} for k in keys}
-    out = {"n_objects": len(rows), "videos": ["video17", "video28", "video48", "video55"], "summary": summ, "rows": rows}
-    json.dump(out, open(f"{R}/out/vote_experiment.json", "w"), indent=1)
+    out = {"n_objects": len(rows), "split": split, "summary": summ, "rows": rows}
+    json.dump(out, open(f"{R}/out/vote_experiment_{split}.json", "w"), indent=1)
     print(json.dumps({"n": len(rows), **summ}, indent=1))
 
 
