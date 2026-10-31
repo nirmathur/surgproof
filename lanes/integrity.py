@@ -82,6 +82,25 @@ for f in glob.glob("out/narration_*.json"):
             if st != "accept":
                 fail(f"{f}: evidence not an accepted decision: {e}")
 
+
+SUPPORTED = {"endoscapes2023": {"gallbladder", "cystic_duct"}, "cholect50": {"grasper", "l_hook"}}
+for name, ok in SUPPORTED.items():
+    f = f"data/external/{name}/index.csv"
+    if os.path.exists(f):
+        rows = list(csv.DictReader(open(f)))
+        for k in ["grasper", "l_hook", "liver", "gallbladder", "cystic_duct", "blood"]:
+            if k in ok:
+                continue
+            vals = [r.get(f"gt_{k}", "") for r in rows]
+            if any(v not in ("", "nan", "NaN", "None") for v in vals):
+                fail(f"{f}: gt_{k} is filled but {name} never annotates {k} (must be blank / unscored)")
+for f in glob.glob("out/*results*.json") + glob.glob("out/eval*.json"):
+    s2 = json.dumps(json.load(open(f))).lower()
+    for name, ok in SUPPORTED.items():
+        for k in {"grasper", "l_hook", "liver", "gallbladder", "cystic_duct", "blood"} - ok:
+            if re.search(rf'"{name}[^"]*{k}|"{k}[^"]*{name}', s2):
+                fail(f"{f}: reports {k} on {name}, which has no {k} ground truth")
+
 print(f"integrity: {len(fails)} FAIL, scanned {len(DISPLAY)} display files")
 for x in fails:
     print("FAIL", x)
