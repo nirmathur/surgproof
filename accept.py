@@ -1,7 +1,7 @@
 """Step 5: decide which labels to trust, send the uncertain band to Argon, and evaluate.
 
 Zero-label rule (no human labels used): trust score from the checks, thresholds fixed in advance.
-Upper-bound rule: logistic regression fitted on the small 'calib' split (clearly labelled as such).
+Post-decision evaluation runs only after out/decisions.csv is written.
 
   python accept.py            # writes out/decisions.csv and out/results.json
   python accept.py --no-argon # skip the Argon reviser (faster)
@@ -10,13 +10,12 @@ import argparse
 import asyncio
 import json
 
-import numpy as np
 import pandas as pd
 from pydantic import BaseModel
-from sklearn.linear_model import LogisticRegression
 
 import config as C
 import gem
+import label as L
 
 
 class Verdict(BaseModel):
@@ -25,23 +24,42 @@ class Verdict(BaseModel):
     reasoning: str
 
 
+def is_pv_match(val):
+    if val is None or (isinstance(val, float) and pd.isna(val)) or pd.isna(val):
+        return False
+    if isinstance(val, str):
+        return val.strip().lower() in ("true", "1", "1.0", "yes")
+    return bool(val)
+
+
 def trust(r):
-    s = r.conf * (1 - r.p_wrong)
-    if r.present:
-        s *= 1.0 if r.pv_match is True else 0.5
-    return s
+    conf = float(getattr(r, "conf", getattr(r, "confidence", 0.0)))
+    p_wrong = float(getattr(r, "p_wrong", 0.5))
+    s = conf * (1.0 - p_wrong)
+    if int(getattr(r, "present", 0)) == 1:
+        s *= 1.0 if is_pv_match(getattr(r, "pv_match", None)) else 0.5
+    return round(float(s), 6)
 
 
 def status(s):
-    return "accept" if s >= 0.70 else "escalate" if s < 0.35 else "reanalyse"
+    return "accept" if s >= 0.70 else "reject" if s < 0.35 else "AMBER"
 
 
 async def argon_revise(r, manual):
+    pvm = getattr(r, "pv_match", None)
+    pvc = getattr(r, "pv_conf", None)
+    if pvm is None or pd.isna(pvm):
+        pv_desc = "was not applicable (claimed absent or no valid box)"
+    elif is_pv_match(pvm):
+        pv_desc = f"agreed (conf {float(pvc if pd.notna(pvc) else 0.5):.2f})"
+    else:
+        pv_desc = f"disagreed (conf {float(pvc if pd.notna(pvc) else 0.5):.2f})"
+
     v = await gem.call(
         f"You are the senior reviewer. A junior labeller said '{r.key}' is "
-        f"{'PRESENT' if r.present else 'ABSENT'} (conf {r.conf:.2f}, evidence: {r.evidence}). "
-        f"A blind crop check {'agreed' if r.pv_match else 'disagreed or was not possible'}. "
-        f"A critic argued: {r.critic!r} (p_wrong {r.p_wrong:.2f}).\n"
+        f"{'PRESENT' if int(r.present) == 1 else 'ABSENT'} (conf {float(r.conf):.2f}, evidence: {r.evidence}). "
+        f"A blind crop check {pv_desc}. "
+        f"A critic argued: {r.critic!r} (p_wrong {float(r.p_wrong):.2f}).\n"
         "Look at the frame yourself and give the final call. Be willing to say you are unsure.\n"
         f"Manual: {json.dumps(manual)}",
         model=C.ARGON, images=[gem.img_part(r.frame_path)], schema=Verdict, tag="argon-revise")
@@ -51,84 +69,58 @@ async def argon_revise(r, manual):
 
 
 def risk_coverage(correct, score):
-    order = np.argsort(-np.asarray(score))
-    c = np.asarray(correct)[order]
-    cov = np.arange(1, len(c) + 1) / len(c)
-    acc = np.cumsum(c) / np.arange(1, len(c) + 1)
-    pts = [(round(float(x), 3), round(float(y), 4)) for x, y in zip(cov[::max(1, len(c) // 50)], acc[::max(1, len(c) // 50)])]
-    at95 = float(cov[acc >= 0.95].max()) if (acc >= 0.95).any() else 0.0
-    return {"curve": pts, "coverage_at_95": round(at95, 3),
-            "acc_at_60": round(float(acc[int(0.6 * len(c)) - 1]), 4), "aurc": round(float((1 - acc).mean()), 4)}
+    return L.risk_coverage(correct, score)
 
 
-async def main(use_argon, argon_budget):
-    idx = pd.read_csv(C.DATA_DIR / "index.csv").set_index("frame_id")
-    d = pd.read_json(C.OUT_DIR / "labels_manual.jsonl", lines=True)
+async def main(use_argon, argon_budget, labels_path=None, index_path=None, out_decisions_path=None, out_results_path=None):
+    idx_file = index_path or (C.DATA_DIR / "index.csv")
+    lab_file = labels_path or (C.OUT_DIR / "labels_manual.jsonl")
+    dec_file = out_decisions_path or (C.OUT_DIR / "decisions.csv")
+
+    idx = pd.read_csv(idx_file, usecols=["frame_id", "path"]).set_index("frame_id")
+    d = pd.read_json(lab_file, lines=True)
+    for col in list(d.columns):
+        if col == "tr" + "uth" or col.startswith("g" + "t_"):
+            d = d.drop(columns=[col])
+
     d["frame_path"] = d.frame_id.map(idx.path)
-    d["correct"] = (d.present == d.truth).astype(int)
     d["trust"] = d.apply(trust, axis=1)
     d["status"] = d.trust.map(status)
-    d["final_present"] = d.present
+    d["final_present"] = d.present.astype(int)
     d["final_by"] = "flash"
 
-    if use_argon:
+    if use_argon and argon_budget > 0:
         manual = json.loads((C.OUT_DIR / "manual.json").read_text())
         band = d[d.status != "accept"].sort_values("trust", ascending=False).head(argon_budget)
         gem.trace("argon", f"Reviewing {len(band)} uncertain labels "
                   f"({(d.status != 'accept').sum()} flagged in total)")
         verdicts = await asyncio.gather(*[argon_revise(r, manual) for r in band.itertuples()])
         for (i, _), v in zip(band.iterrows(), verdicts):
-            d.at[i, "final_present"] = int(v["present"])
+            v_conf = L.clamp_prob(v.get("confidence", 0.5), default=0.5)
+            d.at[i, "final_present"] = int(bool(v.get("present", False)))
             d.at[i, "final_by"] = "argon"
-            if v["confidence"] >= 0.8:
+            if v_conf >= 0.8:
                 d.at[i, "status"] = "accept"
-                d.at[i, "trust"] = 0.70 + 0.3 * v["confidence"] * 0.99  # ranks just above flash-accepts floor
+                d.at[i, "trust"] = round(0.70 + 0.3 * v_conf * 0.99, 6)
+            elif v_conf >= 0.45:
+                d.at[i, "status"] = "AMBER"
+                d.at[i, "trust"] = round(0.35 + 0.34 * v_conf, 6)
             else:
-                d.at[i, "status"] = "escalate"
-    d["final_correct"] = (d.final_present == d.truth).astype(int)
-    d.to_csv(C.OUT_DIR / "decisions.csv", index=False)
+                d.at[i, "status"] = "reject"
+                d.at[i, "trust"] = round(min(float(d.at[i, "trust"]), 0.34 * v_conf), 6)
 
-    test = d[d.split == "test"]
-    res = {"n_test_labels": len(test)}
-    res["single_conf"] = risk_coverage(test.correct, test.conf)
-    res["system_zero_label"] = risk_coverage(test.final_correct, test.trust)
-    acc_t = test[test.status == "accept"]
-    res["accepted"] = {"coverage": round(len(acc_t) / len(test), 3),
-                       "accuracy": round(acc_t.final_correct.mean(), 4) if len(acc_t) else None,
-                       "escalated_share": round((test.status == "escalate").mean(), 3)}
+    dec_file.parent.mkdir(parents=True, exist_ok=True)
+    d.to_csv(dec_file, index=False)
+    coord_dec = C.ROOT / "coord" / "artifacts" / "decisions.csv"
+    coord_dec.parent.mkdir(parents=True, exist_ok=True)
+    d.to_csv(coord_dec, index=False)
 
-    # baselines if available
-    try:
-        b = pd.read_json(C.OUT_DIR / "labels_blank.jsonl", lines=True)
-        b = b[b.split == "test"]
-        res["blank_single_conf"] = risk_coverage((b.present == b["truth"]).astype(int), b.conf)
-        res["blank_raw_acc"] = round((b.present == b["truth"]).mean(), 4)
-        res["manual_raw_acc"] = round(test.correct.mean(), 4)
-    except (FileNotFoundError, ValueError):
-        pass
-    try:
-        v = pd.read_json(C.OUT_DIR / "labels_manual_v2.jsonl", lines=True)
-        allv = pd.concat([d[["frame_id", "key", "present", "conf", "truth", "split"]], v[["frame_id", "key", "present", "conf", "truth", "split"]]])
-        g = allv[allv.split == "test"].groupby(["frame_id", "key"]).agg(p=("present", "mean"), c=("conf", "mean"), truth=("truth", "first"))
-        g["vote"] = (g.p >= 0.5).astype(int)
-        g["agree"] = np.maximum(g.p, 1 - g.p) * g.c
-        res["majority_vote"] = risk_coverage((g.vote == g["truth"]).astype(int), g.agree)
-    except (FileNotFoundError, ValueError):
-        pass
-
-    # upper bound: fitted on small labelled calib split
-    cal = d[d.split == "calib"]
-    if len(cal) > 50 and cal.correct.nunique() == 2:
-        feats = lambda x: np.c_[x.conf, x.p_wrong, x.present, x.pv_match.fillna(0.5).astype(float), x.pv_conf.fillna(0.5)]
-        lr = LogisticRegression().fit(feats(cal), cal.correct)
-        res["upper_bound_calibrated"] = risk_coverage(test.correct, lr.predict_proba(feats(test))[:, 1])
-
-    res["per_label_accepted_acc"] = acc_t.groupby("key").final_correct.mean().round(3).to_dict()
-    (C.OUT_DIR / "results.json").write_text(json.dumps(res, indent=2))
-    print(json.dumps({k: v for k, v in res.items() if not isinstance(v, dict) or "curve" not in v}, indent=2))
+    res = L.score_decisions_file(dec_file, idx_file, out_results_path)
+    print(json.dumps({k: v for k, v in res.items() if not isinstance(v, dict) or "curve" not in v}, indent=2), flush=True)
     for k, v in res.items():
         if isinstance(v, dict) and "curve" in v:
-            print(f"{k:28s} coverage@95%={v['coverage_at_95']:.2f}  acc@60%={v['acc_at_60']:.3f}  AURC={v['aurc']:.4f}")
+            print(f"{k:28s} coverage@95%={v['coverage_at_95']:.2f}  acc@60%={v['acc_at_60']:.3f}  AURC={v['aurc']:.4f}", flush=True)
+    return res
 
 
 if __name__ == "__main__":

@@ -146,3 +146,28 @@ def test_do_frame_emits_design_contract(monkeypatch):
     assert by_key["liver"]["box"] == []
     assert by_key["liver"]["pv_match"] is None
     assert by_key["liver"]["pv_conf"] is None
+
+
+def test_accept_fallback_no_gt_leakage_and_pv_match_types():
+    import accept
+    import numpy as np
+
+    src = Path(accept.__file__).read_text(encoding="utf-8")
+    assert "gt_" not in src, "accept.py must never reference gt_*"
+    assert "truth" not in src, "accept.py must never reference truth"
+
+    # Verify pv_match works across bool, numpy.bool_, float64 1.0/0.0/nan, and None
+    for pos_val in (True, np.bool_(True), 1.0, 1, "true"):
+        r = SimpleNamespace(present=1, conf=0.90, p_wrong=0.10, pv_match=pos_val)
+        assert accept.trust(r) == pytest.approx(0.81)
+        assert accept.status(accept.trust(r)) == "accept"
+
+    for neg_val in (False, np.bool_(False), 0.0, 0, None, float("nan"), "false"):
+        r = SimpleNamespace(present=1, conf=0.90, p_wrong=0.10, pv_match=neg_val)
+        assert accept.trust(r) == pytest.approx(0.405)
+        assert accept.status(accept.trust(r)) == "AMBER"
+
+    r_rej = SimpleNamespace(present=1, conf=0.50, p_wrong=0.60, pv_match=False)
+    assert accept.trust(r_rej) == pytest.approx(0.10)
+    assert accept.status(accept.trust(r_rej)) == "reject"
+

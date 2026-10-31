@@ -18,7 +18,9 @@ import math
 from pathlib import Path
 
 import pandas as pd
+import numpy as np
 from pydantic import BaseModel
+from sklearn.linear_model import LogisticRegression
 
 import config as C
 import gem
@@ -284,6 +286,145 @@ def evaluate_against_index(d, idx_df):
         "acc_all": round(acc_all, 4),
         "per_key": per_key,
     }
+
+
+def risk_coverage(correct, score):
+    correct_arr = np.asarray(correct, dtype=float)
+    score_arr = np.asarray(score, dtype=float)
+    if len(correct_arr) == 0:
+        return {"curve": [], "coverage_at_95": 0.0, "acc_at_60": 0.0, "aurc": 0.0}
+    order = np.argsort(-score_arr, kind="mergesort")
+    c = correct_arr[order]
+    n = len(c)
+    cov = np.arange(1, n + 1) / n
+    acc = np.cumsum(c) / np.arange(1, n + 1)
+    step = max(1, n // 50)
+    pts = [(round(float(x), 3), round(float(y), 4)) for x, y in zip(cov[::step], acc[::step])]
+    if pts[-1][0] != 1.0:
+        pts.append((1.0, round(float(acc[-1]), 4)))
+    at95 = float(cov[acc >= 0.95].max()) if (acc >= 0.95).any() else 0.0
+    idx60 = max(0, min(n - 1, int(round(0.6 * n)) - 1))
+    return {
+        "curve": pts,
+        "coverage_at_95": round(at95, 3),
+        "acc_at_60": round(float(acc[idx60]), 4),
+        "aurc": round(float((1.0 - acc).mean()), 4),
+    }
+
+
+def score_decisions_file(decisions_path=None, index_path=None, out_results_path=None):
+    """Post-decision evaluation step: joins ground truth from index.csv AFTER decisions.csv exists."""
+    dec_file = Path(decisions_path) if decisions_path else (C.OUT_DIR / "decisions.csv")
+    idx_file = Path(index_path) if index_path else (C.DATA_DIR / "index.csv")
+    res_file = Path(out_results_path) if out_results_path else (C.OUT_DIR / "results.json")
+
+    d = pd.read_csv(dec_file)
+    idx_df = pd.read_csv(idx_file)
+    gt_cols = {k: f"gt_{k}" for k in NAMES if f"gt_{k}" in idx_df.columns}
+    gt_long = idx_df[["frame_id"] + list(gt_cols.values())].melt(
+        id_vars=["frame_id"], var_name="gt_col", value_name="gt"
+    )
+    inv_map = {v: k for k, v in gt_cols.items()}
+    gt_long["key"] = gt_long["gt_col"].map(inv_map)
+
+    if "gt" in d.columns:
+        d = d.drop(columns=["gt"])
+    d = d.merge(gt_long[["frame_id", "key", "gt"]], on=["frame_id", "key"], how="left")
+    d = d[d["gt"].notna() & (d["gt"] >= 0)].copy()
+    d["gt"] = d["gt"].astype(int)
+    d["correct"] = (d["present"].astype(int) == d["gt"]).astype(int)
+    d["final_correct"] = (d["final_present"].astype(int) == d["gt"]).astype(int)
+
+    test_all = d[d.split == "test"].copy()
+    test_5 = test_all[test_all.key != "liver"].copy()
+    test = test_5 if len(test_5) else test_all
+
+    acc_t = test[test.status == "accept"]
+    acc_t_all = test_all[test_all.status == "accept"]
+    amber_mask = test.status.isin(["AMBER", "reanalyse", "escalate"])
+    reject_mask = test.status == "reject"
+
+    res = {
+        "headline_note": "Headline metrics exclude 100%-prevalence liver (evaluated on the 5 informative classes on held-out test videos).",
+        "n_test_labels": int(len(test)),
+        "n_test_labels_all6": int(len(test_all)),
+        "single_conf": risk_coverage(test.correct, test.conf),
+        "system_zero_label": risk_coverage(test.final_correct, test.trust),
+        "accepted": {
+            "coverage": round(len(acc_t) / len(test), 3) if len(test) else 0.0,
+            "accuracy": round(float(acc_t.final_correct.mean()), 4) if len(acc_t) else None,
+            "amber_share": round(float(amber_mask.mean()), 3) if len(test) else 0.0,
+            "rejected_share": round(float(reject_mask.mean()), 3) if len(test) else 0.0,
+            "escalated_share": round(float((test.status != "accept").mean()), 3) if len(test) else 0.0,
+        },
+        "accepted_all6": {
+            "coverage": round(len(acc_t_all) / len(test_all), 3) if len(test_all) else 0.0,
+            "accuracy": round(float(acc_t_all.final_correct.mean()), 4) if len(acc_t_all) else None,
+            "escalated_share": round(float((test_all.status != "accept").mean()), 3) if len(test_all) else 0.0,
+        },
+        "manual_raw_acc": round(float(test.correct.mean()), 4) if len(test) else None,
+        "manual_raw_acc_all6": round(float(test_all.correct.mean()), 4) if len(test_all) else None,
+    }
+
+    try:
+        b = pd.read_json(C.OUT_DIR / "labels_blank.jsonl", lines=True)
+        b = b[b.split == "test"].merge(gt_long[["frame_id", "key", "gt"]], on=["frame_id", "key"], how="inner")
+        b = b[b["gt"].notna() & (b["gt"] >= 0)].copy()
+        b["correct"] = (b["present"].astype(int) == b["gt"].astype(int)).astype(int)
+        b5 = b[b.key != "liver"]
+        b_eval = b5 if len(b5) else b
+        res["blank_single_conf"] = risk_coverage(b_eval.correct, b_eval.conf)
+        res["blank_raw_acc"] = round(float(b_eval.correct.mean()), 4)
+        res["blank_raw_acc_all6"] = round(float(b.correct.mean()), 4)
+    except (FileNotFoundError, ValueError):
+        pass
+
+    try:
+        v = pd.read_json(C.OUT_DIR / "labels_manual_v2.jsonl", lines=True)
+        allv = pd.concat([
+            d[["frame_id", "key", "present", "conf", "split"]],
+            v[["frame_id", "key", "present", "conf", "split"]],
+        ])
+        g = (
+            allv[allv.split == "test"]
+            .groupby(["frame_id", "key"], as_index=False)
+            .agg(p=("present", "mean"), c=("conf", "mean"))
+            .merge(gt_long[["frame_id", "key", "gt"]], on=["frame_id", "key"], how="inner")
+        )
+        g = g[g.key != "liver"] if (g.key != "liver").any() else g
+        g["vote"] = (g.p >= 0.5).astype(int)
+        g["agree"] = np.maximum(g.p, 1.0 - g.p) * g.c
+        res["majority_vote"] = risk_coverage((g.vote == g.gt.astype(int)).astype(int), g.agree)
+    except (FileNotFoundError, ValueError):
+        pass
+
+    cal = d[(d.split == "calib") & (d.key != "liver")]
+    if len(cal) > 20 and cal.correct.nunique() == 2 and len(test) > 0:
+        def _feats(x):
+            pvm = pd.to_numeric(x.pv_match, errors="coerce").fillna(0.5).to_numpy(dtype=float)
+            pvc = pd.to_numeric(x.pv_conf, errors="coerce").fillna(0.5).to_numpy(dtype=float)
+            return np.c_[x.conf.to_numpy(dtype=float), x.p_wrong.to_numpy(dtype=float),
+                         x.present.to_numpy(dtype=float), pvm, pvc]
+        lr = LogisticRegression().fit(_feats(cal), cal.correct)
+        res["upper_bound_calibrated"] = risk_coverage(test.correct, lr.predict_proba(_feats(test))[:, 1])
+
+    res["per_label_accepted_acc"] = (
+        acc_t_all.groupby("key").final_correct.mean().round(3).to_dict() if len(acc_t_all) else {}
+    )
+    res["per_label_raw_acc"] = (
+        test_all.groupby("key").correct.mean().round(3).to_dict() if len(test_all) else {}
+    )
+    res["per_label_accepted_coverage"] = (
+        test_all.assign(_acc=(test_all.status == "accept").astype(int)).groupby("key")["_acc"].mean().round(3).to_dict()
+        if len(test_all) else {}
+    )
+
+    res_file.parent.mkdir(parents=True, exist_ok=True)
+    res_file.write_text(json.dumps(res, indent=2))
+    coord_res = C.ROOT / "coord" / "artifacts" / "results.json"
+    coord_res.parent.mkdir(parents=True, exist_ok=True)
+    coord_res.write_text(json.dumps(res, indent=2))
+    return res
 
 
 async def run(mode, splits, votes, limit, out_path=None, index_path=None, videos=None, manual_path=None):
