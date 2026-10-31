@@ -75,7 +75,15 @@ try:
 except Exception: pass
 mp4 = glob.glob(p("out/promo/*.mp4"))
 _latest = max([os.path.getmtime(f) for f in mp4] or [0])
-appr = any(c["body"].startswith("[nir-director]") and re.search(r"\bAPPROVED:\s*\S*out/promo/\S+\.mp4", c["body"]) and dt.datetime.fromisoformat(c["createdAt"].replace("Z","+00:00")).timestamp() > _latest for c in (cs if 'cs' in dir() else []))
+_latest_f = max(mp4, key=os.path.getmtime) if mp4 else ""
+def _ok(c):
+    m = re.search(r"\bAPPROVED:\s*\S*(out/promo/\S+?\.mp4)", c["body"])
+    if not (c["body"].startswith("[nir-director]") and m): return False
+    named = p(m.group(1))
+    if os.path.abspath(named) != os.path.abspath(_latest_f): return False   # must approve the NEWEST cut
+    if re.search(r"progress|stays 100|tracker", c["body"], re.I): return False  # approvals made to move the tracker do not count
+    return dt.datetime.fromisoformat(c["createdAt"].replace("Z","+00:00")).timestamp() > os.path.getmtime(named)
+appr = any(_ok(c) for c in (cs if 'cs' in dir() else []))
 stage("promo video", 100 if appr else min(len(mp4)/8*60, 60), f"{len(mp4)} clips; " + ("director APPROVED" if appr else "not approved by nir-director"))
 OWN = {"nir-label":"labels: full run","nir-verifier":"verify + amber loop","nir-student":"student + CIs","nir-localize":"AI masks (video12)",
  "nir-masks2":"AI masks (video12)","nir-masks3":"AI masks (video12)","nir-webshell":"web toolbox UI","nir-webcanvas":"web toolbox UI",
