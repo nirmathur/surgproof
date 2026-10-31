@@ -132,10 +132,32 @@
   }
 
   function syncHostBadges() {
-    if (typeof document === "undefined") return;
+    if (typeof document === "undefined" || !state.summary) return;
+    const sum = state.summary;
     const badge = document.getElementById("amber-count-badge");
-    if (badge && state.summary) {
-      badge.textContent = `${state.summary.n_pending_amber} AMBER`;
+    if (badge) {
+      badge.textContent = `${sum.n_pending_amber} AMBER`;
+    }
+    const outerReleaseBtn = document.getElementById("btn-release-dataset");
+    const outerLockMsg = document.getElementById("gate-lock-msg");
+    const canRelease = Boolean(sum.can_release);
+    if (outerReleaseBtn) {
+      outerReleaseBtn.disabled = !canRelease;
+      if (!outerReleaseBtn._gateBound) {
+        outerReleaseBtn._gateBound = true;
+        outerReleaseBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          releaseDataset();
+        });
+      }
+    }
+    if (outerLockMsg) {
+      outerLockMsg.style.color = canRelease ? TOKENS.acceptText : TOKENS.textSecondary;
+      outerLockMsg.textContent = state.lastReleaseMsg
+        ? state.lastReleaseMsg
+        : canRelease
+          ? "Ambers left: 0 · Audit sample: 20/20 signed off. Ready to release dataset!"
+          : `Locked: Ambers left: ${sum.n_pending_amber} · Audit sample: ${sum.audit_signed_off ? "20/20" : "0/20"}.`;
     }
   }
 
@@ -271,20 +293,20 @@
       `<option value="video12" ${state.scope === "video12" ? "selected" : ""}>video12 Clip</option>` +
       `<option value="all" ${state.scope === "all" ? "selected" : ""}>All Splits (6,060 labels)</option>` +
       `</select>` +
-      `<span style="background:${sum.n_pending_amber === 0 ? TOKENS.acceptFill : TOKENS.amberFill};color:${sum.n_pending_amber === 0 ? TOKENS.acceptText : TOKENS.amberText};border:1px solid ${sum.n_pending_amber === 0 ? TOKENS.acceptText : TOKENS.amberText};border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;">Ambers left: ${sum.n_pending_amber}</span>` +
-      `<span style="background:${sum.audit_signed_off ? TOKENS.acceptFill : "#1A1D28"};color:${sum.audit_signed_off ? TOKENS.acceptText : TOKENS.textSecondary};border:1px solid ${TOKENS.border};border-radius:6px;padding:4px 10px;font-size:12px;font-weight:500;">Audit sample: ${sum.audit_signed_off ? `${sum.audit_sample_size}/${sum.audit_sample_size}` : `0/${sum.audit_sample_size}`}</span>` +
+      `<span id="gate-stat-amber" style="background:${sum.n_pending_amber === 0 ? TOKENS.acceptFill : TOKENS.amberFill};color:${sum.n_pending_amber === 0 ? TOKENS.acceptText : TOKENS.amberText};border:1px solid ${sum.n_pending_amber === 0 ? TOKENS.acceptText : TOKENS.amberText};border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;">Ambers left: ${sum.n_pending_amber}</span>` +
+      `<span id="gate-stat-audit" style="background:${sum.audit_signed_off ? TOKENS.acceptFill : "#1A1D28"};color:${sum.audit_signed_off ? TOKENS.acceptText : TOKENS.textSecondary};border:1px solid ${TOKENS.border};border-radius:6px;padding:4px 10px;font-size:12px;font-weight:500;">Audit sample: ${sum.audit_signed_off ? `${sum.audit_sample_size}/${sum.audit_sample_size}` : `0/${sum.audit_sample_size}`}</span>` +
       `</div>` +
       `</div>` +
       renderFunnelHtml(sum) +
       `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">` +
-      `<div style="font-size:12.5px;color:${TOKENS.textSecondary};">Auto-accepted: <strong style="color:${TOKENS.acceptText};">${sum.n_auto_accept}</strong> &middot; Cleared by human: <strong>${sum.n_cleared_amber}</strong> &middot; Gate log rows: <code>${sum.gate_log_rows}</code></div>` +
+      `<div style="font-size:12.5px;color:${TOKENS.textSecondary};">Auto-accepted: <strong id="gate-stat-accept" style="color:${TOKENS.acceptText};">${sum.n_auto_accept}</strong> &middot; Cleared by human: <strong>${sum.n_cleared_amber}</strong> &middot; Gate log rows: <code>${sum.gate_log_rows}</code></div>` +
       `<div style="display:flex;gap:8px;">` +
-      `<button type="button" data-gate-act="batch-approve" ${sum.n_pending_amber === 0 ? "disabled" : ""} style="background:${TOKENS.amberFill};color:${TOKENS.amberText};border:1px solid ${TOKENS.amberText};border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;opacity:${sum.n_pending_amber === 0 ? 0.45 : 1};">&#9889; Approve All ${sum.n_pending_amber} Residual Ambers</button>` +
+      `<button type="button" id="btn-clear-all-ambers" data-gate-act="batch-approve" ${sum.n_pending_amber === 0 ? "disabled" : ""} style="background:${TOKENS.amberFill};color:${TOKENS.amberText};border:1px solid ${TOKENS.amberText};border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;opacity:${sum.n_pending_amber === 0 ? 0.45 : 1};">&#9889; Approve All ${sum.n_pending_amber} Residual Ambers</button>` +
       `<button type="button" data-gate-act="undo" ${sum.n_cleared_amber === 0 ? "disabled" : ""} style="background:#1A1D28;color:${TOKENS.textSecondary};border:1px solid ${TOKENS.border};border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;opacity:${sum.n_cleared_amber === 0 ? 0.45 : 1};">&#8630; Undo (Z)</button>` +
       `</div>` +
       `</div>` +
-      renderActiveAmberCardHtml(currentAmber, state.selectedIndex, state.pendingAmbers.length) +
-      renderAuditSampleHtml(state.auditSample, sum.audit_signed_off) +
+      `<div id="gate-amber-list">${renderActiveAmberCardHtml(currentAmber, state.selectedIndex, state.pendingAmbers.length)}</div>` +
+      `<div id="gate-audit-list">${renderAuditSampleHtml(state.auditSample, sum.audit_signed_off)}</div>` +
       `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:8px;border-top:1px solid ${TOKENS.border};">` +
       `<div id="gate-js-lock-banner" style="font-size:13px;color:${canRelease ? TOKENS.acceptText : TOKENS.textSecondary};">` +
       (state.lastReleaseMsg
