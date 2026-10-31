@@ -1,0 +1,12 @@
+You are checking one detection in a laparoscopic cholecystectomy frame.
+
+Frame: {frame_path}
+Box(es) labelled {label}: {boxes}   ([x1, y1, x2, y2], pixels of the 854x480 frame)
+
+The box does not reach the edge of the visible field, or exists for only a few frames. Laparoscopic instruments
+enter through ports, so a real instrument's shaft normally runs to the edge of the circular view.
+Look only at the content inside each box.
+
+Answer in JSON only, one entry per box in the same order:
+{"boxes": [{"content": "grasper"|"l_hook"|"other_instrument"|"tissue"|"specular_reflection"|"smoke"|"other",
+            "label_correct": true|false}], "confidence": 0.0-1.0}

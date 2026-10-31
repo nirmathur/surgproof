@@ -77,6 +77,12 @@ mp4 = glob.glob(p("out/promo/*.mp4"))
 _latest = max([os.path.getmtime(f) for f in mp4] or [0])
 appr = any(c["body"].startswith("[nir-director]") and re.search(r"\bAPPROVED:\s*\S*out/promo/\S+\.mp4", c["body"]) and dt.datetime.fromisoformat(c["createdAt"].replace("Z","+00:00")).timestamp() > _latest for c in (cs if 'cs' in dir() else []))
 stage("promo video", 100 if appr else min(len(mp4)/8*60, 60), f"{len(mp4)} clips; " + ("director APPROVED" if appr else "not approved by nir-director"))
+OWN = {"nir-label":"labels: full run","nir-verifier":"verify + amber loop","nir-student":"student + CIs","nir-localize":"AI masks (video12)",
+ "nir-masks2":"AI masks (video12)","nir-masks3":"AI masks (video12)","nir-webshell":"web toolbox UI","nir-webcanvas":"web toolbox UI",
+ "nir-webtimeline":"web toolbox UI","nir-demo":"web toolbox UI","nir-gate":"final pass (human)","nir-director":"promo video",
+ "nir-promo":"promo video","nir-manual":"narration (evidence-checked)","nir-data":"external test (Endoscapes)","nir-recorder":"backup recording",
+ "nir-architect":"NOTHING FABRICATED","nir-coach":"NOTHING FABRICATED","harald-ui":"web toolbox UI"}
+_pct = {x["name"]: x["pct"] for x in S}
 dl = dt.datetime.now().replace(hour=15, minute=15, second=0)
 mins = int((dl - dt.datetime.now()).total_seconds() // 60)
 try:
@@ -84,4 +90,4 @@ try:
 except Exception:
     bk = "unknown (Drive slow)"
 print(json.dumps({"at": dt.datetime.now().strftime("%H:%M:%S"), "minsLeft": mins, "overall": int(sum(s["pct"] for s in S)/len(S)), "stages": S,
-  "agents": [{"lane": k, **v} for k, v in sorted(A.items())], "backup": bk or "none yet"}))
+  "agents": [{"lane": k, **v, "task": OWN.get(k, "-"), "pct": _pct.get(OWN.get(k, ""), -1)} for k, v in sorted(A.items(), key=lambda kv: _pct.get(OWN.get(kv[0], ""), 101))], "backup": bk or "none yet"}))
