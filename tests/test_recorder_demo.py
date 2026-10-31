@@ -25,6 +25,11 @@ def test_parse_args_defaults_and_overrides():
     assert args_web.duration == 72.5
     assert args_web.web_url == "http://127.0.0.1:8600"
 
+    args_watch = rd.parse_args(["--target", "watch", "--duration", "30.0"])
+    assert args_watch.target == "watch"
+    assert args_watch.duration == 30.0
+    assert args_watch.watch_url == "http://localhost:8600/watch.html"
+
 
 def test_is_url_up_with_ephemeral_server():
     class QuietHandler(http.server.BaseHTTPRequestHandler):
@@ -96,7 +101,7 @@ def test_record_demo_never_mutates_data_or_fabricates():
 
 def test_existing_recordings_meet_spec():
     out_dir = rd.OUT_DIR
-    for name in ("recording_streamlit.mp4", "recording_web.mp4"):
+    for name in ("recording_streamlit.mp4", "recording_web.mp4", "recording_web_v1.mp4"):
         p = out_dir / name
         if p.is_file():
             meta = rd.probe_video(p)
@@ -105,3 +110,12 @@ def test_existing_recordings_meet_spec():
             assert meta["height"] == 1080
             assert 60.0 <= meta["duration"] <= 90.0
             assert meta["size_bytes"] > 50_000
+
+    watch_p = out_dir / "recording_watch.mp4"
+    if watch_p.is_file():
+        meta = rd.probe_video(watch_p)
+        assert meta["codec_name"] == "h264"
+        assert meta["width"] == 1920
+        assert meta["height"] == 1080
+        assert 28.0 <= meta["duration"] <= 40.0
+        assert meta["size_bytes"] > 30_000

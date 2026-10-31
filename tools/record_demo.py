@@ -28,14 +28,59 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "out"
 DEFAULT_WEB_URL = "http://localhost:8600"
+DEFAULT_WATCH_URL = "http://localhost:8600/watch.html"
 DEFAULT_STREAMLIT_URL = "http://localhost:8501"
-DEFAULT_WEB_OUT = OUT_DIR / "recording_web.mp4"
+DEFAULT_WEB_OUT = OUT_DIR / "recording_web_v1.mp4"
+DEFAULT_WEB_ALIAS_OUT = OUT_DIR / "recording_web.mp4"
+DEFAULT_WATCH_OUT = OUT_DIR / "recording_watch.mp4"
 DEFAULT_STREAMLIT_OUT = OUT_DIR / "recording_streamlit.mp4"
 
 # Subtle cursor ring + continuous rAF repaint heartbeat so Chromium CDP screencast
-# emits smooth frames even while holding on a view for reading. Never alters page data.
+# emits smooth frames even while holding on a view for reading.
+# Also intercepts POST requests to /api/gate and /gate in-browser so clicking Approve
+# during a demo recording updates the UI visually without ever altering server/disk data.
 CURSOR_INIT_SCRIPT = """
 (() => {
+  if (!window.__spOrigFetch && typeof window.fetch === 'function') {
+    window.__spOrigFetch = window.fetch.bind(window);
+    window.fetch = async function(input, init) {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      const method = ((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+      if (method === 'POST' && url.includes('gate')) {
+        try {
+          const gateApi = window.FinalPassGate || window.Gate;
+          if (gateApi && typeof gateApi.getState === 'function') {
+            const st = gateApi.getState();
+            const pending = Array.isArray(st.pendingAmbers) ? st.pendingAmbers.slice() : [];
+            const cleared = Array.isArray(st.clearedAmbers) ? st.clearedAmbers.slice() : [];
+            if (pending.length > 0) {
+              const item = pending.shift();
+              cleared.push(item);
+            }
+            const sum = Object.assign({}, st.summary || {});
+            sum.n_pending_amber = pending.length;
+            sum.n_cleared_amber = (Number(sum.n_cleared_amber) || 0) + 1;
+            const nextState = {
+              scope: st.scope || 'test_5',
+              summary: sum,
+              pending_ambers: pending,
+              cleared_ambers: cleared,
+              audit_sample: st.auditSample || []
+            };
+            return new Response(JSON.stringify({ ok: true, state: nextState }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        } catch (_e) {}
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return window.__spOrigFetch(input, init);
+    };
+  }
   const installOverlay = () => {
     if (document.getElementById('sp-rec-overlay')) return;
     const wrap = document.createElement('div');
@@ -53,9 +98,8 @@ CURSOR_INIT_SCRIPT = """
       'margin-left:-11px',
       'margin-top:-11px',
       'border-radius:50%',
-      'border:2px solid rgba(56, 189, 248, 0.92)',
-      'background:rgba(56, 189, 248, 0.18)',
-      'box-shadow:0 0 10px rgba(56, 189, 248, 0.55)',
+      'border:2px solid rgba(59, 130, 246, 0.92)',
+      'background:rgba(59, 130, 246, 0.16)',
       'transition:left 0.12s ease-out, top 0.12s ease-out, transform 0.12s ease-out',
       'pointer-events:none'
     ].join(';');
@@ -200,17 +244,17 @@ def _safe_move_and_click(page: Any, selector: str, pause_ms: int = 900) -> bool:
     """Smoothly move mouse to first visible element matching selector and click it."""
     try:
         loc = page.locator(selector).first
-        if loc.count() == 0 or not loc.is_visible(timeout=800):
+        if loc.count() == 0 or not loc.is_visible():
             return False
-        box = loc.bounding_box()
+        box = loc.bounding_box(timeout=600)
         if box:
             cx = box["x"] + box["width"] / 2.0
             cy = box["y"] + box["height"] / 2.0
-            page.mouse.move(cx, cy, steps=14)
-            page.wait_for_timeout(180)
+            page.mouse.move(cx, cy, steps=12)
+            page.wait_for_timeout(150)
             page.mouse.click(cx, cy)
         else:
-            loc.click(timeout=1200)
+            loc.click(timeout=700)
         if pause_ms > 0:
             page.wait_for_timeout(pause_ms)
         return True
@@ -222,14 +266,14 @@ def _safe_hover(page: Any, selector: str, pause_ms: int = 700) -> bool:
     """Smoothly move mouse over first visible element matching selector."""
     try:
         loc = page.locator(selector).first
-        if loc.count() == 0 or not loc.is_visible(timeout=700):
+        if loc.count() == 0 or not loc.is_visible():
             return False
-        box = loc.bounding_box()
+        box = loc.bounding_box(timeout=600)
         if not box:
             return False
         cx = box["x"] + box["width"] / 2.0
         cy = box["y"] + box["height"] / 2.0
-        page.mouse.move(cx, cy, steps=12)
+        page.mouse.move(cx, cy, steps=10)
         if pause_ms > 0:
             page.wait_for_timeout(pause_ms)
         return True
@@ -256,7 +300,9 @@ def _smooth_scroll(
                         if (custom) { custom.scrollTop += dy; return; }
                     }
                     const candidates = [
+                        document.querySelector('#final-pass-mount'),
                         document.querySelector('.drawer-backdrop.open .drawer-body'),
+                        document.querySelector('#objects'),
                         document.querySelector('[data-testid="stMain"]'),
                         document.querySelector('[data-testid="stAppViewContainer"]'),
                         document.querySelector('section.main'),
@@ -276,106 +322,149 @@ def _smooth_scroll(
         page.wait_for_timeout(step_wait_ms)
 
 
-def drive_web_app(page: Any, url: str, target_duration: float = 68.0) -> None:
-    """Drive the SurgProof Web Annotation Studio at http://localhost:8600 for ~68s."""
+def drive_web_app(page: Any, url: str, target_duration: float = 66.0) -> None:
+    """Drive the SurgProof Web Annotation Studio at http://localhost:8600 for ~66s."""
     t0 = time.monotonic()
+
+    # Safety net: intercept any POST request at the Playwright network layer so disk state is never altered
+    def _block_mutating_post(route: Any, request: Any) -> None:
+        if request.method.upper() == "POST":
+            route.fulfill(status=200, content_type="application/json", body='{"ok": true}')
+        else:
+            route.continue_()
+
+    try:
+        page.route("**/api/gate*", _block_mutating_post)
+        page.route("**/gate*", _block_mutating_post)
+    except Exception:
+        pass
+
     page.goto(url, wait_until="domcontentloaded", timeout=20000)
     page.wait_for_timeout(2500)
 
-    # 1. Inspect Top Bar: SurgProof branding, held-out proof metrics, localization IoU, live agent status
+    # 1. Inspect Top Bar: SurgProof branding, video12 badge, held-out proof metric with n, Final Pass
     for sel in (
+        ".brand-logo",
         "#video-badge",
         "#headline-acc",
-        "#headline-loc",
-        "#headline-student",
-        "#live-status-pill",
-        ".brand-logo",
-        ".metric-pill",
+        "#btn-final-pass",
     ):
-        _safe_hover(page, sel, pause_ms=850)
+        _safe_hover(page, sel, pause_ms=550)
 
-    # 2. Press Play through the timeline (11-12s of live playback across frames)
+    # 2. Press Play on the timeline for ~15s of live playback across surgical frames, then pause
     played = _safe_move_and_click(
         page,
-        "#btn-play, [data-action='play'], .tl-btn--play, button:has-text('Play'), button:has-text('▶')",
-        pause_ms=11000,
+        "#btn-play, button[data-tl-action='play']",
+        pause_ms=15000,
     )
     if not played:
-        for _ in range(12):
+        for _ in range(15):
             page.keyboard.press("ArrowRight")
-            page.wait_for_timeout(850)
+            page.wait_for_timeout(950)
     else:
         _safe_move_and_click(
             page,
-            "#btn-play, [data-action='play'], .tl-btn--play, button:has-text('Pause'), button:has-text('⏸'), button:has-text('Play')",
-            pause_ms=1200,
+            "#btn-play, button[data-tl-action='play']",
+            pause_ms=1000,
         )
 
-    # Trigger live agent stream animation if button exists
-    _safe_move_and_click(page, "#btn-stream-agent, button:has-text('Stream'), button:has-text('Agent')", pause_ms=3000)
+    # 3. Click 3 frames with masks on the multi-track timeline and inspect AI masks/polygons/boxes/tips
+    structure_targets = [
+        ("grasper", 8),
+        ("gallbladder", 22),
+        ("liver", 52),
+    ]
+    clicked_count = 0
+    for label_key, f_idx in structure_targets:
+        sel = f".tl-cell[data-label-key='{label_key}'][data-frame-idx='{f_idx}']"
+        if _safe_move_and_click(page, sel, pause_ms=1800):
+            clicked_count += 1
+            _safe_hover(page, "#frame-canvas", pause_ms=900)
 
-    # 3. Open several distinct frames from the multi-track timeline and inspect AI masks, boxes, tips, and GT toggle
+    if clicked_count < 3:
+        try:
+            cells = page.locator(".tl-cell.has-spatial, .tl-track .tl-cell")
+            n_cells = cells.count()
+            if n_cells > 3:
+                for frac in (0.15, 0.45, 0.75):
+                    idx = min(n_cells - 1, max(0, int(n_cells * frac)))
+                    box = cells.nth(idx).bounding_box(timeout=600)
+                    if box:
+                        page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=10)
+                        page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+                        page.wait_for_timeout(1800)
+                        _safe_hover(page, "#frame-canvas", pause_ms=800)
+        except Exception:
+            pass
+
+    # 4. Toggle mask round r0/r1 if present (or toggle AI Masks / Pass-1/Pass-2 / Scoring GT overlay)
+    toggled_round = False
     try:
-        cells = page.locator(".track-cell, .tl-cell, [data-frame-idx], .timeline-cell")
-        n_cells = cells.count()
-        if n_cells > 4:
-            for frac in (0.12, 0.28, 0.48, 0.68, 0.85):
-                idx = min(n_cells - 1, max(0, int(n_cells * frac)))
-                box = cells.nth(idx).bounding_box()
-                if box:
-                    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=10)
-                    page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-                    page.wait_for_timeout(2000)
-        else:
-            for _ in range(5):
-                if not _safe_move_and_click(page, "#btn-next, button:has-text('Next')", pause_ms=1800):
-                    page.keyboard.press("ArrowRight")
-                    page.wait_for_timeout(1800)
+        sel_round = page.locator("#sel-mask-round, select[data-mask-round]").first
+        if sel_round.count() > 0 and sel_round.is_visible():
+            _safe_hover(page, "#sel-mask-round, select[data-mask-round]", pause_ms=600)
+            sel_round.select_option("1")
+            page.wait_for_timeout(2400)
+            _safe_hover(page, "#frame-canvas", pause_ms=900)
+            sel_round.select_option("0")
+            page.wait_for_timeout(1600)
+            toggled_round = True
     except Exception:
         pass
 
-    # Toggle Pass-1 vs Pass-2 dual boxes & Scoring View GT mask overlay to showcase verification & masks
-    if _safe_move_and_click(page, "#chk-dual-pass, label:has(#chk-dual-pass)", pause_ms=3000):
-        _safe_move_and_click(page, "#chk-dual-pass, label:has(#chk-dual-pass)", pause_ms=1200)
+    if not toggled_round:
+        for r_sel in (
+            "[data-mask-round='1'], button:has-text('R1'), button:has-text('r1')",
+            "[data-mask-round='0'], button:has-text('R0'), button:has-text('r0')",
+        ):
+            if _safe_move_and_click(page, r_sel, pause_ms=1800):
+                toggled_round = True
 
-    if _safe_move_and_click(page, "#chk-show-gt, label:has(#chk-show-gt), .gt-toggle", pause_ms=4200):
-        _safe_move_and_click(page, "#btn-next, button:has-text('Next')", pause_ms=2200)
-        _safe_move_and_click(page, "#chk-show-gt, label:has(#chk-show-gt), .gt-toggle", pause_ms=1200)
+    if _safe_move_and_click(page, "label:has(#chk-dual-pass), #chk-dual-pass", pause_ms=2200):
+        _safe_hover(page, "#frame-canvas", pause_ms=800)
+        _safe_move_and_click(page, "label:has(#chk-dual-pass), #chk-dual-pass", pause_ms=900)
 
-    # Click through right-hand inspector cards (evidence text, blind crop pv_match, Argon amber loop history)
+    if _safe_move_and_click(page, "label:has(#chk-show-gt), .gt-toggle, #chk-show-gt", pause_ms=2800):
+        _safe_move_and_click(page, "label:has(#chk-show-gt), .gt-toggle, #chk-show-gt", pause_ms=900)
+
+    # 5. Click through right-hand inspector cards (evidence text, 4-round Argon amber loop, manual rule)
     try:
-        cards = page.locator(".label-card, .inspector-card")
-        n_cards = min(4, cards.count())
+        _safe_hover(page, "#amber-funnel-bar", pause_ms=800)
+        cards = page.locator("#objects .label-card")
+        n_cards = min(3, cards.count())
         for i in range(n_cards):
-            box = cards.nth(i).bounding_box()
+            box = cards.nth(i).bounding_box(timeout=500)
             if box:
                 page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=10)
                 page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
-                page.wait_for_timeout(1400)
-        _smooth_scroll(page, 260, steps=5, step_wait_ms=180, container_selector="#inspector-cards")
-        page.wait_for_timeout(1200)
-        _smooth_scroll(page, -260, steps=5, step_wait_ms=150, container_selector="#inspector-cards")
+                page.wait_for_timeout(1100)
     except Exception:
         pass
 
-    # 4. Open Final Pass (Human Gate) drawer and show the residual AMBER queue + 20-item audit queue
+    # 6. Open Final pass and click Approve on one item (intercepted in-browser so disk data is never altered)
     opened_gate = _safe_move_and_click(
         page,
-        "#btn-final-pass, [data-action='final-pass'], button:has-text('Final Pass'), button:has-text('Human Gate')",
-        pause_ms=2800,
+        "#btn-final-pass, [data-action='final-pass'], button:has-text('Final pass'), button:has-text('Final Pass')",
+        pause_ms=2500,
     )
     if opened_gate:
-        _safe_hover(page, "#gate-stat-accept", pause_ms=1000)
-        _safe_hover(page, "#gate-stat-amber", pause_ms=1000)
-        _safe_hover(page, "#gate-stat-audit", pause_ms=1000)
-        _safe_hover(page, ".drawer-body, #gate-amber-list", pause_ms=1000)
-        _smooth_scroll(page, 460, steps=7, step_wait_ms=220, container_selector=".drawer-body")
-        page.wait_for_timeout(2400)
-        _smooth_scroll(page, -460, steps=7, step_wait_ms=180, container_selector=".drawer-body")
-        _safe_hover(page, "#btn-release-dataset, #gate-lock-msg", pause_ms=2200)
-        _safe_move_and_click(page, "#btn-close-drawer, button:has-text('Close')", pause_ms=1800)
+        _safe_hover(page, "#gate-js-scope-select", pause_ms=800)
+        # Click Approve on one item
+        approved = _safe_move_and_click(
+            page,
+            "button[data-gate-act='approve-one'], #gate-amber-list button:has-text('Approve')",
+            pause_ms=2400,
+        )
+        if not approved:
+            _safe_hover(page, "button[data-gate-act='batch-approve']", pause_ms=1200)
+        _smooth_scroll(page, 380, steps=5, step_wait_ms=180, container_selector="#final-pass-mount")
+        _safe_hover(page, "#gate-js-sign-off-audit", pause_ms=1000)
+        _safe_hover(page, "#gate-js-release-btn, #btn-release-dataset, #gate-lock-msg", pause_ms=1500)
+        _smooth_scroll(page, -380, steps=5, step_wait_ms=160, container_selector="#final-pass-mount")
+        page.wait_for_timeout(1000)
+        _safe_move_and_click(page, "#btn-close-drawer, button:has-text('Close')", pause_ms=1400)
 
-    # Hold and gently scrub timeline until target_duration is reached
+    # 7. Hold and gently scrub timeline until target_duration is reached
     step_idx = 0
     while (time.monotonic() - t0) < target_duration:
         remaining = target_duration - (time.monotonic() - t0)
@@ -383,12 +472,76 @@ def drive_web_app(page: Any, url: str, target_duration: float = 68.0) -> None:
             page.wait_for_timeout(int(max(100, remaining * 1000)))
             break
         if step_idx % 2 == 0:
-            if not _safe_move_and_click(page, "#btn-next, button:has-text('Next')", pause_ms=1600):
+            if not _safe_move_and_click(page, "#btn-next, button[data-tl-action='next']", pause_ms=1500):
                 page.keyboard.press("ArrowRight")
-                page.wait_for_timeout(1600)
+                page.wait_for_timeout(1500)
         else:
-            _safe_hover(page, "#frame-canvas, canvas", pause_ms=1600)
+            _safe_hover(page, "#frame-canvas, canvas", pause_ms=1500)
         step_idx += 1
+
+
+def _find_watch_asset(filename: str) -> Path | None:
+    """Locate watch.html / watch.js / style.css across main web/ or sibling webshell lane."""
+    candidates = [
+        ROOT / "web" / filename,
+        ROOT.parent / "surgatlas" / "web" / filename,
+        ROOT.parent / "webshell" / "web" / filename,
+        ROOT.parent / "surgatlas-lanes" / "webshell" / "web" / filename,
+    ]
+    for c in candidates:
+        if c.is_file():
+            return c
+    return None
+
+
+def drive_watch_app(page: Any, url: str, target_duration: float = 30.0) -> None:
+    """Drive watch.html (Netflix-style Watch mode with narration subtitles) for ~30s."""
+    t0 = time.monotonic()
+
+    # If watch.html is in the webshell worktree and not yet merged into main web/, serve its static shell
+    # on the same http://localhost:8600 origin so all /data/ and /out/ requests resolve against :8600.
+    if not is_url_up(url):
+        def _serve_watch_asset(route: Any, request: Any) -> None:
+            req_url = request.url.split("?", 1)[0]
+            for fname, ctype in (
+                ("watch.html", "text/html; charset=utf-8"),
+                ("watch.js", "application/javascript; charset=utf-8"),
+                ("style.css", "text/css; charset=utf-8"),
+            ):
+                if req_url.endswith("/" + fname):
+                    asset = _find_watch_asset(fname)
+                    if asset is not None:
+                        route.fulfill(status=200, content_type=ctype, body=asset.read_bytes())
+                        return
+            route.continue_()
+
+        page.route("**/*", _serve_watch_asset)
+
+    page.goto(url, wait_until="domcontentloaded", timeout=20000)
+    page.wait_for_timeout(2000)
+
+    # watch.js auto-starts playback on load; only click Play if currently paused
+    try:
+        play_icon = page.locator("#watch-icon-play")
+        if play_icon.count() > 0 and play_icon.is_visible():
+            _safe_move_and_click(page, "#watch-play-btn", pause_ms=1000)
+    except Exception:
+        pass
+
+    # Let watch mode play through video12 frames with mask overlays and verified narration subtitles
+    step = 0
+    while (time.monotonic() - t0) < target_duration:
+        remaining = target_duration - (time.monotonic() - t0)
+        if remaining <= 1.5:
+            page.wait_for_timeout(int(max(100, remaining * 1000)))
+            break
+        if step % 3 == 0:
+            _safe_hover(page, "#watch-subtitles, #watch-stage", pause_ms=2000)
+        elif step % 3 == 1:
+            _safe_hover(page, "#watch-headline-chip, #watch-header", pause_ms=2000)
+        else:
+            _safe_hover(page, "#watch-controls, #watch-time", pause_ms=2000)
+        step += 1
 
 
 def drive_streamlit_app(page: Any, url: str, target_duration: float = 68.0) -> None:
@@ -490,10 +643,14 @@ def record_target(
     out_mp4: Path,
     duration: float = 68.0,
 ) -> dict[str, Any]:
-    """Record either 'web' or 'streamlit' target into out_mp4 (1920x1080, 60-90s) and return ffprobe metadata."""
+    """Record 'web', 'watch', or 'streamlit' target into out_mp4 (1920x1080) and return ffprobe metadata."""
     from playwright.sync_api import sync_playwright
 
-    if not is_url_up(url):
+    if target == "watch":
+        base_origin = url.rsplit("/", 1)[0] if "/" in url[8:] else url
+        if not is_url_up(url) and not (is_url_up(base_origin) and _find_watch_asset("watch.html") is not None):
+            raise RuntimeError(f"Target server for {target!r} is not reachable at {url}")
+    elif not is_url_up(url):
         raise RuntimeError(f"Target server for {target!r} is not reachable at {url}")
 
     with tempfile.TemporaryDirectory(prefix=f"surgproof_rec_{target}_") as tmp_dir:
@@ -511,6 +668,8 @@ def record_target(
             try:
                 if target == "web":
                     drive_web_app(page, url, target_duration=duration)
+                elif target == "watch":
+                    drive_watch_app(page, url, target_duration=duration)
                 elif target == "streamlit":
                     drive_streamlit_app(page, url, target_duration=duration)
                 else:
@@ -527,12 +686,23 @@ def record_target(
                 raise RuntimeError(f"Playwright did not produce a .webm recording in {tmp_dir}")
             webm_path = candidates[0]
 
+        if target == "watch":
+            min_dur = max(28.0, duration - 2.0)
+            max_dur = min(38.0, max(duration + 4.0, 32.0))
+        else:
+            min_dur = max(60.5, duration - 4.0)
+            max_dur = min(89.0, max(duration + 12.0, 75.0))
+
         meta = transcode_webm_to_mp4(
             webm_path=webm_path,
             out_mp4=Path(out_mp4),
-            min_duration=max(60.5, duration - 4.0),
-            max_duration=min(89.0, max(duration + 12.0, 75.0)),
+            min_duration=min_dur,
+            max_duration=max_dur,
         )
+        if target == "web":
+            for alias_path in (DEFAULT_WEB_OUT, DEFAULT_WEB_ALIAS_OUT):
+                if Path(out_mp4).resolve() != alias_path.resolve():
+                    shutil.copy2(str(out_mp4), str(alias_path))
         return meta
 
 
@@ -540,17 +710,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Record SurgProof demo videos (1920x1080, 60-90s).")
     parser.add_argument(
         "--target",
-        choices=("streamlit", "web", "auto", "both"),
+        choices=("streamlit", "web", "watch", "auto", "both"),
         default="auto",
-        help="Which UI to record: streamlit (:8501), web (:8600), both, or auto (whichever are live).",
+        help="Which UI to record: streamlit (:8501), web (:8600), watch (:8600/watch.html), both, or auto.",
     )
     parser.add_argument("--web-url", default=DEFAULT_WEB_URL, help="URL for web app (default http://localhost:8600)")
+    parser.add_argument(
+        "--watch-url",
+        default=DEFAULT_WATCH_URL,
+        help="URL for watch mode (default http://localhost:8600/watch.html)",
+    )
     parser.add_argument(
         "--streamlit-url",
         default=DEFAULT_STREAMLIT_URL,
         help="URL for Streamlit app (default http://localhost:8501)",
     )
     parser.add_argument("--web-out", type=Path, default=DEFAULT_WEB_OUT, help="Output MP4 path for web app")
+    parser.add_argument("--watch-out", type=Path, default=DEFAULT_WATCH_OUT, help="Output MP4 path for watch mode")
     parser.add_argument(
         "--streamlit-out",
         type=Path,
@@ -570,16 +746,21 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     results: dict[str, Any] = {}
 
-    targets: list[tuple[str, str, Path]] = []
+    targets: list[tuple[str, str, Path, float]] = []
     if args.target in ("streamlit", "both"):
-        targets.append(("streamlit", args.streamlit_url, args.streamlit_out))
+        targets.append(("streamlit", args.streamlit_url, args.streamlit_out, args.duration))
     if args.target in ("web", "both"):
-        targets.append(("web", args.web_url, args.web_out))
+        targets.append(("web", args.web_url, args.web_out, args.duration))
+    if args.target == "watch":
+        watch_dur = 30.0 if args.duration == 68.0 else args.duration
+        targets.append(("watch", args.watch_url, args.watch_out, watch_dur))
     if args.target == "auto":
         if is_url_up(args.streamlit_url):
-            targets.append(("streamlit", args.streamlit_url, args.streamlit_out))
+            targets.append(("streamlit", args.streamlit_url, args.streamlit_out, args.duration))
         if is_url_up(args.web_url):
-            targets.append(("web", args.web_url, args.web_out))
+            targets.append(("web", args.web_url, args.web_out, args.duration))
+        if is_url_up(args.watch_url):
+            targets.append(("watch", args.watch_url, args.watch_out, 30.0))
 
     if not targets:
         print(
@@ -589,10 +770,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     exit_code = 0
-    for target_name, url, out_path in targets:
+    for target_name, url, out_path, dur in targets:
         try:
-            print(f"[record_demo] Recording {target_name} from {url} -> {out_path} (target={args.duration:.1f}s)...")
-            meta = record_target(target=target_name, url=url, out_mp4=out_path, duration=args.duration)
+            print(f"[record_demo] Recording {target_name} from {url} -> {out_path} (target={dur:.1f}s)...")
+            meta = record_target(target=target_name, url=url, out_mp4=out_path, duration=dur)
             results[target_name] = meta
             print(f"[record_demo] Completed {target_name}: {json.dumps(meta)}")
         except Exception as exc:
