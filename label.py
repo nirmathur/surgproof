@@ -279,8 +279,14 @@ async def run(mode, splits, votes, limit, out_path=None):
                 f.write(json.dumps(r) + "\n")
         print(f"saved smoke artifact {smoke_path} ({len(recs)} rows)", flush=True)
     d = pd.DataFrame(recs)
-    acc = (d.present == d.truth).mean()
-    print(f"saved {path} ({len(recs)} rows, {d.frame_id.nunique()} frames). raw accuracy vs hidden GT: {acc:.3f}", flush=True)
+    acc_all = (d.present == d.truth).mean()
+    d_no_liver = d[d.key != "liver"]
+    acc_no_liver = (d_no_liver.present == d_no_liver.truth).mean() if len(d_no_liver) else acc_all
+    print(
+        f"saved {path} ({len(recs)} rows, {d.frame_id.nunique()} frames). "
+        f"headline accuracy (excl. liver): {acc_no_liver:.3f} | all-6 raw acc: {acc_all:.3f}",
+        flush=True,
+    )
     print(d.assign(ok=d.present == d.truth).groupby("key").ok.mean().round(3).to_string(), flush=True)
     return d
 
