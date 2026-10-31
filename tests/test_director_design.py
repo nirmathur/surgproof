@@ -64,3 +64,19 @@ def test_winning_demos_and_veo_prompts_exist():
     for forbidden in ("text", "numbers", "charts", "HUD", "glow", "lasers", "sci-fi", "heart"):
         assert forbidden in neg_text
 
+
+def test_rendered_promo_cut_passes_director_checks():
+    promo_mp4 = ROOT / "out" / "promo" / "surgproof_promo.mp4"
+    manifest_json = ROOT / "out" / "promo" / "manifest.json"
+    if not promo_mp4.is_file() or not manifest_json.is_file():
+        return
+    import json
+    m = json.loads(manifest_json.read_text(encoding="utf-8"))
+    dur = float(m.get("final_video", {}).get("duration_sec", 0.0))
+    assert 45.0 <= dur <= 60.0, f"Expected promo duration in 45..60s, got {dur}"
+    assert len(m.get("shots", {})) == 7, "Expected 7 shots in manifest.json"
+    for sid, sinfo in m["shots"].items():
+        wc = int(sinfo.get("word_count", 0))
+        assert wc <= 6, f"Shot {sid} caption exceeds 6 words ({wc})"
+
+
