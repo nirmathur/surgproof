@@ -316,7 +316,10 @@ def join_ground_truth_for_reveal(dec_df: pd.DataFrame, idx_df: pd.DataFrame | No
                 val = idx_lookup.loc[r.frame_id, col]
                 if isinstance(val, pd.Series):
                     val = val.iloc[0]
-                ival = int(val) if pd.notna(val) else -1
+                try:
+                    ival = int(float(val)) if (pd.notna(val) and str(val).strip() != "") else -1
+                except (ValueError, TypeError):
+                    ival = -1
                 truths.append(ival if ival in (0, 1) else np.nan)
             else:
                 truths.append(np.nan)
@@ -1373,7 +1376,10 @@ def render_narration():
         st.info("**[PLACEHOLDER — Awaiting `out/narration_<video>.json` from `narrate.py`]**")
         return
     pick = st.selectbox("Narration file", files, format_func=lambda p: p.name, key="narr_file")
-    entries = [e for e in (load_json(pick, []) or []) if isinstance(e, dict)]
+    raw_narr = load_json(pick, []) or []
+    if isinstance(raw_narr, dict):
+        raw_narr = raw_narr.get("sentences", [])
+    entries = [e for e in raw_narr if isinstance(e, dict)]
     rows = []
     for e in entries:
         for c in narration_claims(e):
@@ -1714,17 +1720,17 @@ with tab_proof:
     # External Held-Out Validation Sets (#16: Endoscapes2023 & CholecT50)
     ext_root = C.DATA_DIR / "external"
     ext_sets = [
-        ("endoscapes2023", "Endoscapes2023 (CAMMA Strasbourg — 50 unseen videos, scorable: gallbladder & cystic_duct)"),
-        ("cholect50", "CholecT50 (Disjoint non-CholecSeg8k videos — scorable: grasper & l_hook)"),
+        ("endoscapes2023", "Endoscapes2023 (CAMMA Strasbourg — 50 unseen videos, scorable: gallbladder & cystic_duct)", ("gallbladder", "cystic_duct")),
+        ("cholect50", "CholecT50 (Disjoint non-CholecSeg8k videos — scorable: grasper & l_hook)", ("grasper", "l_hook")),
     ]
-    if any((ext_root / slug / "index.csv").exists() for slug, _ in ext_sets):
+    if any((ext_root / slug / "index.csv").exists() for slug, _, _ in ext_sets):
         st.divider()
         st.subheader("External Zero-Shot Held-Out Datasets (`Endoscapes2023` & `CholecT50`)")
         st.caption(
             "Evaluated with the exact same frozen manual and prompts (zero re-tuning). "
-            "Unannotated classes in each external dataset carry `gt_<key> = -1` and are excluded from scoring."
+            "Scored strictly on the labels each dataset annotates (`Endoscapes2023 = gallbladder, cystic_duct`; `CholecT50 = grasper, l_hook`)."
         )
-        for slug, title in ext_sets:
+        for slug, title, allowed_keys in ext_sets:
             ext_idx_p = ext_root / slug / "index.csv"
             if not ext_idx_p.exists():
                 continue
@@ -1732,6 +1738,7 @@ with tab_proof:
             ext_test_df = ext_idx_df[ext_idx_df["split"] == "test"] if "split" in ext_idx_df.columns else ext_idx_df
             ext_blank_p = resolve_artifact(f"labels_{slug}_blank.jsonl")
             ext_man_p = resolve_artifact(f"labels_{slug}_manual.jsonl")
+            ext_dec_p = resolve_artifact(f"decisions_{slug}.csv")
             ext_b_stats = score_jsonl_against_index(ext_blank_p, ext_idx_df, split_filter="test") if ext_blank_p.exists() else None
             ext_m_stats = score_jsonl_against_index(ext_man_p, ext_idx_df, split_filter="test") if ext_man_p.exists() else None
 
@@ -1741,25 +1748,46 @@ with tab_proof:
                 ec1.metric("External test frames", int(len(ext_test_df)))
                 ec2.metric("Unseen test videos", int(ext_test_df["video"].nunique()) if "video" in ext_test_df.columns else 0)
                 if ext_b_stats:
+                    b_keys = {k: v for k, v in ext_b_stats["per_key"].items() if k in allowed_keys}
                     ec3.metric(
                         "Blank baseline (scorable labels)",
-                        f"{ext_b_stats['acc_all_6'] * 100:.1f}%",
-                        ", ".join(f"{k}={v*100:.1f}%" for k, v in ext_b_stats["per_key"].items()),
+                        _pct(ext_b_stats["acc_all_6"]),
+                        ", ".join(f"{k}={_pct(v)}" for k, v in b_keys.items()),
                     )
                 else:
                     ec3.metric("Blank baseline [PLACEHOLDER]", "PENDING")
                 if ext_m_stats:
+                    m_keys = {k: v for k, v in ext_m_stats["per_key"].items() if k in allowed_keys}
                     delta_ext = (
                         f"{(ext_m_stats['acc_all_6'] - ext_b_stats['acc_all_6']) * 100:+.1f} pts vs blank"
-                        if ext_b_stats else ", ".join(f"{k}={v*100:.1f}%" for k, v in ext_m_stats["per_key"].items())
+                        if ext_b_stats else ", ".join(f"{k}={_pct(v)}" for k, v in m_keys.items())
                     )
                     ec4.metric(
                         "Frozen Manual (scorable labels)",
-                        f"{ext_m_stats['acc_all_6'] * 100:.1f}%",
+                        _pct(ext_m_stats["acc_all_6"]),
                         delta_ext,
                     )
                 else:
                     ec4.metric("Frozen Manual [PLACEHOLDER]", "PENDING")
+
+                if ext_dec_p.exists():
+                    try:
+                        ed_df = pd.read_csv(ext_dec_p)
+                        ed_df = ed_df[ed_df["key"].isin(allowed_keys)] if "key" in ed_df.columns else ed_df
+                        ed_joined = join_ground_truth_for_reveal(ed_df, ext_idx_df)
+                        ed_scorable = ed_joined[ed_joined["truth"].isin([0, 1])]
+                        if not ed_scorable.empty:
+                            ed_acc_rows = ed_scorable[ed_scorable["status"].map(normalize_status) == "accept"]
+                            v_acc = float(ed_acc_rows["final_correct"].mean()) if not ed_acc_rows.empty else None
+                            v_cov = float(len(ed_acc_rows) / len(ed_scorable))
+                            ext_prog = compute_amber_loop_progression(ed_scorable, [], None)
+                            amb_seq = " → ".join(str(p["ambers_remaining"]) for p in ext_prog) if ext_prog else "n/a"
+                            st.caption(
+                                f"**3-Round Argon Verifier (`{ext_dec_p.name}`, n={len(ed_scorable)} scorable rows):** "
+                                f"`{_pct(v_acc)}` accurate on the `{_pct(v_cov)}` it accepted · Amber shrinkage by round: `[{amb_seq}]`"
+                            )
+                    except Exception:
+                        pass
 
 # ==============================================================================
 # TAB 5: WATCH, NARRATION & ANY SURGERY — Act 3 + Act 1 Showcase
@@ -1816,7 +1844,8 @@ with tab_watch:
         vids = sorted(test_dec[vid_col].dropna().unique())
         v = st.selectbox("Test video", vids)
 
-        narr_list = load_json(resolve_artifact(f"narration_{v}.json"), [])
+        narr_raw = load_json(resolve_artifact(f"narration_{v}.json"), [])
+        narr_list = narr_raw.get("sentences", []) if isinstance(narr_raw, dict) else (narr_raw or [])
         narr = {x["frame_id"]: x for x in narr_list if isinstance(x, dict) and "frame_id" in x}
 
         frames = sorted(dec_raw[dec_raw[vid_col] == v]["frame_id"].unique(), key=frame_sort_key)

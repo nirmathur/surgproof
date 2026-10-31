@@ -95,13 +95,30 @@ async def main(video: str, limit: int = 0):
             f"safety (e.g. critical view of safety). Previous line: {prev!r}\nManual: {json.dumps(manual)}",
             images=images, schema=Line, temperature=0.3, tag="narrate")
         prev = out["narration"]
-        rec = {"frame_id": f, "narration": out["narration"], "unsure_about": out.get("unsure_about", unsure)}
+        evidence_list = [
+            {"frame_id": str(f), "key": str(r.key), "present": bool(r.final_present)}
+            for r in rows.itertuples()
+            if r.status == "accept"
+        ]
+        unsure_list = out.get("unsure_about", unsure)
+        claims_list = [
+            {"text": out["narration"], "status": "verified", "evidence_frames": [str(f)]}
+        ]
+        for u in unsure_list:
+            claims_list.append({"text": f"{u} (withheld: not verified)", "status": "unsupported", "evidence_frames": []})
+        rec = {
+            "frame_id": f,
+            "narration": out["narration"],
+            "unsure_about": unsure_list,
+            "evidence": evidence_list,
+            "claims": claims_list,
+        }
         lines.append(rec)
         gem.trace("flash", f"Narrated {f}: {prev[:120]}")
         print(f, "-", prev)
 
     out_path = C.OUT_DIR / f"narration_{video}.json"
-    out_path.write_text(json.dumps(lines, indent=2))
+    out_path.write_text(json.dumps({"video": video, "sentences": lines}, indent=2))
     return lines
 
 
