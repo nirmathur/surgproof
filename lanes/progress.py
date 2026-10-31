@@ -16,19 +16,52 @@ def issue_state(n):
     except Exception: return 0
 S = []
 def stage(name, pct, detail): S.append({"name": name, "pct": max(0, min(100, int(pct))), "detail": detail})
-stage("data index", 100 if os.path.exists(p("data/index.csv")) else 0, f"{max(rows(p('data/index.csv'))-1,0)} frames, {age(p('data/index.csv'))}")
-stage("features", 100 if os.path.exists(p("data/features.npy")) else 0, age(p("data/features.npy")))
-m = p("out/manual.json"); src = os.path.exists(m) and "http" in open(m).read()
-stage("manual (sourced)", 100 if src else 50 if os.path.exists(m) else 0, ("has source URLs" if src else "NO source URLs") + f", {age(m)}")
-lm = p("out/labels_manual.jsonl"); stage("labels (manual)", rows(lm)/6060*100, f"{rows(lm)}/6060 rows, {age(lm)}")
-lb = p("out/labels_blank.jsonl"); stage("blank baseline", rows(lb)/1680*100, f"{rows(lb)}/1680 test rows")
-d = p("out/decisions.csv"); r = p("out/results.json")
-stage("verifier decisions", (50 if os.path.exists(d) else 0) + (50 if os.path.exists(r) else 0), f"decisions {age(d)}, results {age(r)}")
-stage("student", 100 if os.path.exists(p("out/student.json")) else 0, age(p("out/student.json")))
-ev = [f for f in glob.glob(p("out/eval*.json")) + glob.glob(p("out/eval/*.json")) if "mock" not in f]; stage("eval + CIs", 100 if ev else 0, ", ".join(os.path.basename(f) for f in ev) or "no real eval json")
-ext = glob.glob(p("data/external/*/index.csv")); stage("external test sets", len(ext)/2*100, f"{len(ext)}/2 indexed")
-stage("human gate (#14)", issue_state(14), "issue #14")
-stage("live mode (#15)", issue_state(15), "issue #15")
+def jload(f):
+    try: return json.load(open(p(f)))
+    except Exception: return None
+def nrows(f):
+    try: return sum(1 for _ in open(p(f)))
+    except Exception: return 0
+# 1 presence labels: full CholecSeg8k run
+lm = nrows("out/labels_manual.jsonl"); stage("labels: full run", lm/6060*100, f"{lm}/6060 rows")
+# 2 verification on FULL test (n>=1400 excl liver) + amber loop log
+r = jload("out/results.json") or {}; acc = (r.get("accepted_5_informative") or {})
+ok_n = (r.get("n_test_labels") or 0) >= 1680
+stage("verify + amber loop", (60 if ok_n else 20) + (40 if nrows("out/amber_rounds.jsonl") else 0),
+      f"n={r.get('n_test_labels')}, acc {acc.get('accuracy')} @ cov {acc.get('coverage')}, amber rounds {nrows('out/amber_rounds.jsonl')}")
+# 3 student + confidence intervals
+st = jload("out/student.json"); sts = json.dumps(st or {}).lower()
+stage("student + CIs", (50 if st else 0) + (50 if ("ci" in sts and "boot" in sts) else 0), "CIs present" if "boot" in sts else "NO bootstrap CIs yet")
+# 4 AI masks/boxes on video12
+ann = [json.loads(l) for l in open(p("out/annotations.jsonl"))] if os.path.exists(p("out/annotations.jsonl")) else []
+v12 = sum(1 for _ in open(p("data/index.csv")) if "video12" in _)
+m12 = len({a.get("frame_id") for a in ann if "video12" in str(a.get("frame_id")) and (a.get("mask") or a.get("mask_path"))})
+b12 = len({a.get("frame_id") for a in ann if "video12" in str(a.get("frame_id")) and a.get("box")})
+stage("AI masks (video12)", m12/max(v12,1)*100, f"{m12}/{v12} frames with masks, {b12} with boxes")
+lr = jload("out/localize_results.json"); stage("mask scoring vs GT", 0 if m12 == 0 else 100 if lr and re.search(r'"n[_a-z]*"\s*:\s*\d', json.dumps(lr)) else 0, "IoU/Dice with n" if lr else "missing")
+ph = len({a.get("frame_id") for a in ann if a.get("phase") and "video12" in str(a.get("frame_id"))}); stage("phases per frame", ph/max(v12,1)*100, f"{ph}/{v12} video12 frames")
+# 5 web UI actually serving real data
+import urllib.request
+def up(u):
+    try: return urllib.request.urlopen(u, timeout=3).status == 200
+    except Exception: return False
+w_files = all(os.path.exists(p(f)) for f in ["web/index.html", "web/app.js", "web/style.css"])
+w_data = os.path.exists(p("web/data/video12.json")); w_up = up("http://localhost:8600/")
+stage("web toolbox UI", 30*w_files + 30*w_data + 40*w_up, f"files {w_files}, data {w_data}, serving :8600 {w_up}")
+srv = open(p("web/serve.py")).read() if os.path.exists(p("web/serve.py")) else ""
+stage("final pass (human)", (40 if "POST" in srv else 0) + (60 if nrows("out/gate_log.jsonl") else 0), f"POST endpoint {'POST' in srv}, gate_log rows {nrows('out/gate_log.jsonl')}")
+# 6 integrity: canonical checker must be 0 FAIL
+try:
+    o = subprocess.run(["python3", os.path.expanduser("/private/tmp/claude-501/-Users-nirmathur/434c1202-c152-485b-8e37-ec0e91406d8b/scratchpad/integrity_canonical.py")], capture_output=True, text=True, timeout=120).stdout
+    nf = int(re.search(r"(\d+) FAIL", o).group(1))
+except Exception: nf = -1
+stage("NOTHING FABRICATED", 100 if nf == 0 else 0, f"{nf} FAIL (canonical checker)")
+nar = glob.glob(p("out/narration_*.json")); stage("narration (evidence-checked)", 100 if nar and nf == 0 else 50 if nar else 0, f"{len(nar)} files")
+blk = 0
+try: blk = sum(1 for l in open(p("out/labels_endoscapes2023_manual.jsonl")) if re.search(r"black (frame|image|screen)", l, re.I))
+except Exception: pass
+stage("external test (Endoscapes)", 0 if blk else 100 if os.path.exists(p("out/decisions_endoscapes2023.csv")) else 0, f"{blk} labels on black frames" if blk else "clean")
+rec = glob.glob(p("out/recording*.mp4")) + glob.glob(p("out/*backup*.mp4")); stage("backup recording", 100 if rec else 0, f"{len(rec)} files")
 A = {}
 try:
     cs = json.loads(subprocess.run(["gh","issue","view","1","-R","nirmathur/surgproof","--json","comments"],capture_output=True,text=True,timeout=20).stdout)["comments"]
@@ -41,7 +74,8 @@ try:
             A[mm.group(1)] = {"mins": int((now-t)//60), "doing": (nx.group(1) if nx else txt)[:110]}
 except Exception: pass
 mp4 = glob.glob(p("out/promo/*.mp4"))
-appr = any(c["body"].startswith("[nir-director]") and re.search(r"\bAPPROVED:\s*\S*out/promo/\S+\.mp4", c["body"]) for c in (cs if 'cs' in dir() else []))
+_latest = max([os.path.getmtime(f) for f in mp4] or [0])
+appr = any(c["body"].startswith("[nir-director]") and re.search(r"\bAPPROVED:\s*\S*out/promo/\S+\.mp4", c["body"]) and dt.datetime.fromisoformat(c["createdAt"].replace("Z","+00:00")).timestamp() > _latest for c in (cs if 'cs' in dir() else []))
 stage("promo video", 100 if appr else min(len(mp4)/8*60, 60), f"{len(mp4)} clips; " + ("director APPROVED" if appr else "not approved by nir-director"))
 dl = dt.datetime.now().replace(hour=15, minute=15, second=0)
 mins = int((dl - dt.datetime.now()).total_seconds() // 60)
