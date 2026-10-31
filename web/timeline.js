@@ -126,16 +126,20 @@
       ".sp-timeline *, .sp-timeline *::before, .sp-timeline *::after {",
       "  box-sizing: border-box;",
       "}",
+      ".timeline-pane:has(.sp-timeline) > .timeline-header {",
+      "  display: none;",
+      "}",
       ".tl-toolbar {",
       "  display: flex;",
       "  align-items: center;",
       "  justify-content: space-between;",
-      "  gap: 12px;",
-      "  padding: 6px 12px;",
+      "  gap: 8px;",
+      "  padding: 3px 10px;",
       "  background: var(--tl-surface);",
       "  border-bottom: 1px solid var(--tl-border);",
-      "  min-height: 36px;",
-      "  flex-wrap: wrap;",
+      "  min-height: 28px;",
+      "  flex-wrap: nowrap;",
+      "  overflow-x: auto;",
       "}",
       ".tl-transport, .tl-legend, .tl-controls {",
       "  display: flex;",
@@ -283,7 +287,7 @@
       "  color: var(--tl-text);",
       "}",
       ".tl-sidebar-row--ruler {",
-      "  height: 24px;",
+      "  height: 20px;",
       "  font-size: 10px;",
       "  font-weight: 600;",
       "  letter-spacing: 0.05em;",
@@ -292,13 +296,13 @@
       "  background: #0E1016;",
       "}",
       ".tl-sidebar-row--phase {",
-      "  height: 26px;",
+      "  height: 22px;",
       "  font-weight: 600;",
       "  color: #93C5FD;",
       "  background: #10131C;",
       "}",
       ".tl-sidebar-row--label {",
-      "  height: 24px;",
+      "  height: 20px;",
       "  cursor: pointer;",
       "  transition: background 120ms ease;",
       "}",
@@ -347,7 +351,7 @@
       "  flex-direction: column;",
       "}",
       ".tl-ruler {",
-      "  height: 24px;",
+      "  height: 20px;",
       "  display: grid;",
       "  background: #0E1016;",
       "  border-bottom: 1px solid var(--tl-border-subtle);",
@@ -360,7 +364,7 @@
       "  border-left: 1px solid rgba(255, 255, 255, 0.05);",
       "  display: flex;",
       "  align-items: flex-start;",
-      "  padding-top: 3px;",
+      "  padding-top: 2px;",
       "  padding-left: 3px;",
       "  font-size: 9px;",
       "  font-variant-numeric: tabular-nums;",
@@ -382,21 +386,21 @@
       "  background: rgba(255, 255, 255, 0.14);",
       "}",
       ".tl-tick--major::after {",
-      "  height: 7px;",
+      "  height: 6px;",
       "  background: rgba(255, 255, 255, 0.32);",
       "}",
       ".tl-phase-track {",
-      "  height: 26px;",
+      "  height: 22px;",
       "  display: grid;",
       "  position: relative;",
       "  background: #0C0E14;",
       "  border-bottom: 1px solid var(--tl-border-subtle);",
-      "  padding: 3px 0;",
+      "  padding: 2px 0;",
       "}",
       ".tl-phase-band {",
-      "  height: 20px;",
+      "  height: 17px;",
       "  margin: 0 1px;",
-      "  border-radius: 4px;",
+      "  border-radius: 3px;",
       "  border: 1px solid #2563EB;",
       "  background: #132038;",
       "  color: #93C5FD;",
@@ -421,7 +425,7 @@
       "  font-style: italic;",
       "}",
       ".tl-track {",
-      "  height: 24px;",
+      "  height: 20px;",
       "  display: grid;",
       "  border-bottom: 1px solid var(--tl-border-subtle);",
       "  background: var(--tl-bg);",
@@ -459,7 +463,7 @@
       ".tl-cell--pending {",
       "  background: repeating-linear-gradient(-45deg, #0C0E14, #0C0E14 3px, #12151E 3px, #12151E 6px);",
       "}",
-      ".tl-cell--current {",
+      ".tl-cell--current, .tl-cell.active-frame {",
       "  outline: 1px solid rgba(244, 245, 248, 0.55);",
       "  z-index: 1;",
       "}",
@@ -694,6 +698,9 @@
       target.annotations[k] = merged;
       var nextSig = computeCellSignature(merged);
       markCellFresh(idx, k, prevSig, nextSig, isInitialLoad);
+      if (incomingMap[k] && (incomingMap[k].hasNewLivePulse || incomingMap[k].is_new)) {
+        state.freshCells[idx + "__" + k] = Date.now();
+      }
     }
   }
 
@@ -1142,8 +1149,8 @@
         );
 
         cellsHtml.push(
-          '<div class="tl-cell tl-cell--' + verdict +
-          (isCur ? " tl-cell--current" : "") +
+          '<div class="tl-cell track-cell tl-cell--' + verdict +
+          (isCur ? " tl-cell--current active-frame" : "") +
           (isFresh ? " tl-cell--fresh" : "") + '" ' +
           'data-frame-idx="' + fi + '" data-label-key="' + escapeHtml(tKey) + '" data-verdict="' + verdict + '">' +
           (hasSpatial ? '<span class="tl-spatial-dot"></span>' : "") +
@@ -1185,6 +1192,11 @@
     state.dom.frameCounter = rootEl.querySelector("[data-tl-frame-counter]");
     state.dom.frameId = rootEl.querySelector("[data-tl-frame-id]");
     state.dom.phasePill = rootEl.querySelector("[data-tl-phase-pill]");
+
+    if (typeof document !== "undefined" && typeof document.getElementById === "function") {
+      var extCount = document.getElementById("timeline-frame-count");
+      if (extCount) extCount.textContent = String(n);
+    }
   }
 
   function updatePlayheadDOM() {
@@ -1211,13 +1223,15 @@
       state.dom.phasePill.classList.toggle("tl-phase-pill--pending", isPending);
     }
 
-    var prevCur = rootEl.querySelectorAll(".tl-cell--current");
+    var prevCur = rootEl.querySelectorAll(".tl-cell--current, .tl-cell.active-frame");
     for (var i = 0; i < prevCur.length; i++) {
       prevCur[i].classList.remove("tl-cell--current");
+      prevCur[i].classList.remove("active-frame");
     }
     var nextCur = rootEl.querySelectorAll('.tl-cell[data-frame-idx="' + state.currentFrame + '"]');
     for (var j = 0; j < nextCur.length; j++) {
       nextCur[j].classList.add("tl-cell--current");
+      nextCur[j].classList.add("active-frame");
     }
 
     if (state.dom.stageScroll && state.dom.stage && state.zoomLevel > 1) {
@@ -1573,9 +1587,6 @@
       throw new Error("Timeline.mount: container element is required");
     }
 
-    pausePlayback();
-    stopLivePolling();
-
     var initialData = data;
     var seekCb = onSeek;
     var pollLive = true;
@@ -1597,6 +1608,19 @@
       if (data.pollLive !== undefined) pollLive = Boolean(data.pollLive);
       if (data.liveUrl) liveUrl = data.liveUrl;
     }
+
+    if (
+      state.container === targetEl &&
+      state.dom.root &&
+      state.dom.root.parentNode === targetEl &&
+      initialData
+    ) {
+      if (typeof seekCb === "function") state.onSeek = seekCb;
+      return update(initialData);
+    }
+
+    pausePlayback();
+    stopLivePolling();
 
     state.container = targetEl;
     state.onSeek = typeof seekCb === "function" ? seekCb : null;
