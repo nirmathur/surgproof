@@ -11,7 +11,10 @@ from PIL import Image
 from promo.render import (
     HEIGHT,
     WIDTH,
+    _load_amber_round_counts,
+    _load_target_frame_and_boxes,
     generate_contact_sheet,
+    load_real_result_card,
     load_real_result_number,
     probe_video,
     render_shot_01_raw_frame,
@@ -32,7 +35,6 @@ def test_storyboard_and_design_constraints():
     sb_text = sb_path.read_text(encoding="utf-8")
     assert "SurgProof" in sb_text
     assert "No human labels. Only proof." in sb_text
-    # Zero personal names or quote slots in storyboard or shots
     for forbidden in ("Nir Mathur", "Supervisor Quote"):
         assert forbidden not in sb_text
 
@@ -46,26 +48,61 @@ def test_storyboard_and_design_constraints():
         assert s.word_count <= 6
 
 
-def test_load_real_result_number_honesty(tmp_path: Path):
+def test_load_real_result_number_and_boxes_honesty(tmp_path: Path):
     # 1. Missing out/results.json -> None (renders "Result: pending")
     assert load_real_result_number(out_dir=tmp_path) is None
+    assert load_real_result_card(out_dir=tmp_path) is None
 
-    # 2. Populated out/results.json -> exact percentage read
+    # 2. Interim smoke results.json (n_test_labels = 90 < 1000) -> still None ("Result: pending")
     (tmp_path / "results.json").write_text(
         json.dumps(
             {
+                "n_test_labels": 90,
                 "accepted_5_informative": {
-                    "accuracy": 0.9848,
-                    "coverage": 0.88,
-                },
-                "accepted": {
-                    "accuracy": 0.9865,
+                    "n_test_labels_excl_liver": 75,
+                    "accuracy": 0.9853,
+                    "coverage": 0.907,
                 },
             }
         ),
         encoding="utf-8",
     )
-    assert load_real_result_number(out_dir=tmp_path) == "98.5%"
+    assert load_real_result_number(out_dir=tmp_path) is None
+
+    # 3. Full test run results.json (n_test_labels = 1680 >= 1000) -> exact headline + subtext
+    (tmp_path / "results.json").write_text(
+        json.dumps(
+            {
+                "n_test_labels": 1680,
+                "accepted_5_informative": {
+                    "n_test_labels_excl_liver": 1400,
+                    "accuracy": 0.964,
+                    "coverage": 0.88,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    card = load_real_result_card(out_dir=tmp_path)
+    assert card is not None
+    assert card["headline"] == "96.4% accurate on the 88% it accepted"
+    assert card["subtext"] == "n = 1400 held-out labels, 6 unseen videos"
+
+    # 4. Boxes: empty when out/annotations.jsonl is absent; populated only from out/annotations.jsonl
+    _, items_no_ann = _load_target_frame_and_boxes(out_dir=tmp_path)
+    assert all(it["box"] == [] for it in items_no_ann)
+
+    (tmp_path / "annotations.jsonl").write_text(
+        json.dumps({"frame_id": "video12_15750_15758", "label": "grasper", "box": [400, 120, 520, 360]}) + "\n",
+        encoding="utf-8",
+    )
+    _, items_with_ann = _load_target_frame_and_boxes(out_dir=tmp_path)
+    by_k = {it["key"]: it["box"] for it in items_with_ann}
+    assert by_k["grasper"] == [400, 120, 520, 360]
+    assert by_k["l_hook"] == []
+
+    # 5. Amber rounds: empty when out/amber_rounds.jsonl is absent
+    assert _load_amber_round_counts(out_dir=tmp_path) == []
 
 
 def test_render_shots_stitch_and_contact_sheet(tmp_path: Path):
@@ -79,7 +116,7 @@ def test_render_shots_stitch_and_contact_sheet(tmp_path: Path):
 
     render_shot_01_raw_frame(s1, p1)
     _, hero = render_shot_06_result(s6, p6, out_dir=tmp_path)
-    assert hero is None  # tmp_path has no results.json -> pending
+    assert hero is None  # tmp_path has no full results.json -> pending
     render_shot_07_end(s7, p7)
 
     for p in (p1, p6, p7):
