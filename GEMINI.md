@@ -1,4 +1,6 @@
-# SurgAtlas: rules for every Gemini worker
+Read VISION.md first.
+
+# SurgProof: rules for every Gemini worker
 
 Six Antigravity (agy) workers on Gemini 4 Argon build this project in parallel. Claude is the orchestrator and reads only your status file. The existing code is a first draft: every layer is assumed imperfect until your research and redesign say otherwise.
 
