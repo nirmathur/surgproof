@@ -1,0 +1,111 @@
+{
+  "video": "showcase_video",
+  "scored": false,
+  "label": "deviation from reference policy",
+  "difficulty": {
+    "grade": "unknown",
+    "claim_ids": []
+  },
+  "nodes": [
+    {
+      "node_id": "difficulty_assessment",
+      "t": 0.0,
+      "verdict": "missed_alternative",
+      "observed": "No formal difficulty grading (Parkland/Nassar) recorded during pre-dissection inspection.",
+      "guideline_action": "Assess anatomical operative difficulty using Parkland or Nassar grading from initial pre-dissection inspection.",
+      "recommended_alternative": "Proceed with dissection without formal difficulty assessment",
+      "evidence_grade": "expert opinion",
+      "source_quote": "Assign Parkland grade from the pre-dissection view only",
+      "source_id": "madni2018",
+      "claim_ids": []
+    },
+    {
+      "node_id": "exposure_retraction",
+      "t": 0.0,
+      "verdict": "unknown",
+      "observed": "Retraction technique not explicitly documented in verified claims.",
+      "guideline_action": "Retract gallbladder fundus cephalad and infundibulum laterally to open and expose the hepatocystic triangle.",
+      "recommended_alternative": "Retract infundibulum medially towards common bile duct",
+      "evidence_grade": "expert opinion",
+      "source_quote": "Retract fundus cephalad and infundibulum laterally to expose hepatocystic triangle",
+      "source_id": "sages2020",
+      "claim_ids": []
+    },
+    {
+      "node_id": "dissection_plane_r4u",
+      "t": 0.0,
+      "verdict": "ok",
+      "observed": "No dissection below Rouviere sulcus / R4U line noted.",
+      "guideline_action": "Maintain dissection plane strictly anterior and superior to the R4U line (Rouviere sulcus to Segment 4 base).",
+      "recommended_alternative": "Dissect posterior or inferior to Rouviere sulcus",
+      "evidence_grade": "conditional recommendation, very low certainty",
+      "source_quote": "Dissect above the line from the base of Segment 4 to Rouvi\u00e8re sulcus",
+      "source_id": "tg18",
+      "claim_ids": []
+    },
+    {
+      "node_id": "cvs_pause",
+      "t": 33.28,
+      "verdict": "blunder",
+      "observed": "Clipping performed with only 0 of 3 CVS criteria confirmed.",
+      "guideline_action": "Perform a momentary pause before clipping to confirm all three CVS criteria (triangle cleared, lower plate exposed, two structures only).",
+      "recommended_alternative": "Clip with one or zero criteria verified (blunder)",
+      "evidence_grade": "best practice",
+      "source_quote": "Pause before clipping or transecting to confirm CVS",
+      "source_id": "sages_q13",
+      "claim_ids": [
+        "grounded-video09_00832-2"
+      ]
+    },
+    {
+      "node_id": "cvs_not_reached_action",
+      "t": 33.28,
+      "verdict": "missed_alternative",
+      "observed": "CVS not reached by time threshold without documented imaging, senior consultation, or bailout.",
+      "guideline_action": "If CVS cannot be achieved safely due to severe fibrosis or inflammation, obtain intraoperative imaging, call for second surgeon help, or prepare for bailout.",
+      "recommended_alternative": "Continue forceful dissection in hepatocystic triangle",
+      "evidence_grade": "strong recommendation, very low certainty",
+      "source_quote": "Use intraoperative imaging or call for help when anatomy is uncertain",
+      "source_id": "sages_q4_q17",
+      "claim_ids": []
+    },
+    {
+      "node_id": "bailout_choice",
+      "t": 0.0,
+      "verdict": "unknown",
+      "observed": "No bailout indication or action documented.",
+      "guideline_action": "Select subtotal cholecystectomy (fenestrating or reconstituting) rather than fundus-first total cholecystectomy when CVS cannot be achieved.",
+      "recommended_alternative": "Fundus-first (dome-down) total cholecystectomy in severe inflammation",
+      "evidence_grade": "conditional recommendation, low certainty",
+      "source_quote": "Prefer subtotal over fundus-first total cholecystectomy when CVS cannot be achieved",
+      "source_id": "sages_q2_q9",
+      "claim_ids": []
+    },
+    {
+      "node_id": "clip_and_divide",
+      "t": 33.28,
+      "verdict": "blunder",
+      "observed": "Cystic structures divided with 0/3 CVS criteria verified.",
+      "guideline_action": "Apply occlusive clips and divide only the cystic duct and cystic artery after definitive CVS confirmation.",
+      "recommended_alternative": "Clip prior to clearing the lower third of gallbladder off liver bed",
+      "evidence_grade": "expert opinion",
+      "source_quote": "Use CVS to identify the cystic duct and artery before dividing",
+      "source_id": "sages_q1",
+      "claim_ids": [
+        "grounded-video09_00832-2"
+      ]
+    },
+    {
+      "node_id": "gb_bed_haemostasis",
+      "t": 632.56,
+      "verdict": "unknown",
+      "observed": "Haemostasis / liver bed inspection phase not yet reached in clip.",
+      "guideline_action": "Maintain dissection in the cystic plate plane off the liver bed and achieve complete haemostasis and bile leak inspection prior to extraction.",
+      "recommended_alternative": "Inadvertent deep penetration into hepatic parenchyma",
+      "evidence_grade": "expert opinion",
+      "source_quote": "Inspect the gallbladder fossa for bleeding and bile leak prior to completion",
+      "source_id": "sages2020",
+      "claim_ids": []
+    }
+  ]
+}

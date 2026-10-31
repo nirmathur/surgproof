@@ -1,967 +1,4 @@
 {
-  "n_test_labels": 90,
-  "single_conf": {
-    "curve": [
-      [
-        0.011,
-        1.0
-      ],
-      [
-        0.022,
-        1.0
-      ],
-      [
-        0.033,
-        1.0
-      ],
-      [
-        0.044,
-        1.0
-      ],
-      [
-        0.056,
-        1.0
-      ],
-      [
-        0.067,
-        1.0
-      ],
-      [
-        0.078,
-        1.0
-      ],
-      [
-        0.089,
-        1.0
-      ],
-      [
-        0.1,
-        1.0
-      ],
-      [
-        0.111,
-        1.0
-      ],
-      [
-        0.122,
-        1.0
-      ],
-      [
-        0.133,
-        1.0
-      ],
-      [
-        0.144,
-        1.0
-      ],
-      [
-        0.156,
-        1.0
-      ],
-      [
-        0.167,
-        1.0
-      ],
-      [
-        0.178,
-        1.0
-      ],
-      [
-        0.189,
-        1.0
-      ],
-      [
-        0.2,
-        1.0
-      ],
-      [
-        0.211,
-        1.0
-      ],
-      [
-        0.222,
-        1.0
-      ],
-      [
-        0.233,
-        1.0
-      ],
-      [
-        0.244,
-        1.0
-      ],
-      [
-        0.256,
-        1.0
-      ],
-      [
-        0.267,
-        1.0
-      ],
-      [
-        0.278,
-        1.0
-      ],
-      [
-        0.289,
-        1.0
-      ],
-      [
-        0.3,
-        1.0
-      ],
-      [
-        0.311,
-        1.0
-      ],
-      [
-        0.322,
-        1.0
-      ],
-      [
-        0.333,
-        1.0
-      ],
-      [
-        0.344,
-        1.0
-      ],
-      [
-        0.356,
-        1.0
-      ],
-      [
-        0.367,
-        1.0
-      ],
-      [
-        0.378,
-        1.0
-      ],
-      [
-        0.389,
-        1.0
-      ],
-      [
-        0.4,
-        1.0
-      ],
-      [
-        0.411,
-        1.0
-      ],
-      [
-        0.422,
-        1.0
-      ],
-      [
-        0.433,
-        1.0
-      ],
-      [
-        0.444,
-        1.0
-      ],
-      [
-        0.456,
-        1.0
-      ],
-      [
-        0.467,
-        1.0
-      ],
-      [
-        0.478,
-        1.0
-      ],
-      [
-        0.489,
-        1.0
-      ],
-      [
-        0.5,
-        1.0
-      ],
-      [
-        0.511,
-        1.0
-      ],
-      [
-        0.522,
-        1.0
-      ],
-      [
-        0.533,
-        1.0
-      ],
-      [
-        0.544,
-        1.0
-      ],
-      [
-        0.556,
-        1.0
-      ],
-      [
-        0.567,
-        1.0
-      ],
-      [
-        0.578,
-        1.0
-      ],
-      [
-        0.589,
-        1.0
-      ],
-      [
-        0.6,
-        1.0
-      ],
-      [
-        0.611,
-        1.0
-      ],
-      [
-        0.622,
-        1.0
-      ],
-      [
-        0.633,
-        1.0
-      ],
-      [
-        0.644,
-        1.0
-      ],
-      [
-        0.656,
-        1.0
-      ],
-      [
-        0.667,
-        1.0
-      ],
-      [
-        0.678,
-        1.0
-      ],
-      [
-        0.689,
-        1.0
-      ],
-      [
-        0.7,
-        1.0
-      ],
-      [
-        0.711,
-        1.0
-      ],
-      [
-        0.722,
-        1.0
-      ],
-      [
-        0.733,
-        0.9848
-      ],
-      [
-        0.744,
-        0.9851
-      ],
-      [
-        0.756,
-        0.9853
-      ],
-      [
-        0.767,
-        0.9855
-      ],
-      [
-        0.778,
-        0.9857
-      ],
-      [
-        0.789,
-        0.9859
-      ],
-      [
-        0.8,
-        0.9722
-      ],
-      [
-        0.811,
-        0.9726
-      ],
-      [
-        0.822,
-        0.973
-      ],
-      [
-        0.833,
-        0.9733
-      ],
-      [
-        0.844,
-        0.9737
-      ],
-      [
-        0.856,
-        0.974
-      ],
-      [
-        0.867,
-        0.9615
-      ],
-      [
-        0.878,
-        0.962
-      ],
-      [
-        0.889,
-        0.9625
-      ],
-      [
-        0.9,
-        0.963
-      ],
-      [
-        0.911,
-        0.9634
-      ],
-      [
-        0.922,
-        0.9639
-      ],
-      [
-        0.933,
-        0.9643
-      ],
-      [
-        0.944,
-        0.9647
-      ],
-      [
-        0.956,
-        0.9535
-      ],
-      [
-        0.967,
-        0.9425
-      ],
-      [
-        0.978,
-        0.9318
-      ],
-      [
-        0.989,
-        0.9213
-      ],
-      [
-        1.0,
-        0.9111
-      ]
-    ],
-    "coverage_at_95": 0.956,
-    "acc_at_60": 1.0,
-    "aurc": 0.0098
-  },
-  "system_zero_label": {
-    "curve": [
-      [
-        0.011,
-        1.0
-      ],
-      [
-        0.022,
-        1.0
-      ],
-      [
-        0.033,
-        1.0
-      ],
-      [
-        0.044,
-        1.0
-      ],
-      [
-        0.056,
-        1.0
-      ],
-      [
-        0.067,
-        1.0
-      ],
-      [
-        0.078,
-        1.0
-      ],
-      [
-        0.089,
-        1.0
-      ],
-      [
-        0.1,
-        1.0
-      ],
-      [
-        0.111,
-        1.0
-      ],
-      [
-        0.122,
-        1.0
-      ],
-      [
-        0.133,
-        1.0
-      ],
-      [
-        0.144,
-        1.0
-      ],
-      [
-        0.156,
-        1.0
-      ],
-      [
-        0.167,
-        1.0
-      ],
-      [
-        0.178,
-        1.0
-      ],
-      [
-        0.189,
-        1.0
-      ],
-      [
-        0.2,
-        1.0
-      ],
-      [
-        0.211,
-        1.0
-      ],
-      [
-        0.222,
-        1.0
-      ],
-      [
-        0.233,
-        1.0
-      ],
-      [
-        0.244,
-        1.0
-      ],
-      [
-        0.256,
-        1.0
-      ],
-      [
-        0.267,
-        1.0
-      ],
-      [
-        0.278,
-        1.0
-      ],
-      [
-        0.289,
-        1.0
-      ],
-      [
-        0.3,
-        1.0
-      ],
-      [
-        0.311,
-        1.0
-      ],
-      [
-        0.322,
-        1.0
-      ],
-      [
-        0.333,
-        1.0
-      ],
-      [
-        0.344,
-        1.0
-      ],
-      [
-        0.356,
-        1.0
-      ],
-      [
-        0.367,
-        1.0
-      ],
-      [
-        0.378,
-        1.0
-      ],
-      [
-        0.389,
-        1.0
-      ],
-      [
-        0.4,
-        1.0
-      ],
-      [
-        0.411,
-        1.0
-      ],
-      [
-        0.422,
-        1.0
-      ],
-      [
-        0.433,
-        1.0
-      ],
-      [
-        0.444,
-        1.0
-      ],
-      [
-        0.456,
-        1.0
-      ],
-      [
-        0.467,
-        1.0
-      ],
-      [
-        0.478,
-        1.0
-      ],
-      [
-        0.489,
-        1.0
-      ],
-      [
-        0.5,
-        1.0
-      ],
-      [
-        0.511,
-        1.0
-      ],
-      [
-        0.522,
-        1.0
-      ],
-      [
-        0.533,
-        1.0
-      ],
-      [
-        0.544,
-        1.0
-      ],
-      [
-        0.556,
-        1.0
-      ],
-      [
-        0.567,
-        1.0
-      ],
-      [
-        0.578,
-        1.0
-      ],
-      [
-        0.589,
-        1.0
-      ],
-      [
-        0.6,
-        1.0
-      ],
-      [
-        0.611,
-        1.0
-      ],
-      [
-        0.622,
-        1.0
-      ],
-      [
-        0.633,
-        1.0
-      ],
-      [
-        0.644,
-        1.0
-      ],
-      [
-        0.656,
-        1.0
-      ],
-      [
-        0.667,
-        1.0
-      ],
-      [
-        0.678,
-        1.0
-      ],
-      [
-        0.689,
-        1.0
-      ],
-      [
-        0.7,
-        1.0
-      ],
-      [
-        0.711,
-        0.9844
-      ],
-      [
-        0.722,
-        0.9846
-      ],
-      [
-        0.733,
-        0.9848
-      ],
-      [
-        0.744,
-        0.9851
-      ],
-      [
-        0.756,
-        0.9853
-      ],
-      [
-        0.767,
-        0.9855
-      ],
-      [
-        0.778,
-        0.9857
-      ],
-      [
-        0.789,
-        0.9859
-      ],
-      [
-        0.8,
-        0.9861
-      ],
-      [
-        0.811,
-        0.9863
-      ],
-      [
-        0.822,
-        0.9865
-      ],
-      [
-        0.833,
-        0.9867
-      ],
-      [
-        0.844,
-        0.9868
-      ],
-      [
-        0.856,
-        0.987
-      ],
-      [
-        0.867,
-        0.9872
-      ],
-      [
-        0.878,
-        0.9873
-      ],
-      [
-        0.889,
-        0.9875
-      ],
-      [
-        0.9,
-        0.9877
-      ],
-      [
-        0.911,
-        0.9878
-      ],
-      [
-        0.922,
-        0.9759
-      ],
-      [
-        0.933,
-        0.9643
-      ],
-      [
-        0.944,
-        0.9529
-      ],
-      [
-        0.956,
-        0.9535
-      ],
-      [
-        0.967,
-        0.9425
-      ],
-      [
-        0.978,
-        0.9318
-      ],
-      [
-        0.989,
-        0.9213
-      ],
-      [
-        1.0,
-        0.9222
-      ]
-    ],
-    "coverage_at_95": 0.956,
-    "acc_at_60": 1.0,
-    "aurc": 0.0077
-  },
-  "accepted": {
-    "coverage": 0.911,
-    "accuracy": 0.9878,
-    "escalated_share": 0.089,
-    "amber_share": 0.022,
-    "rejected_share": 0.067
-  },
-  "blank_single_conf": {
-    "curve": [
-      [
-        0.001,
-        1.0
-      ],
-      [
-        0.02,
-        1.0
-      ],
-      [
-        0.04,
-        1.0
-      ],
-      [
-        0.06,
-        0.99
-      ],
-      [
-        0.079,
-        0.9774
-      ],
-      [
-        0.099,
-        0.9699
-      ],
-      [
-        0.118,
-        0.9648
-      ],
-      [
-        0.138,
-        0.9698
-      ],
-      [
-        0.158,
-        0.9736
-      ],
-      [
-        0.177,
-        0.9765
-      ],
-      [
-        0.197,
-        0.9789
-      ],
-      [
-        0.217,
-        0.9808
-      ],
-      [
-        0.236,
-        0.9798
-      ],
-      [
-        0.256,
-        0.9791
-      ],
-      [
-        0.276,
-        0.9806
-      ],
-      [
-        0.295,
-        0.9819
-      ],
-      [
-        0.315,
-        0.9811
-      ],
-      [
-        0.335,
-        0.9804
-      ],
-      [
-        0.354,
-        0.9815
-      ],
-      [
-        0.374,
-        0.9825
-      ],
-      [
-        0.393,
-        0.9834
-      ],
-      [
-        0.413,
-        0.9841
-      ],
-      [
-        0.433,
-        0.9849
-      ],
-      [
-        0.452,
-        0.9855
-      ],
-      [
-        0.472,
-        0.9836
-      ],
-      [
-        0.492,
-        0.9831
-      ],
-      [
-        0.511,
-        0.9825
-      ],
-      [
-        0.531,
-        0.9809
-      ],
-      [
-        0.551,
-        0.9816
-      ],
-      [
-        0.57,
-        0.9823
-      ],
-      [
-        0.59,
-        0.9798
-      ],
-      [
-        0.61,
-        0.9795
-      ],
-      [
-        0.629,
-        0.9792
-      ],
-      [
-        0.649,
-        0.978
-      ],
-      [
-        0.668,
-        0.9777
-      ],
-      [
-        0.688,
-        0.9784
-      ],
-      [
-        0.708,
-        0.9781
-      ],
-      [
-        0.727,
-        0.9771
-      ],
-      [
-        0.747,
-        0.9745
-      ],
-      [
-        0.767,
-        0.9736
-      ],
-      [
-        0.786,
-        0.9743
-      ],
-      [
-        0.806,
-        0.9749
-      ],
-      [
-        0.826,
-        0.9748
-      ],
-      [
-        0.845,
-        0.9711
-      ],
-      [
-        0.865,
-        0.9677
-      ],
-      [
-        0.885,
-        0.967
-      ],
-      [
-        0.904,
-        0.9651
-      ],
-      [
-        0.924,
-        0.962
-      ],
-      [
-        0.943,
-        0.9565
-      ],
-      [
-        0.963,
-        0.9506
-      ],
-      [
-        0.983,
-        0.9437
-      ]
-    ],
-    "coverage_at_95": 0.964,
-    "acc_at_60": 0.9802,
-    "aurc": 0.023
-  },
-  "blank_raw_acc": 0.9363,
-  "manual_raw_acc": 0.9111,
-  "per_label_accepted_acc": {
-    "blood": 1.0,
-    "cystic_duct": 1.0,
-    "gallbladder": 1.0,
-    "grasper": 0.933,
-    "l_hook": 1.0,
-    "liver": 1.0
-  },
   "headline_labels": [
     "grasper",
     "l_hook",
@@ -972,78 +9,1178 @@
   "excluded_uninformative_labels": [
     "liver"
   ],
-  "accepted_5_informative": {
-    "n_test_labels_excl_liver": 75,
-    "n_accepted_excl_liver": 68,
-    "coverage": 0.907,
-    "accuracy": 0.9853,
-    "mean_per_label_accuracy": 0.9866,
-    "escalated_share": 0.093,
-    "amber_share": 0.013,
-    "rejected_share": 0.08
+  "n_test_labels": 1680,
+  "n_test_labels_excl_liver": 1400,
+  "n_test_labels_all_6": 1680,
+  "single_conf": {
+    "curve": [
+      [
+        0.001,
+        1.0
+      ],
+      [
+        0.021,
+        1.0
+      ],
+      [
+        0.041,
+        0.9825
+      ],
+      [
+        0.061,
+        0.9412
+      ],
+      [
+        0.081,
+        0.9381
+      ],
+      [
+        0.101,
+        0.9362
+      ],
+      [
+        0.121,
+        0.9408
+      ],
+      [
+        0.141,
+        0.9442
+      ],
+      [
+        0.161,
+        0.9467
+      ],
+      [
+        0.181,
+        0.9526
+      ],
+      [
+        0.201,
+        0.9573
+      ],
+      [
+        0.221,
+        0.9612
+      ],
+      [
+        0.241,
+        0.9644
+      ],
+      [
+        0.261,
+        0.9644
+      ],
+      [
+        0.281,
+        0.9593
+      ],
+      [
+        0.301,
+        0.962
+      ],
+      [
+        0.321,
+        0.9621
+      ],
+      [
+        0.341,
+        0.9623
+      ],
+      [
+        0.361,
+        0.9644
+      ],
+      [
+        0.381,
+        0.9662
+      ],
+      [
+        0.401,
+        0.9679
+      ],
+      [
+        0.421,
+        0.9694
+      ],
+      [
+        0.441,
+        0.9708
+      ],
+      [
+        0.461,
+        0.9705
+      ],
+      [
+        0.481,
+        0.9718
+      ],
+      [
+        0.501,
+        0.9729
+      ],
+      [
+        0.521,
+        0.9726
+      ],
+      [
+        0.541,
+        0.9736
+      ],
+      [
+        0.561,
+        0.9745
+      ],
+      [
+        0.581,
+        0.9754
+      ],
+      [
+        0.601,
+        0.9738
+      ],
+      [
+        0.621,
+        0.9735
+      ],
+      [
+        0.641,
+        0.9721
+      ],
+      [
+        0.661,
+        0.9676
+      ],
+      [
+        0.681,
+        0.9685
+      ],
+      [
+        0.701,
+        0.9694
+      ],
+      [
+        0.721,
+        0.9693
+      ],
+      [
+        0.741,
+        0.9672
+      ],
+      [
+        0.761,
+        0.9653
+      ],
+      [
+        0.781,
+        0.9625
+      ],
+      [
+        0.801,
+        0.9599
+      ],
+      [
+        0.821,
+        0.9521
+      ],
+      [
+        0.841,
+        0.9516
+      ],
+      [
+        0.861,
+        0.9494
+      ],
+      [
+        0.881,
+        0.9457
+      ],
+      [
+        0.901,
+        0.9421
+      ],
+      [
+        0.921,
+        0.9418
+      ],
+      [
+        0.941,
+        0.9408
+      ],
+      [
+        0.961,
+        0.939
+      ],
+      [
+        0.981,
+        0.9315
+      ]
+    ],
+    "coverage_at_95": 0.846,
+    "acc_at_60": 0.9738,
+    "aurc": 0.0393
   },
+  "system_zero_label": {
+    "curve": [
+      [
+        0.001,
+        1.0
+      ],
+      [
+        0.021,
+        1.0
+      ],
+      [
+        0.041,
+        1.0
+      ],
+      [
+        0.061,
+        1.0
+      ],
+      [
+        0.081,
+        1.0
+      ],
+      [
+        0.101,
+        0.9929
+      ],
+      [
+        0.121,
+        0.9822
+      ],
+      [
+        0.141,
+        0.9848
+      ],
+      [
+        0.161,
+        0.9867
+      ],
+      [
+        0.181,
+        0.9802
+      ],
+      [
+        0.201,
+        0.9822
+      ],
+      [
+        0.221,
+        0.9838
+      ],
+      [
+        0.241,
+        0.9852
+      ],
+      [
+        0.261,
+        0.9863
+      ],
+      [
+        0.281,
+        0.9822
+      ],
+      [
+        0.301,
+        0.9834
+      ],
+      [
+        0.321,
+        0.9844
+      ],
+      [
+        0.341,
+        0.9853
+      ],
+      [
+        0.361,
+        0.9861
+      ],
+      [
+        0.381,
+        0.9812
+      ],
+      [
+        0.401,
+        0.9804
+      ],
+      [
+        0.421,
+        0.9813
+      ],
+      [
+        0.441,
+        0.9822
+      ],
+      [
+        0.461,
+        0.9798
+      ],
+      [
+        0.481,
+        0.9807
+      ],
+      [
+        0.501,
+        0.98
+      ],
+      [
+        0.521,
+        0.9781
+      ],
+      [
+        0.541,
+        0.9762
+      ],
+      [
+        0.561,
+        0.9771
+      ],
+      [
+        0.581,
+        0.9766
+      ],
+      [
+        0.601,
+        0.975
+      ],
+      [
+        0.621,
+        0.9724
+      ],
+      [
+        0.641,
+        0.9732
+      ],
+      [
+        0.661,
+        0.9719
+      ],
+      [
+        0.681,
+        0.9727
+      ],
+      [
+        0.701,
+        0.9735
+      ],
+      [
+        0.721,
+        0.9713
+      ],
+      [
+        0.741,
+        0.9701
+      ],
+      [
+        0.761,
+        0.97
+      ],
+      [
+        0.781,
+        0.968
+      ],
+      [
+        0.801,
+        0.9688
+      ],
+      [
+        0.821,
+        0.9687
+      ],
+      [
+        0.841,
+        0.9694
+      ],
+      [
+        0.861,
+        0.9693
+      ],
+      [
+        0.881,
+        0.9667
+      ],
+      [
+        0.901,
+        0.9667
+      ],
+      [
+        0.921,
+        0.9651
+      ],
+      [
+        0.941,
+        0.9643
+      ],
+      [
+        0.961,
+        0.9569
+      ],
+      [
+        0.981,
+        0.9468
+      ]
+    ],
+    "coverage_at_95": 0.976,
+    "acc_at_60": 0.975,
+    "aurc": 0.0222
+  },
+  "accepted": {
+    "coverage": 0.87,
+    "accuracy": 0.9692,
+    "raw_accuracy": 0.9351,
+    "n_accepted": 1462,
+    "n_total": 1680,
+    "escalated_share": 0.13,
+    "amber_share": 0.077,
+    "rejected_share": 0.052,
+    "bootstrap_ci_95": {
+      "accepted_accuracy_ci_95": [
+        0.9445,
+        0.9949
+      ],
+      "raw_accuracy_ci_95": [
+        0.9111,
+        0.9628
+      ],
+      "coverage_ci_95": [
+        0.8494,
+        0.8939
+      ],
+      "verification_gain_pp": 0.0341,
+      "verification_gain_ci_95": [
+        0.015,
+        0.0541
+      ],
+      "p_gain_gt_0": 1.0,
+      "n_bootstrap": 2000,
+      "cluster_unit": "video",
+      "n_clusters": 6
+    }
+  },
+  "accepted_excl_liver": {
+    "coverage": 0.932,
+    "accuracy": 0.9655,
+    "raw_accuracy": 0.9229,
+    "n_accepted": 1305,
+    "n_total": 1400,
+    "escalated_share": 0.068,
+    "amber_share": 0.006,
+    "rejected_share": 0.062,
+    "bootstrap_ci_95": {
+      "accepted_accuracy_ci_95": [
+        0.9384,
+        0.9943
+      ],
+      "raw_accuracy_ci_95": [
+        0.8933,
+        0.9556
+      ],
+      "coverage_ci_95": [
+        0.9085,
+        0.9661
+      ],
+      "verification_gain_pp": 0.0426,
+      "verification_gain_ci_95": [
+        0.0209,
+        0.0649
+      ],
+      "p_gain_gt_0": 1.0,
+      "n_bootstrap": 2000,
+      "cluster_unit": "video",
+      "n_clusters": 6
+    }
+  },
+  "accepted_all_6_labels": {
+    "coverage": 0.87,
+    "accuracy": 0.9692,
+    "raw_accuracy": 0.9351,
+    "n_accepted": 1462,
+    "n_total": 1680,
+    "escalated_share": 0.13,
+    "amber_share": 0.077,
+    "rejected_share": 0.052,
+    "bootstrap_ci_95": {
+      "accepted_accuracy_ci_95": [
+        0.9445,
+        0.9949
+      ],
+      "raw_accuracy_ci_95": [
+        0.9111,
+        0.9628
+      ],
+      "coverage_ci_95": [
+        0.8494,
+        0.8939
+      ],
+      "verification_gain_pp": 0.0341,
+      "verification_gain_ci_95": [
+        0.015,
+        0.0541
+      ],
+      "p_gain_gt_0": 1.0,
+      "n_bootstrap": 2000,
+      "cluster_unit": "video",
+      "n_clusters": 6
+    }
+  },
+  "amber_loop_by_round": [
+    {
+      "round": 0,
+      "stage": "initial_double_check",
+      "n_test_labels": 1400,
+      "ambers_remaining": 112,
+      "accepted_count": 1213,
+      "rejected_count": 75,
+      "resolved_in_round": 0,
+      "resolved_in_round_precision": null,
+      "cumulative_accepted_precision": 0.967
+    },
+    {
+      "round": 1,
+      "stage": "amber_loop_round_1",
+      "n_test_labels": 1400,
+      "ambers_remaining": 95,
+      "accepted_count": 1230,
+      "rejected_count": 75,
+      "resolved_in_round": 17,
+      "resolved_in_round_precision": 0.9412,
+      "cumulative_accepted_precision": 0.9667
+    },
+    {
+      "round": 2,
+      "stage": "amber_loop_round_2",
+      "n_test_labels": 1400,
+      "ambers_remaining": 28,
+      "accepted_count": 1289,
+      "rejected_count": 83,
+      "resolved_in_round": 67,
+      "resolved_in_round_precision": 0.9701,
+      "cumulative_accepted_precision": 0.9666
+    },
+    {
+      "round": 3,
+      "stage": "amber_loop_round_3",
+      "n_test_labels": 1400,
+      "ambers_remaining": 8,
+      "accepted_count": 1305,
+      "rejected_count": 87,
+      "resolved_in_round": 20,
+      "resolved_in_round_precision": 0.8,
+      "cumulative_accepted_precision": 0.9655
+    }
+  ],
+  "amber_loop_by_round_all_6": [
+    {
+      "round": 0,
+      "stage": "initial_double_check",
+      "n_test_labels": 1680,
+      "ambers_remaining": 234,
+      "accepted_count": 1370,
+      "rejected_count": 76,
+      "resolved_in_round": 0,
+      "resolved_in_round_precision": null,
+      "cumulative_accepted_precision": 0.9708
+    },
+    {
+      "round": 1,
+      "stage": "amber_loop_round_1",
+      "n_test_labels": 1680,
+      "ambers_remaining": 217,
+      "accepted_count": 1387,
+      "rejected_count": 76,
+      "resolved_in_round": 17,
+      "resolved_in_round_precision": 0.9412,
+      "cumulative_accepted_precision": 0.9704
+    },
+    {
+      "round": 2,
+      "stage": "amber_loop_round_2",
+      "n_test_labels": 1680,
+      "ambers_remaining": 150,
+      "accepted_count": 1446,
+      "rejected_count": 84,
+      "resolved_in_round": 67,
+      "resolved_in_round_precision": 0.9701,
+      "cumulative_accepted_precision": 0.9703
+    },
+    {
+      "round": 3,
+      "stage": "amber_loop_round_3",
+      "n_test_labels": 1680,
+      "ambers_remaining": 130,
+      "accepted_count": 1462,
+      "rejected_count": 88,
+      "resolved_in_round": 20,
+      "resolved_in_round_precision": 0.8,
+      "cumulative_accepted_precision": 0.9692
+    }
+  ],
+  "amber_loop_by_round_all_splits": [
+    {
+      "round": 0,
+      "stage": "initial_double_check",
+      "n_test_labels": 6060,
+      "ambers_remaining": 997,
+      "accepted_count": 4906,
+      "rejected_count": 157,
+      "resolved_in_round": 0,
+      "resolved_in_round_precision": null,
+      "cumulative_accepted_precision": 0.9723
+    },
+    {
+      "round": 1,
+      "stage": "amber_loop_round_1",
+      "n_test_labels": 6060,
+      "ambers_remaining": 958,
+      "accepted_count": 4945,
+      "rejected_count": 157,
+      "resolved_in_round": 39,
+      "resolved_in_round_precision": 0.9744,
+      "cumulative_accepted_precision": 0.9723
+    },
+    {
+      "round": 2,
+      "stage": "amber_loop_round_2",
+      "n_test_labels": 6060,
+      "ambers_remaining": 810,
+      "accepted_count": 5083,
+      "rejected_count": 167,
+      "resolved_in_round": 148,
+      "resolved_in_round_precision": 0.9595,
+      "cumulative_accepted_precision": 0.9719
+    },
+    {
+      "round": 3,
+      "stage": "amber_loop_round_3",
+      "n_test_labels": 6060,
+      "ambers_remaining": 633,
+      "accepted_count": 5254,
+      "rejected_count": 173,
+      "resolved_in_round": 177,
+      "resolved_in_round_precision": 0.9209,
+      "cumulative_accepted_precision": 0.9705
+    }
+  ],
   "amber_loop": {
     "max_rounds": 3,
     "ambers_by_round_all": [
-      37,
-      12,
-      9,
-      2
+      997,
+      958,
+      810,
+      633
     ],
     "ambers_by_round_test": [
-      15,
-      7,
-      4,
-      2
+      234,
+      217,
+      150,
+      130
     ],
     "ambers_by_round_test_excl_liver": [
-      8,
-      6,
-      3,
-      1
+      112,
+      95,
+      28,
+      8
     ],
     "per_round_test": [
       {
         "round": 0,
-        "ambers_remaining": 15,
-        "ambers_remaining_excl_liver": 8,
+        "ambers_remaining": 234,
+        "ambers_remaining_excl_liver": 112,
         "resolved_in_round": 0,
-        "accepted_count": 70,
-        "rejected_count": 5,
-        "accepted_count_excl_liver": 62,
-        "rejected_count_excl_liver": 5
+        "resolved_in_round_excl_liver": 0,
+        "resolved_in_round_precision": null,
+        "resolved_in_round_precision_excl_liver": null,
+        "accepted_count": 1370,
+        "rejected_count": 76,
+        "accepted_count_excl_liver": 1213,
+        "rejected_count_excl_liver": 75,
+        "cumulative_accepted_precision": 0.9708,
+        "cumulative_accepted_precision_excl_liver": 0.967
       },
       {
         "round": 1,
-        "ambers_remaining": 7,
-        "ambers_remaining_excl_liver": 6,
-        "resolved_in_round": 8,
-        "accepted_count": 78,
-        "rejected_count": 5,
-        "accepted_count_excl_liver": 64,
-        "rejected_count_excl_liver": 5
+        "ambers_remaining": 217,
+        "ambers_remaining_excl_liver": 95,
+        "resolved_in_round": 17,
+        "resolved_in_round_excl_liver": 17,
+        "resolved_in_round_precision": 0.9412,
+        "resolved_in_round_precision_excl_liver": 0.9412,
+        "accepted_count": 1387,
+        "rejected_count": 76,
+        "accepted_count_excl_liver": 1230,
+        "rejected_count_excl_liver": 75,
+        "cumulative_accepted_precision": 0.9704,
+        "cumulative_accepted_precision_excl_liver": 0.9667
       },
       {
         "round": 2,
-        "ambers_remaining": 4,
-        "ambers_remaining_excl_liver": 3,
-        "resolved_in_round": 3,
-        "accepted_count": 80,
-        "rejected_count": 6,
-        "accepted_count_excl_liver": 66,
-        "rejected_count_excl_liver": 6
+        "ambers_remaining": 150,
+        "ambers_remaining_excl_liver": 28,
+        "resolved_in_round": 67,
+        "resolved_in_round_excl_liver": 67,
+        "resolved_in_round_precision": 0.9701,
+        "resolved_in_round_precision_excl_liver": 0.9701,
+        "accepted_count": 1446,
+        "rejected_count": 84,
+        "accepted_count_excl_liver": 1289,
+        "rejected_count_excl_liver": 83,
+        "cumulative_accepted_precision": 0.9703,
+        "cumulative_accepted_precision_excl_liver": 0.9666
       },
       {
         "round": 3,
-        "ambers_remaining": 2,
-        "ambers_remaining_excl_liver": 1,
-        "resolved_in_round": 2,
-        "accepted_count": 82,
-        "rejected_count": 6,
-        "accepted_count_excl_liver": 68,
-        "rejected_count_excl_liver": 6
+        "ambers_remaining": 130,
+        "ambers_remaining_excl_liver": 8,
+        "resolved_in_round": 20,
+        "resolved_in_round_excl_liver": 20,
+        "resolved_in_round_precision": 0.8,
+        "resolved_in_round_precision_excl_liver": 0.8,
+        "accepted_count": 1462,
+        "rejected_count": 88,
+        "accepted_count_excl_liver": 1305,
+        "rejected_count_excl_liver": 87,
+        "cumulative_accepted_precision": 0.9692,
+        "cumulative_accepted_precision_excl_liver": 0.9655
       }
     ]
   },
-  "upper_bound_note": "upper_bound_calibrated is fit on the calib split only and is reported strictly as an upper bound. liver has 100% prevalence in CholecSeg8k and is excluded from headline_labels (accepted_5_informative)."
+  "blank_single_conf": {
+    "curve": [
+      [
+        0.001,
+        1.0
+      ],
+      [
+        0.021,
+        0.9655
+      ],
+      [
+        0.041,
+        0.9474
+      ],
+      [
+        0.061,
+        0.9647
+      ],
+      [
+        0.081,
+        0.9469
+      ],
+      [
+        0.101,
+        0.9574
+      ],
+      [
+        0.121,
+        0.9645
+      ],
+      [
+        0.141,
+        0.9645
+      ],
+      [
+        0.161,
+        0.9644
+      ],
+      [
+        0.181,
+        0.9684
+      ],
+      [
+        0.201,
+        0.9715
+      ],
+      [
+        0.221,
+        0.9741
+      ],
+      [
+        0.241,
+        0.9733
+      ],
+      [
+        0.261,
+        0.9753
+      ],
+      [
+        0.281,
+        0.9771
+      ],
+      [
+        0.301,
+        0.9786
+      ],
+      [
+        0.321,
+        0.9755
+      ],
+      [
+        0.341,
+        0.9769
+      ],
+      [
+        0.361,
+        0.9782
+      ],
+      [
+        0.381,
+        0.9794
+      ],
+      [
+        0.401,
+        0.9804
+      ],
+      [
+        0.421,
+        0.9813
+      ],
+      [
+        0.441,
+        0.9822
+      ],
+      [
+        0.461,
+        0.9783
+      ],
+      [
+        0.481,
+        0.9762
+      ],
+      [
+        0.501,
+        0.9743
+      ],
+      [
+        0.521,
+        0.9739
+      ],
+      [
+        0.541,
+        0.9749
+      ],
+      [
+        0.561,
+        0.9745
+      ],
+      [
+        0.581,
+        0.9742
+      ],
+      [
+        0.601,
+        0.9738
+      ],
+      [
+        0.621,
+        0.9735
+      ],
+      [
+        0.641,
+        0.9744
+      ],
+      [
+        0.661,
+        0.9719
+      ],
+      [
+        0.681,
+        0.9706
+      ],
+      [
+        0.701,
+        0.9715
+      ],
+      [
+        0.721,
+        0.9722
+      ],
+      [
+        0.741,
+        0.973
+      ],
+      [
+        0.761,
+        0.9728
+      ],
+      [
+        0.781,
+        0.9716
+      ],
+      [
+        0.801,
+        0.9697
+      ],
+      [
+        0.821,
+        0.9669
+      ],
+      [
+        0.841,
+        0.9635
+      ],
+      [
+        0.861,
+        0.961
+      ],
+      [
+        0.881,
+        0.9594
+      ],
+      [
+        0.901,
+        0.958
+      ],
+      [
+        0.921,
+        0.9519
+      ],
+      [
+        0.941,
+        0.9453
+      ],
+      [
+        0.961,
+        0.9383
+      ],
+      [
+        0.981,
+        0.933
+      ]
+    ],
+    "coverage_at_95": 0.924,
+    "acc_at_60": 0.9738,
+    "aurc": 0.0314
+  },
+  "blank_raw_acc": 0.925,
+  "blank_raw_acc_full_test": 0.925,
+  "manual_raw_acc": 0.9229,
+  "upper_bound_calibrated": {
+    "curve": [
+      [
+        0.001,
+        1.0
+      ],
+      [
+        0.021,
+        1.0
+      ],
+      [
+        0.041,
+        0.9825
+      ],
+      [
+        0.061,
+        0.9765
+      ],
+      [
+        0.081,
+        0.9735
+      ],
+      [
+        0.101,
+        0.9716
+      ],
+      [
+        0.121,
+        0.9763
+      ],
+      [
+        0.141,
+        0.9797
+      ],
+      [
+        0.161,
+        0.9822
+      ],
+      [
+        0.181,
+        0.9842
+      ],
+      [
+        0.201,
+        0.9858
+      ],
+      [
+        0.221,
+        0.9806
+      ],
+      [
+        0.241,
+        0.9822
+      ],
+      [
+        0.261,
+        0.9836
+      ],
+      [
+        0.281,
+        0.9822
+      ],
+      [
+        0.301,
+        0.9667
+      ],
+      [
+        0.321,
+        0.9688
+      ],
+      [
+        0.341,
+        0.9665
+      ],
+      [
+        0.361,
+        0.9683
+      ],
+      [
+        0.381,
+        0.97
+      ],
+      [
+        0.401,
+        0.9697
+      ],
+      [
+        0.421,
+        0.9711
+      ],
+      [
+        0.441,
+        0.9724
+      ],
+      [
+        0.461,
+        0.9736
+      ],
+      [
+        0.481,
+        0.9747
+      ],
+      [
+        0.501,
+        0.9729
+      ],
+      [
+        0.521,
+        0.9698
+      ],
+      [
+        0.541,
+        0.9683
+      ],
+      [
+        0.561,
+        0.9682
+      ],
+      [
+        0.581,
+        0.968
+      ],
+      [
+        0.601,
+        0.9643
+      ],
+      [
+        0.621,
+        0.9643
+      ],
+      [
+        0.641,
+        0.9654
+      ],
+      [
+        0.661,
+        0.9665
+      ],
+      [
+        0.681,
+        0.9654
+      ],
+      [
+        0.701,
+        0.9653
+      ],
+      [
+        0.721,
+        0.9653
+      ],
+      [
+        0.741,
+        0.9643
+      ],
+      [
+        0.761,
+        0.9643
+      ],
+      [
+        0.781,
+        0.9643
+      ],
+      [
+        0.801,
+        0.9607
+      ],
+      [
+        0.821,
+        0.9617
+      ],
+      [
+        0.841,
+        0.9626
+      ],
+      [
+        0.861,
+        0.9635
+      ],
+      [
+        0.881,
+        0.9627
+      ],
+      [
+        0.901,
+        0.9603
+      ],
+      [
+        0.921,
+        0.9566
+      ],
+      [
+        0.941,
+        0.9514
+      ],
+      [
+        0.961,
+        0.9398
+      ],
+      [
+        0.981,
+        0.9345
+      ]
+    ],
+    "coverage_at_95": 0.946,
+    "acc_at_60": 0.9643,
+    "aurc": 0.0311,
+    "is_upper_bound": true,
+    "note": "UPPER BOUND ONLY: logistic regression calibrated using human ground-truth labels on calib split"
+  },
+  "per_label_accepted_acc": {
+    "blood": 0.996,
+    "cystic_duct": 0.989,
+    "gallbladder": 0.947,
+    "grasper": 0.946,
+    "l_hook": 0.949,
+    "liver": 1.0
+  },
+  "accepted_5_informative": {
+    "n_test_labels_excl_liver": 1400,
+    "n_accepted_excl_liver": 1305,
+    "coverage": 0.932,
+    "accuracy": 0.9655,
+    "mean_per_label_accuracy": 0.9654,
+    "escalated_share": 0.068,
+    "amber_share": 0.006,
+    "rejected_share": 0.062
+  }
 }

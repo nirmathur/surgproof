@@ -93,10 +93,7 @@ Every shot follows `VISION.md` (13:15–13:22 updates): positioning (`Today: a h
     - Small muted label: `PUBLIC TEACHING SOURCE`
     - Title: `Laparoscopic Cholecystectomy` (`sources[0].title`)
     - Muted URL: `youtube.com/watch?v=PNydeaI2WIU`
-  - **Right Column (`x = 464, w = 704, y = 112`)**: Clean document card (`#12141C`, `1px` border `#232734`) titled `out/manual.json` in `14px` `#8A909E`. Inside, 3 real structure rules extracted from `out/manual.json` fade in sequentially (`t = 0.8s, 1.8s, 2.8s`):
-    1. **`grasper`** — *"Metallic hinged double-jaw tip with horizontal serrations."*
-    2. **`l_hook`** — *"Single-piece metallic silver wire bent at a 90-degree right angle."*
-    3. **`cystic_duct`** — *"Mark present only when a skeletonized cylindrical duct is isolated."*
+  - **Right Column (`x = 464, w = 704, y = 112`)**: Clean document card (`#12141C`, `1px` border `#232734`) titled `out/manual.json` in `14px` `#8A909E`. Inside, 3 real structure rules read dynamically at runtime from `out/manual.json["structures"][k]` (`appearance` / `verification_cues`, never hardcoded literal strings) fade in sequentially (`t = 0.8s, 1.8s, 2.8s`) for `grasper`, `l_hook`, and `cystic_duct`.
 - **Caption (5 words)**:
   > `Writes its own visual manual.`
 
@@ -118,12 +115,9 @@ Every shot follows `VISION.md` (13:15–13:22 updates): positioning (`Today: a h
 ### Shot 4 — Independent Double-Check & Multi-Round Amber Loop (`0:24–0:34`, 10.0s — Hero Moment)
 - **File**: `out/promo/shot_04_verify.mp4`
 - **Real Source (STRICT — Per 13:36 Review Blocker #3)**:
-  - Verdicts read from `out/decisions.csv` (`status_round_0` / `status`):
-    - `grasper`, `l_hook`, `gallbladder` $\rightarrow$ **Accept (Green `#10B981`)**
-    - `liver` $\rightarrow$ **Unsure (Amber `#F59E0B`)**
-    - `cystic_duct` $\rightarrow$ **Reject (Red `#EF4444`)**
+  - Verdicts read dynamically from `out/decisions.csv` (`status_round_0` / `status`) for the displayed frame (`accept` $\rightarrow$ **Green `#10B981`**, `AMBER` $\rightarrow$ **Amber `#F59E0B`**, `reject` $\rightarrow$ **Red `#EF4444`**), and recorded in `out/promo/manifest.json` (`shown_labels`).
   - Frame boxes drawn ONLY if present in `out/annotations.jsonl` / `out/annotations_live.jsonl`.
-  - **Amber Loop round counts read ONLY from `out/amber_rounds.jsonl` (or `out/results.json['amber_loop']` computed from `out/amber_rounds.jsonl`).** If `out/amber_rounds.jsonl` is missing or empty, omit the round bars completely—zero synthetic fallback numbers.
+  - **Amber Loop round counts read ONLY from `out/results.json["amber_loop"]["ambers_by_round_test_excl_liver"]` or `out/amber_rounds.jsonl` filtered to `split == "test"` (`AMBER RE-CHECK LOOP (TEST, n=1400): 112 -> 95 -> 28 -> 8`).** If missing or empty, omit the round bars completely—zero synthetic fallback numbers.
 - **Composition (Two-Beat Hero Sequence)**:
   - **Beat 4A (`t = 0.0s–4.5s`, Double-Check)**: Each right-hand row (and any `out/annotations.jsonl` box) smoothly transitions from neutral blue `#3B82F6` to its double-check verdict colour (**Green `#10B981`**, **Amber `#F59E0B`**, **Red `#EF4444`**).
   - **Beat 4B (`t = 4.5s–10.0s`, Shrinking Amber Loop)**: Below the verdict list on the right card, display the real **Amber Loop** progress read from `out/amber_rounds.jsonl` (`Round 0 -> Round 1 -> Round 2 -> Round 3`).
@@ -137,8 +131,8 @@ Every shot follows `VISION.md` (13:15–13:22 updates): positioning (`Today: a h
 - **Real Source**: Real Human Gate (`pages/2_Human_gate.py`, reading `out/decisions.csv` and `out/amber_rounds.jsonl` $\rightarrow$ `out/verified_dataset.jsonl`). Frame box drawn only if present in `out/annotations.jsonl` / `out/annotations_live.jsonl`.
 - **Composition**:
   - Centered minimal Gate review card (`x = 160, y = 96, w = 960, h = 456`, `#12141C`, `1px` border `#232734`).
-  - Top bar of card: `Final Pass · Release Dataset` on left; two clean status pills on right: `Ambers left` (from `out/amber_rounds.jsonl`) and `Audit sample: 20/20`.
-  - **Action at `t = 3.5s`**: The residual Amber item turns **Green (`#10B981`, `verified`)**, `Ambers left: 0`, and the **`Release dataset`** button unlocks in crisp **Green (`#10B981`)** (`out/verified_dataset.jsonl`).
+  - Top bar of card: `Final Pass · Release Dataset` on left; status pills on right read dynamically from `out/results.json["amber_loop"]` / `out/decisions.csv`, and item rationale text read dynamically from `out/decisions.csv` (`evidence` / `note`) for the displayed Amber item.
+  - **Action at `t = 3.5s`**: The residual Amber item turns **Green (`#10B981`, `verified`)**, and the **`Release dataset`** button unlocks in crisp **Green (`#10B981`)** (`out/verified_dataset.jsonl`).
 - **Caption (5 words)**:
   > `Human clears only amber cases.`
 

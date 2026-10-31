@@ -111,22 +111,23 @@ def job(fr, label, frame_path, video):
 
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--video", required=True); ap.add_argument("--workers", type=int, default=8)
+    ap = argparse.ArgumentParser(); ap.add_argument("--video", required=True); ap.add_argument("--workers", type=int, default=8); ap.add_argument("--decisions", default="out/decisions.csv"); ap.add_argument("--tag", default="")
     a = ap.parse_args()
     os.makedirs(f"{R}/out/polygons", exist_ok=True); os.makedirs(f"{R}/out/masks", exist_ok=True)
+    tagv = a.tag + a.video
     done = set()
-    if os.path.exists(f"{R}/out/polygons/{a.video}.jsonl"):
-        done = {(j["frame_id"], j["label"]) for j in map(json.loads, open(f"{R}/out/polygons/{a.video}.jsonl"))}
+    if os.path.exists(f"{R}/out/polygons/{tagv}.jsonl"):
+        done = {(j["frame_id"], j["label"]) for j in map(json.loads, open(f"{R}/out/polygons/{tagv}.jsonl"))}
     jobs = []
-    for r in csv.DictReader(open(f"{R}/out/decisions.csv")):
-        if r["video"] != a.video or r["key"] not in NAMES or r["status"] != "accept":
+    for r in csv.DictReader(open(f"{R}/{a.decisions}")):
+        if (a.video != "ALL" and r["video"] != a.video) or (a.video == "ALL" and r.get("split") != "test") or r["key"] not in NAMES or r["status"] != "accept":
             continue
         if str(r["final_present"]).strip() not in ("1", "1.0", "True"):
             continue
         if (r["frame_id"], r["key"]) in done:
             continue
         fp = r["frame_path"] if os.path.isabs(r["frame_path"]) else os.path.join(R, r["frame_path"])
-        jobs.append((r["frame_id"], r["key"], fp, a.video))
+        jobs.append((r["frame_id"], r["key"], fp, tagv))
     print(f"{a.video}: {len(jobs)} objects to draw", flush=True)
     n = 0
     with cf.ThreadPoolExecutor(a.workers) as ex:

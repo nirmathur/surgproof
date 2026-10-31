@@ -108,4 +108,23 @@ def test_promo_code_has_zero_fabricated_boxes_or_verdicts():
                     assert not re.search(pat, line), f"{py_file}:{i}: {what}: {s[:110]}"
 
 
+def test_director_ui_branding_files_match_design_tokens():
+    web_css = ROOT / "web" / "style.css"
+    st_toml = ROOT / ".streamlit" / "config.toml"
+    ui_css = ROOT / "promo" / "ui_brand.css"
+    assert web_css.is_file(), "web/style.css must exist"
+    assert st_toml.is_file(), ".streamlit/config.toml must exist"
+    assert ui_css.is_file(), "promo/ui_brand.css must exist"
+
+    css_text = web_css.read_text(encoding="utf-8")
+    for token in ("#0A0B0E", "#12141C", "#232734", "#F4F5F8", "#8A909E", "#3B82F6", "#10B981", "#F59E0B", "#EF4444"):
+        assert token in css_text, f"Missing DESIGN.md token {token} in web/style.css"
+    assert "box-shadow: none !important" in css_text
+
+    toml_text = st_toml.read_text(encoding="utf-8")
+    for token in ("#0A0B0E", "#12141C", "#F4F5F8", "#3B82F6"):
+        assert token in toml_text, f"Missing DESIGN.md token {token} in .streamlit/config.toml"
+
+
+
 

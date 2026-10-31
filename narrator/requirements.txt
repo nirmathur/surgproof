@@ -1,0 +1,9 @@
+# narrator-only additions; everything else comes from the repo requirements / .venv
+rank_bm25>=0.2.2
+google-genai>=1.0
+pyyaml
+pandas
+pyarrow
+matplotlib
+opencv-python-headless
+pypdf>=4

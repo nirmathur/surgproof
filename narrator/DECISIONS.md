@@ -1,0 +1,16 @@
+# Decisions (assumption | why | how to undo)
+- narrator/docs/research.md did not exist; copied docs/research/verified-labels-lap-chole.md there | it is the lap chole research brief the task describes | replace the file
+- Split = tracker/config.yaml split (6 test videos) | same split as tracker + prepare_data | edit narrator/config.yaml split
+- Mock labeller table from GT masks + seeded noise (8% drop, 4% spurious, 4% swap, 10% uncertain), source=mock | no labels_*.jsonl on this machine | delete narrator/out/mock_labels.parquet once real labels exist; data.load_labels switches automatically
+- Presence = class > 0.5% of pixels (task spec), stricter than root config MIN_FRAC 0.2% | task spec | narrator/config.yaml presence.min_frac
+- Sample every 8th frame (10 per clip, 1010 frames) | matches root FRAME_STRIDE, keeps cost low | events.frame_stride
+- agy sub-workers run gemini-3.8-flash-high (agy does not list gemini-4-argon) | availability | n/a; pipeline calls still use gemini-4-argon as judge
+- Python 3.12 (.venv) instead of 3.11 | the shared venv is 3.12 | none needed
+- Valid instrument-verb-target table derived from CholecT50 class lists, quote_verified false | official triplet file not fetched | replace kb/vocab.yaml table
+- L6 fails only on "yes" for a blacked-out frame; the shuffled-frame answer is reported, not decisive | another lap chole frame usually contains liver/GB/tools, so "yes" there is correct, not a prior (first run: 74/120 false "prior" fails) | l6_perturb.py decision block
+- Claims naming a non-scorable finding (perforation, inflammation) on a structure are not scored as that structure's presence/absence | "no perforation of the GB" was being scored as "GB absent" | schema.scored_class
+- Grounding-retrieved source text never verifies a quote (it is Gemini-written); only HTTP-fetched text does (kb/strict.py) | otherwise Gemini verifies its own paraphrase | quote_status=grounding_only
+- Showcase video: https://www.youtube.com/watch?v=PuC7iJffTpw, approved by the user | clear CVS + clipping | narrator/out/showcase
+- Not committed: dataset frames (evidence/, demo_preview.html embeds frames), GT-derived tables, fetched paper texts (kb/raw*, passages.parquet) | CholecSeg8k CC BY-NC-SA and paper copyright | rebuild with make data kb evidence preview
+- L5c OpenCLIP (ViT-B-32 laion2b, zero-shot, own venv narrator/.venv-clip since open_clip needs torch 2.15) is report-only | 52% accuracy on 200 decided GT test cases = chance | check/__init__.py REPORT_ONLY
+- Injection clean base = GT presence/absence + knowledge claims citing quote-verified rules; make_gold_claims' phase claims excluded | CholecSeg8k has no phase labels, so 'correct phase' was asserted, not known (first run: 28 false 'clean drops') | eval/injection.clean_base
