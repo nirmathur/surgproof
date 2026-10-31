@@ -101,27 +101,43 @@ def audit_splits(idx: pd.DataFrame | None, dec: pd.DataFrame | None) -> dict:
 
 
 def audit_prevalence_and_liver(idx: pd.DataFrame | None, dec: pd.DataFrame | None) -> dict:
-    """Detect degenerate ~1.0 or ~0.0 prevalence labels (specifically liver=1.0)."""
+    """Detect degenerate ~1.0 or ~0.0 prevalence labels overall and per split."""
     prevalence = {}
+    by_split_pos_counts = {}
     if idx is not None:
         for k in C.LABELS:
             col = f"gt_{k}"
             if col in idx.columns:
                 prevalence[k] = round(float(idx[col].mean()), 4)
+                if "split" in idx.columns:
+                    by_split_pos_counts[k] = {
+                        sp: int(idx[idx.split == sp][col].sum())
+                        for sp in ("train", "calib", "test")
+                    }
     elif dec is not None and "truth" in dec.columns:
         for k, grp in dec.groupby("key"):
             prevalence[k] = round(float(grp["truth"].mean()), 4)
 
     degenerate = [k for k, p in prevalence.items() if p >= 0.98 or p <= 0.02]
+    sparse_on_test = [
+        k for k, sp_counts in by_split_pos_counts.items()
+        if k not in degenerate and sp_counts.get("test", 10) <= 2
+    ]
     return {
-        "status": "WARN" if degenerate else "PASS",
+        "status": "WARN" if (degenerate or sparse_on_test) else "PASS",
         "prevalence": prevalence,
+        "pos_counts_by_split": by_split_pos_counts,
         "degenerate_labels": degenerate,
+        "sparse_test_positive_labels": sparse_on_test,
         "headline_labels": HEADLINE_LABELS,
+        "core_balanced_test_labels": ["grasper", "l_hook", "gallbladder"],
         "recommendation": (
-            f"Labels {degenerate} have ~100%/0% prevalence and carry no discriminative signal. "
-            "Report them per-label only; exclude from pooled headline metrics."
-            if degenerate else "All labels have non-trivial prevalence."
+            f"Labels {degenerate} have ~100%/0% overall prevalence (excluded from headline). "
+            f"On the SEED=0 video split, {sparse_on_test} have <=1 positive test frame "
+            "(all 85 blood frames and 30/31 cystic_duct frames in CholecSeg8k are in video01 -> train); "
+            "report them as false-positive suppression / specificity tests alongside the 3 balanced test "
+            "labels (grasper, l_hook, gallbladder)."
+            if (degenerate or sparse_on_test) else "All labels have non-trivial prevalence."
         ),
     }
 

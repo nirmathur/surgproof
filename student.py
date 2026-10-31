@@ -21,6 +21,7 @@ import config as C
 UPPER_BOUND_SOURCES = {"oracle_upper_bound"}
 UNINFORMATIVE_LABELS = {"liver"}
 HEADLINE_LABELS = [k for k in C.LABELS if k not in UNINFORMATIVE_LABELS]
+CORE_BALANCED_LABELS = ["grasper", "l_hook", "gallbladder"]
 SOURCE_ORDER = ["single", "vote", "verified", "oracle_upper_bound"]
 SOURCE_META = {
     "single": {
@@ -66,18 +67,21 @@ def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True):
     else:
         Xn = _l2_normalize(X)
         Xten = _l2_normalize(Xte)
-        m = LogisticRegression(max_iter=2000, class_weight="balanced", C=2.0, random_state=C.SEED).fit(Xn, y)
+        m = LogisticRegression(max_iter=2000, class_weight=None, C=5.0, random_state=C.SEED).fit(Xn, y)
         p = m.predict_proba(Xten)[:, 1]
         single_class = False
 
     preds = (p >= 0.5).astype(int)
     out = {
         "n_train": int(len(y)),
+        "n_pos_train": int(y.sum()),
+        "n_pos_test_gt": int(yte.sum()),
         "pos_rate_train": round(float(y.mean()), 4),
         "pos_rate_test_gt": round(float(yte.mean()), 4),
         "acc": round(float((preds == yte).mean()), 4),
         "balanced_acc": round(float(balanced_accuracy_score(yte, preds)), 4) if len(np.unique(yte)) == 2 else None,
         "f1": round(float(f1_score(yte, preds, zero_division=0)), 4),
+        "pred_pos_rate_test": round(float(preds.mean()), 4),
         "is_upper_bound": bool(is_upper_bound),
         "informative": bool(informative),
         "excluded_from_headline": not bool(informative),
@@ -170,12 +174,16 @@ def main():
 
     # Headline means exclude uninformative 100%-prevalence labels (liver) per audit rule
     summary, summary_f1, summary_auroc, summary_n_train = {}, {}, {}, {}
+    summary_core3_acc, summary_core3_f1, summary_core3_auroc = {}, {}, {}
     summary_all6_non_headline = {}
     for name in SOURCE_ORDER:
         accs = [results[k][name]["acc"] for k in HEADLINE_LABELS if results.get(k, {}).get(name) and results[k][name].get("acc") is not None]
         f1s = [results[k][name]["f1"] for k in HEADLINE_LABELS if results.get(k, {}).get(name) and results[k][name].get("f1") is not None]
         aucs = [results[k][name]["auroc"] for k in HEADLINE_LABELS if results.get(k, {}).get(name) and results[k][name].get("auroc") is not None]
         ntr = [results[k][name]["n_train"] for k in HEADLINE_LABELS if results.get(k, {}).get(name) and results[k][name].get("n_train") is not None]
+        c3_accs = [results[k][name]["acc"] for k in CORE_BALANCED_LABELS if results.get(k, {}).get(name) and results[k][name].get("acc") is not None]
+        c3_f1s = [results[k][name]["f1"] for k in CORE_BALANCED_LABELS if results.get(k, {}).get(name) and results[k][name].get("f1") is not None]
+        c3_aucs = [results[k][name]["auroc"] for k in CORE_BALANCED_LABELS if results.get(k, {}).get(name) and results[k][name].get("auroc") is not None]
         accs_all6 = [results[k][name]["acc"] for k in C.LABELS if results.get(k, {}).get(name) and results[k][name].get("acc") is not None]
         if accs:
             summary[name] = round(float(np.mean(accs)), 4)
@@ -185,6 +193,12 @@ def main():
             summary_auroc[name] = round(float(np.mean(aucs)), 4)
         if ntr:
             summary_n_train[name] = round(float(np.mean(ntr)), 1)
+        if c3_accs:
+            summary_core3_acc[name] = round(float(np.mean(c3_accs)), 4)
+        if c3_f1s:
+            summary_core3_f1[name] = round(float(np.mean(c3_f1s)), 4)
+        if c3_aucs:
+            summary_core3_auroc[name] = round(float(np.mean(c3_aucs)), 4)
         if accs_all6:
             summary_all6_non_headline[name] = round(float(np.mean(accs_all6)), 4)
 
@@ -193,11 +207,17 @@ def main():
         "mean_f1_by_source": summary_f1,
         "mean_auroc_by_source": summary_auroc,
         "mean_n_train_by_source": summary_n_train,
+        "core_balanced_3_labels": CORE_BALANCED_LABELS,
+        "core_balanced_3_mean_acc_by_source": summary_core3_acc,
+        "core_balanced_3_mean_f1_by_source": summary_core3_f1,
+        "core_balanced_3_mean_auroc_by_source": summary_core3_auroc,
         "headline_labels": HEADLINE_LABELS,
         "excluded_uninformative_labels": sorted(UNINFORMATIVE_LABELS),
         "excluded_label_note": (
             "liver is present in 100% of CholecSeg8k frames (carries zero discriminative information). "
-            "It is reported in per_label['liver'] and excluded from headline mean_acc_by_source."
+            "It is reported in per_label['liver'] and excluded from headline mean_acc_by_source. "
+            "On the test split, cystic_duct (1/280 pos) and blood (0/280 pos) test false-positive suppression "
+            "(specificity), while grasper, l_hook, and gallbladder have balanced positive/negative test support."
         ),
         "non_headline_all6_mean_acc_by_source": summary_all6_non_headline,
         "evaluation_split": "test",
