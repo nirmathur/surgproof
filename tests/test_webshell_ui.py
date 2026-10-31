@@ -13,6 +13,29 @@ def test_webshell_files_exist():
     assert (WEB_DIR / "index.html").exists(), "web/index.html must exist"
     assert (WEB_DIR / "style.css").exists(), "web/style.css must exist"
     assert (WEB_DIR / "app.js").exists(), "web/app.js must exist"
+    assert (WEB_DIR / "watch.html").exists(), "web/watch.html must exist"
+    assert (WEB_DIR / "watch.js").exists(), "web/watch.js must exist"
+
+
+def test_watch_mode_structure_and_syntax():
+    index_html = (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    assert 'href="watch.html"' in index_html, "Top bar in web/index.html must link to watch.html"
+
+    watch_html = (WEB_DIR / "watch.html").read_text(encoding="utf-8")
+    assert "SurgProof · video12 (held-out)" in watch_html
+    assert 'id="watch-canvas"' in watch_html
+    assert 'id="watch-headline-chip"' in watch_html
+    assert 'id="watch-subtitle-text"' in watch_html
+    assert 'id="watch-play-btn"' in watch_html
+    assert 'id="watch-scrub"' in watch_html
+    assert 'src="watch.js"' in watch_html
+
+    watch_js_path = WEB_DIR / "watch.js"
+    watch_js = watch_js_path.read_text(encoding="utf-8")
+    res = subprocess.run(["node", "--check", str(watch_js_path)], capture_output=True, text=True)
+    assert res.returncode == 0, f"node --check failed on web/watch.js: {res.stderr}"
+    assert "video12.json" in watch_js
+    assert "narration_video12.json" in watch_js
 
 
 def test_index_html_mount_points_and_structure():
@@ -93,7 +116,7 @@ def test_app_js_syntax_and_zero_fabrication():
         (r'0\.7\d?\s*\+\s*0\.\d+\s*\*', "synthetic score formula"),
         (r'(accuracy|acc|precision|coverage)\s*=\s*0\.\d{2,}', "hard-coded metric"),
     ]
-    for fname in ("index.html", "style.css", "app.js"):
+    for fname in ("index.html", "style.css", "app.js", "watch.html", "watch.js"):
         text = (WEB_DIR / fname).read_text(encoding="utf-8")
         for lineno, line in enumerate(text.splitlines(), 1):
             s = line.strip()
