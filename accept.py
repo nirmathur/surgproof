@@ -1,11 +1,16 @@
-"""Step 5: decide which labels to trust, send the uncertain band to Argon, and write decisions.csv.
+"""Step 5: double-check every label, run the N-round Argon Amber Loop, and write decisions.csv.
 
-Zero-label rule (no human labels used): trust score from the checks, thresholds fixed in advance.
-Statuses emitted: 'accept' (verified), 'AMBER' (abstain -> Human Gate), 'reject' (rejected).
-Post-decision evaluation runs separately via eval.score_decisions after decisions.csv is saved.
+Zero-label rule (no human labels used):
+1. Every label gets an independent second pass (blind crop + sceptical critic).
+   Both agree -> 'accept' or 'reject'; disagree or uncertain -> 'AMBER'.
+2. Amber Loop: Argon re-examines each AMBER for up to N rounds (N=3 default: zoomed crop +
+   manual criteria -> tighter crop + differential diagnosis -> multi-vote consensus adjudication),
+   logging every round to out/amber_rounds.jsonl and shrinking AMBERs before the Human Gate.
+3. Post-decision evaluation runs separately via eval.score_decisions after decisions.csv is saved.
 
-  python accept.py            # writes out/decisions.csv and out/results.json
-  python accept.py --no-argon # skip the Argon reviser (faster)
+  python accept.py                  # 3-round Amber Loop -> out/decisions.csv, out/amber_rounds.jsonl, out/results.json
+  python accept.py --amber-rounds 3 # explicit N rounds
+  python accept.py --no-argon       # skip the Argon Amber Loop (faster)
 """
 import argparse
 import asyncio
@@ -20,7 +25,9 @@ from eval.score_decisions import evaluate_decisions
 from verify.engine import (
     ACCEPT_THRESHOLD,
     ARGON_ACCEPT_CONF,
+    DECISION_EXTRA_COLS,
     DECISION_OUTPUT_COLS,
+    DEFAULT_AMBER_ROUNDS,
     HEADLINE_KEYS,
     REJECT_THRESHOLD,
     VERIFIER_INPUT_COLS,
@@ -29,17 +36,26 @@ from verify.engine import (
     _safe_prob,
     apply_argon_verdict,
     argon_revise as _engine_argon_revise,
+    compute_second_pass_signals,
     enrich_results_excl_liver,
+    export_verified_dataset_jsonl,
     prepare_verifier_dataframe,
+    run_amber_loop,
     status,
     summarize_decisions_zero_label,
     trust,
 )
 
 
-async def argon_revise(r, manual):
+async def argon_revise(r, manual, *, round_num: int = 1, prior_history: list[dict] | None = None):
     """Escalate an uncertain claim to Gemini 4 Argon (`accept.gem.call` compatible)."""
-    return await _engine_argon_revise(r, manual, call_fn=gem.call)
+    return await _engine_argon_revise(
+        r,
+        manual,
+        call_fn=gem.call,
+        round_num=round_num,
+        prior_history=prior_history,
+    )
 
 
 def _resolve_labels_path(labels_path: Path | str | None = None) -> Path:
@@ -66,6 +82,7 @@ async def main(
     use_argon: bool = True,
     argon_budget: int = 300,
     *,
+    amber_rounds: int = DEFAULT_AMBER_ROUNDS,
     labels_path: Path | str | None = None,
     out_path: Path | str | None = None,
     index_path: Path | str | None = None,
@@ -78,39 +95,48 @@ async def main(
     raw_d = pd.read_json(lbl_file, lines=True)
     d = prepare_verifier_dataframe(raw_d, idx_df)
 
-    if use_argon and argon_budget > 0 and not d.empty:
-        man_path = C.OUT_DIR / "manual.json"
-        if not man_path.exists():
-            alt_man = C.ROOT / "coord" / "artifacts" / "manual.json"
+    man_path = C.OUT_DIR / "manual.json"
+    if not man_path.exists():
+        for root_cand in (C.ROOT, C.OUT_DIR.resolve().parent):
+            alt_man = root_cand / "coord" / "artifacts" / "manual.json"
             if alt_man.exists():
                 man_path = alt_man
-        manual = json.loads(man_path.read_text()) if man_path.exists() else {}
-        amber_rows = d[d.status == "AMBER"].copy()
-        amber_rows["_is_headline"] = amber_rows["key"].isin(HEADLINE_KEYS).astype(int)
-        amber_rows = amber_rows.sort_values(["_is_headline", "trust"], ascending=[False, False])
-        n_review = min(int(argon_budget), max(1, (len(amber_rows) + 1) // 2)) if len(amber_rows) > 1 else len(amber_rows)
-        band = amber_rows.head(n_review)
-        gem.trace(
-            "argon",
-            f"Reviewing {len(band)} uncertain labels ({(d.status != 'accept').sum()} flagged in total)",
+                break
+    manual = json.loads(man_path.read_text()) if man_path.exists() else {}
+
+    round_logs: list[dict] = []
+    if use_argon and argon_budget > 0 and amber_rounds > 0 and not d.empty:
+        round_logs = await run_amber_loop(
+            d,
+            manual,
+            argon_budget=argon_budget,
+            max_rounds=amber_rounds,
+            call_fn=gem.call,
         )
-        if not band.empty:
-            verdicts = await asyncio.gather(*[argon_revise(r, manual) for r in band.itertuples()])
-            for (i, _), v in zip(band.iterrows(), verdicts):
-                apply_argon_verdict(d, i, v)
 
     dest = Path(out_path) if out_path is not None else (C.OUT_DIR / "decisions.csv")
     dest.parent.mkdir(parents=True, exist_ok=True)
     d.to_csv(dest, index=False)
 
-    # Mirror to coord/artifacts/decisions.csv ONLY when writing to the real shared out/decisions.csv
+    # Write Amber Loop log (`out/amber_rounds.jsonl`) and verified dataset (`out/verified_dataset.jsonl`)
+    out_dir_for_aux = dest.parent
+    rounds_path = out_dir_for_aux / "amber_rounds.jsonl"
+    rounds_path.write_text(
+        "\n".join(json.dumps(rec) for rec in round_logs) + ("\n" if round_logs else "")
+    )
+    verified_ds_path = out_dir_for_aux / "verified_dataset.jsonl"
+    export_verified_dataset_jsonl(d, manual, verified_ds_path)
+
+    # Mirror to coord/artifacts/ ONLY when writing to the real shared out/decisions.csv
     real_out_dec = (C.ROOT / "out" / "decisions.csv").resolve()
     shared_roots = {C.ROOT.resolve(), C.OUT_DIR.resolve().parent}
     if dest.resolve() == real_out_dec:
         for s_root in shared_roots:
-            coord_dec = s_root / "coord" / "artifacts" / "decisions.csv"
-            coord_dec.parent.mkdir(parents=True, exist_ok=True)
-            d.to_csv(coord_dec, index=False)
+            coord_dir = s_root / "coord" / "artifacts"
+            coord_dir.mkdir(parents=True, exist_ok=True)
+            d.to_csv(coord_dir / "decisions.csv", index=False)
+            (coord_dir / "amber_rounds.jsonl").write_text(rounds_path.read_text())
+            (coord_dir / "verified_dataset.jsonl").write_text(verified_ds_path.read_text())
 
     if skip_eval or dest.resolve() != (C.OUT_DIR / "decisions.csv").resolve():
         return summarize_decisions_zero_label(d)
@@ -131,6 +157,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-argon", action="store_true")
     ap.add_argument("--argon-budget", type=int, default=300)
+    ap.add_argument("--amber-rounds", type=int, default=DEFAULT_AMBER_ROUNDS)
     ap.add_argument("--labels", type=str, default=None, help="Optional input JSONL path")
     ap.add_argument("--out", type=str, default=None, help="Optional output CSV path")
     ap.add_argument("--skip-eval", action="store_true", help="Skip post-decision evaluation")
@@ -139,6 +166,7 @@ if __name__ == "__main__":
         main(
             not a.no_argon,
             a.argon_budget,
+            amber_rounds=a.amber_rounds,
             labels_path=a.labels,
             out_path=a.out,
             skip_eval=a.skip_eval,
