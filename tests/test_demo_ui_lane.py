@@ -100,3 +100,20 @@ def test_student_and_narration_with_fixtures(tmp_path):
     assert finals and "clipped" not in finals[0]  # final narration = verified claims only
     labels = [m.label for m in at.metric]
     assert any("tracker-flagged recheck" in lbl for lbl in labels)
+
+
+def test_load_label_rows_prefers_decisions_then_labels(tmp_path):
+    old = C.OUT_DIR
+    C.OUT_DIR = tmp_path
+    app.O = tmp_path
+    try:
+        (tmp_path / "labels_manual.jsonl").write_text(json.dumps(
+            {"frame_id": "video12_15750_15750", "video": "video12", "key": "grasper", "present": 1, "sample": 0}) + "\n")
+        d, src = app.load_label_rows()
+        assert src == "labels_manual.jsonl" and len(d) == 1
+        (tmp_path / "decisions.csv").write_text("frame_id,video,key,present,status\nvideo12_15750_15750,video12,grasper,1,accept\n")
+        d, src = app.load_label_rows()
+        assert src == "decisions.csv" and "status" in d.columns
+    finally:
+        C.OUT_DIR = old
+        app.O = old

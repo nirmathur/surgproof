@@ -26,6 +26,7 @@ COL = {
     "reanalyse": "#d69e2e",
     "reject": "#e53e3e",
     "escalate": "#e53e3e",
+    "raw": "#a0aec0",
 }
 NON_TRIVIAL_KEYS = [k for k in C.LABELS if k != "liver"]
 CORE_BALANCED_KEYS = ["grasper", "l_hook", "gallbladder"]
@@ -624,7 +625,10 @@ def render_med_school():
         for src in man["sources"]:
             if isinstance(src, dict):
                 real = " · real intra-op footage" if src.get("is_real_intraop_footage") else ""
-                st.markdown(f"- [{src.get('title', src.get('url', 'source'))}]({src.get('url', '')}){real}")
+                kind = f" · {src['source_type']}" if src.get("source_type") else ""
+                st.markdown(f"- [{src.get('title', src.get('url', 'source'))}]({src.get('url', '')}){kind}{real}")
+                if src.get("real_intraop_footage_note"):
+                    st.caption(src["real_intraop_footage_note"])
                 for ts in src.get("timestamps", []) or []:
                     st.markdown(f"    - {ts}")
             else:
@@ -663,6 +667,68 @@ def _pct(v):
     return f"{v * 100:.1f}%" if isinstance(v, (int, float)) else "PENDING"
 
 
+def load_label_rows() -> tuple[pd.DataFrame | None, str]:
+    """decisions.csv (has self-check status) if present, else labels_manual.jsonl, else the 40-frame smoke set."""
+    dec = resolve_artifact("decisions.csv")
+    if dec.exists():
+        return pd.read_csv(dec), dec.name
+    for name in ("labels_manual.jsonl", "labels_smoke.jsonl"):
+        p = resolve_artifact(name)
+        if p.exists():
+            try:
+                d = pd.read_json(p, lines=True)
+                d = d[d.get("sample", 0) == 0] if "sample" in d.columns else d
+                return d, p.name
+            except Exception:
+                continue
+    return None, ""
+
+
+def render_raw_and_selfcheck():
+    st.subheader("Rounds 0–1 · Raw Gemini labels and the agent's own checks, on real frames")
+    d, src = load_label_rows()
+    if d is None or d.empty:
+        st.info("**[PLACEHOLDER — Awaiting `out/labels_manual.jsonl` or `out/decisions.csv`]**")
+        return
+    has_status = "status" in d.columns
+    st.caption(
+        f"Source: `{src}` ({d['frame_id'].nunique()} frames, {len(d)} labels). "
+        + ("Status from the verifier (`decisions.csv`)." if has_status else
+           "No verifier decisions yet: showing the labeller's output and its decorrelated check signals "
+           "(blind crop check `pv_match`, sceptical critic `p_wrong`). No accuracy is shown here.")
+    )
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Labels", len(d))
+    k2.metric("Predicted present", int(d["present"].sum()))
+    pres = d[d["present"] == 1]
+    if "pv_match" in d.columns and not pres.empty:
+        k3.metric("Blind crop check agrees (present labels)", f"{pres['pv_match'].fillna(False).astype(bool).mean() * 100:.0f}%")
+    if "p_wrong" in d.columns:
+        k4.metric("Critic says likely wrong (p_wrong ≥ 0.5)", int((d["p_wrong"] >= 0.5).sum()))
+    if has_status:
+        st.markdown(" ".join(
+            f"<span style='background:{COL.get(s_, '#d69e2e')};color:white;padding:3px 9px;border-radius:10px;margin-right:6px'>"
+            f"{s_}: {n_}</span>" for s_, n_ in d["status"].map(normalize_status).value_counts().items()
+        ), unsafe_allow_html=True)
+    vids = sorted(d["video"].dropna().unique()) if "video" in d.columns else []
+    c1, c2 = st.columns([1, 3])
+    v = c1.selectbox("Video", vids, key="raw_vid") if vids else None
+    fids = sorted(d[d["video"] == v]["frame_id"].unique(), key=frame_sort_key) if v else []
+    if not fids:
+        return
+    fid = c2.select_slider("Frame", options=fids, key=f"raw_f_{v}") if len(fids) > 1 else fids[0]
+    rows = d[d["frame_id"] == fid].copy()
+    if not has_status:
+        rows["status"] = "raw"
+    fp = rows["frame_path"].dropna().iloc[0] if "frame_path" in rows.columns and rows["frame_path"].notna().any() else frame_path_from_id(fid)
+    ic, tc = st.columns([3, 2])
+    ic.image(draw(fp, rows, reveal=False, frame_id=fid),
+             caption=f"{fid} · boxes = Gemini's claimed structures" + ("" if has_status else " (grey: not yet verified)"),
+             width="stretch")
+    cols = [c for c in ["key", "present", "conf", "evidence", "pv_match", "p_wrong", "critic", "status", "final_present", "final_by"] if c in rows.columns]
+    tc.dataframe(rows[cols].set_index("key"), width="stretch")
+
+
 def render_loop():
     st.header("The loop: raw labels → agent self-check → tracker-targeted recheck")
     st.caption(
@@ -697,6 +763,9 @@ def render_loop():
         {"baseline": "upper_bound_calibrated [UPPER BOUND]", "raw_accuracy": None, "coverage_at_95": (res.get("upper_bound_calibrated") or {}).get("coverage_at_95"), "human_labels": "calib split GT (upper bound only)"},
     ]
     st.dataframe(pd.DataFrame(base_rows).fillna("PENDING"), width="stretch")
+
+    st.divider()
+    render_raw_and_selfcheck()
 
     st.divider()
     st.subheader("Round 2 · Tracking verifier: where to recheck (grasper, L-hook)")

@@ -4,11 +4,11 @@ Canonical producer schemas live in `docs/DESIGN.md` (architect). This file lists
 reads, with the fallback when a file is missing. The real files win: if a producer's output differs,
 the UI loader changes, not the producer. Every lookup goes to `out/<name>` first, then `coord/artifacts/<name>`.
 
-Status at 2026-10-31 13:30 on Harald's machine: **real** = file exists and the UI renders it.
+Status at 2026-10-31 13:20 on Harald's machine (after merging main): **real** = file exists and the UI renders it.
 
 | File | Producer | Tab | Status | Fallback when missing |
 |---|---|---|---|---|
-| `out/manual.json` | med_school.py | 1 Med School | real (`coord/artifacts/manual.json`) | PLACEHOLDER note |
+| `out/manual.json` | med_school.py | 1 Med School | real (`coord/artifacts/manual.json`, incl. `sources[]`) | PLACEHOLDER note |
 | `data/cholecseg8k/CholecSeg8k/<video>/<clip>/frame_<N>_endo.png` | dataset | 2 Loop, 5 Narration | real | grey placeholder canvas |
 | `.../frame_<N>_endo_watershed_mask.png` | dataset | 2 Loop (GT overlay toggle, test videos only) | real | overlay skipped |
 | `out/flags.parquet` | tracker | 2 Loop | real, but `source=gt_corrupted` (synthetic errors) | PLACEHOLDER note |
@@ -17,8 +17,9 @@ Status at 2026-10-31 13:30 on Harald's machine: **real** = file exists and the U
 | `out/eval/summary.json`, `out/eval/budget_curve.csv` | tracker | 2 Loop | real (synthetic errors) | hidden |
 | `out/results.json` | accept.py / eval/ | 2 Loop, 4 Proof | missing | `PENDING` metrics, no numbers |
 | `data/index.csv` | prepare_data.py | 3 Live, 4 Proof, 5 Watch | missing here (on Nir's machine) | PLACEHOLDER |
-| `out/labels_manual.jsonl`, `out/labels_blank.jsonl` | label.py | 4 Proof | missing | hidden |
-| `out/decisions.csv` | accept.py | 5 Watch, Human Gate | missing | raw frame preview |
+| `out/labels_manual.jsonl` → else `coord/artifacts/labels_smoke.jsonl` | label.py | 2 Loop (rounds 0–1 viewer), 4 Proof | smoke set real (40 frames x 6 keys, matches DESIGN.md 1A) | PLACEHOLDER |
+| `out/labels_blank.jsonl` | label.py | 4 Proof | missing | hidden |
+| `out/decisions.csv` | accept.py | 2 Loop (preferred over labels), 5 Watch, Human Gate | missing | labels without status (grey boxes) |
 | `out/student.json` | student.py | 4 Proof | missing | `PENDING` metrics |
 | `out/narration_<video>.json` | narrate.py | 5 Watch | missing | PLACEHOLDER note |
 | `out/atlas/*/dataset.json` | atlas.py | 5 Watch ("showcase, no ground truth") | missing | caption |
@@ -27,7 +28,7 @@ Status at 2026-10-31 13:30 on Harald's machine: **real** = file exists and the U
 
 **manual.json**: `procedure`, `phases[]`, `critical_events[]`, `general_rules[]`, `structures[]{key, name, appearance,
 where_found, when_visible, confused_with[], how_to_tell_apart}`, and optionally `sources[]{url, title, is_real_intraop_footage,
-timestamps[]}`. The real file has no `sources` yet; the UI shows a caption instead.
+timestamps[], source_type, real_intraop_footage_note}`. The note is shown under each source (e.g. a lecture over a still photo is not intra-op video).
 
 **GT overlay**: watershed mask channel 0 → class id via `config.WATERSHED_VALUE_TO_CLASS`; `255` (1-px border) and unknown
 values → ignore. Classes drawn are the `config.LABELS` keys. Shown only for test videos (video09, 12, 17, 28, 48, 55), as an
@@ -63,3 +64,8 @@ Legacy shape `{frame_id, narration, unsure_about[]}` (current narrate.py) still 
 
 **decisions.csv, labels_*.jsonl, data/index.csv, human_gate_log.jsonl**: exactly as `docs/DESIGN.md` 1A–1C and 2.
 `status` normalised: `accept`; `reject`/`escalate` → reject; anything else → AMBER.
+
+**Loop rounds 0–1 viewer**: rows from `decisions.csv` if present, else `labels_manual.jsonl` (`sample == 0`), else
+`labels_smoke.jsonl`. Uses `frame_id, video, key, present, conf, box, evidence, pv_match, p_wrong, critic`, plus `status,
+final_present, final_by, frame_path` when decisions exist. Frame image from `frame_path`, else derived from `frame_id`.
+No accuracy is computed here (GT scoring comes from `results.json`).
