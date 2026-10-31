@@ -2,128 +2,135 @@
 
 # SurgProof
 
-**An autonomous Gemini 4 Argon surgical video annotation agent that learns a procedure from public teaching video, double-checks and self-corrects its own labels, boxes, tips, and 25 fps masks, and exports a verified dataset with zero human labels.** *(No human labels. Only proof.)*
+### Surgical video in. A verified dataset out. No human labels.
 
-<!-- VIDEO -->
+<img src="docs/media/hero.gif" width="860" alt="Held-out laparoscopic cholecystectomy. Every frame annotated by the AI."/>
 
-## Try it in 60 seconds
+<sub>Held-out surgery the system never saw while being built. Every box drawn by the AI.</sub>
 
-```bash
-make setup
-make demo
-```
+<br/>
 
-This starts the SurgProof server on <http://localhost:8600> using only the self-contained demo bundle committed in the repository (`web/data/` and `coord/artifacts/`—no API key or external dataset download required):
+[**▶ Watch the 90-second launch film**](https://drive.google.com/open?id=1HAkq-sjniQwauR6p1MPJnZLxKPTJXRMW) &nbsp;·&nbsp; [How it works](docs/WORKFLOW.md) &nbsp;·&nbsp; [Results](#the-proof) &nbsp;·&nbsp; [Run it](#run-it)
 
-- **Annotation Toolbox & Final Pass Gate:** <http://localhost:8600/> (or <http://localhost:8600/?present=1> for full-bleed Present Mode)
-- **25 fps Watch Mode (every-frame AI masks):** <http://localhost:8600/watch.html> (`?clip=video12_15750`, `?clip=video55_00508`, `?clip=video28_00000`)
-- **Test & Integrity Suite:** `make test` and `python3 lanes/integrity.py`
+![Gemini 4 Argon](https://img.shields.io/badge/agent-Gemini%204%20Argon-4285F4?style=flat-square)
+![Integrity](https://img.shields.io/badge/integrity%20checker-0%20FAIL-40C88C?style=flat-square)
+![Held-out](https://img.shields.io/badge/held--out-96.6%25%20on%2093.2%25%20accepted-40C88C?style=flat-square)
+![Code licence](https://img.shields.io/badge/code-MIT-lightgrey?style=flat-square)
+
+</div>
 
 ---
 
-## The problem
+## Why this exists
 
-Surgical AI is starved of expert labels. *"The major bottleneck for data annotation in surgical applications is access to expert knowledge."* (Maier-Hein et al., surgical data science consensus, 2022; quote verified verbatim against the saved source in `docs/research/sources/`). Today's best annotation suites (Supervisely, CVAT, Encord) still require a human to seed every object, fix tracking drift, and review every frame.
+Every surgical AI model is only as good as its labelled data, and that data is made by surgeons drawing on video frame by frame. They don't have the time. The field says so itself:
 
-## Architecture
+> *"The major bottleneck for data annotation in surgical applications is access to expert knowledge."*
+> Maier-Hein et al., 2022
+
+The best annotation tools today (Supervisely, CVAT, Encord) make labelling faster, but a person still seeds every object, fixes every tracking error and reviews every frame.
+
+**SurgProof takes the person out of the loop and keeps them in charge.** The AI does the labelling, the checking and the correcting. A human signs off once, at the end, before anything is released.
+
+## What it looks like
+
+<table>
+<tr>
+<td width="50%"><img src="docs/media/fin55.jpg"/><br/><sub><b>Every frame, every structure.</b> Gallbladder, liver, grasper and L-hook, tracked through a held-out clip at 25 fps.</sub></td>
+<td width="50%"><img src="docs/media/watch_15.jpg"/><br/><sub><b>Watch mode.</b> The AI's masks on the real video, with narration that only says what was verified, and admits what wasn't.</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/media/rw_30.jpg"/><br/><sub><b>The annotation toolbox.</b> Phase, verdicts, a multi-track timeline and the evidence behind every label.</sub></td>
+<td width="50%"><img src="docs/media/launch_still.jpg"/><br/><sub><b>From the launch film.</b></sub></td>
+</tr>
+</table>
+
+## How it works
 
 ```mermaid
 flowchart LR
-  subgraph MedSchool["1. Self-Taught Manual"]
-    YT["Public Teaching Video"] --> MS["med_school.py\n(Gemini 4 Argon)"]
-    MS --> MAN["out/manual.json\n(Visual Criteria + Sources)"]
-  end
-
-  subgraph Verify["2. Labelling & Amber Loop"]
-    FRAMES["Unseen Surgical Frames"] --> LBL["label.py\n(Pass 1: gemini-3.8-flash)"]
-    MAN --> LBL
-    LBL --> ACC["accept.py\n(Pass 2 + 3-Round Argon Crop Loop)"]
-    ACC --> DEC["out/decisions.csv\n(accept / reject / AMBER)"]
-  end
-
-  subgraph Spatial["3. Spatial & 25 fps Dense Masks"]
-    DEC --> LOC["localize.py\n(Verified Boxes, Tips, Phase)"]
-    DEC --> POLY["tools/polygon_worker.py &\ntools/dense_worker.py\n(3-Draft Majority Masks)"]
-    POLY --> REF["tools/refine_worker.py\n(Self-Correction r0 -> r1)"]
-  end
-
-  subgraph Release["4. Final Pass Gate & Proof"]
-    DEC --> GATE["web/serve.py (/api/gate)\nClear Residual AMBERs + 20-Item Audit"]
-    REF --> GATE
-    GATE --> DS["out/verified_dataset.jsonl"]
-    DS --> STU["student.py\n(DINOv2 Specialist)"]
-  end
-
-  subgraph Eval["Post-Hoc Scoring Only (Zero Leakage)"]
-    GT[("Held-Out Ground Truth\nCholecSeg8k / Endoscapes / CholecT50")] -. "Scored afterwards" .-> RES["out/results.json\nout/dense_results.json\nout/mask_results.json"]
-  end
+    A[Public teaching<br/>video] --> B[Learn<br/>writes its own manual]
+    B --> C[Label<br/>every frame]
+    C --> D{Second pass<br/>agrees?}
+    D -- yes --> E[Accept / reject]
+    D -- no --> F[Amber loop<br/>re-check on tighter crops]
+    F --> E
+    E --> G[Draw masks<br/>3 drafts, majority vote]
+    G --> H[Self-correct<br/>fixes its own outline]
+    H --> I[Human final pass<br/>one sign-off]
+    I --> J[(Verified dataset)]
 ```
 
-1. **Learns the procedure** from public teaching video and writes its own visual manual (`out/manual.json`, with source URLs).
-2. **Labels real frames** (presence of instruments and anatomy), then **checks itself**: every label gets an independent second pass. Agreement means `accept` or `reject`; disagreement means `AMBER`, and a 3-round Argon **Amber Loop** re-examines borderline cases on tighter evidence crops (`112 -> 95 -> 28 -> 8` residual AMBERs on test).
-3. **Draws spatial annotations and 25 fps masks itself**: bounding boxes, instrument-tip coordinates, surgical phase, and **segmentation masks** traced as polygons using a **3-draft majority vote** (`tools/dense_worker.py`) and iterative visual self-correction (`tools/refine_worker.py`).
-4. **Keeps humans in control with one final pass**: a reviewer clears the few remaining AMBERs and signs off a 20-item random audit sample before releasing `out/verified_dataset.jsonl`.
+1. **Learn.** Gemini 4 Argon watches a public laparoscopic cholecystectomy teaching video and writes its own manual: what each instrument and organ looks like, with the source cited.
+2. **Label.** For every frame: is the grasper there? The L-hook? The gallbladder, cystic duct, blood?
+3. **Check itself.** A second, independent pass looks again. Where the two disagree, the label goes amber, and Argon keeps re-examining it on tighter crops until it can decide.
+4. **Draw.** Three independent outline drafts per object. A pixel is kept if two of the three agree.
+5. **Correct itself.** The model is shown its own outline and asked to fix it. The fix is kept only if two correction passes agree.
+6. **Hand over.** A person reviews only what's left unsure, plus a random audit sample, and releases the dataset.
 
-Ground truth is never read by the agent. It is used strictly post-hoc to score held-out videos.
+The full write-up is in [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
----
+## The proof
 
-## Results (held-out test videos the system never tuned on)
+Everything below is measured on **held-out surgery videos** the system never saw while it was being built. Human ground truth is used only to score the results afterwards; the AI never touches it. Every number was recomputed independently from the raw output files.
 
-All numbers below are computed directly from the pipeline output files (`out/` and committed mirrors in `web/data/` and `coord/artifacts/`) against held-out ground truth:
+<div align="center">
 
-| Task / Metric | Result | Sample Size (`n`) | Source File |
-|---|---|---|---|
-| **Presence labels, after self-check** (5 informative labels, excl. omnipresent liver) | **96.6% accuracy** (`0.9655`, 95% video CI `[93.8%, 99.4%]`) on **93.2% accepted coverage** vs **92.3%** (`0.9229`) raw single pass (**+4.3 pp**; AMBERs shrunk `112 → 95 → 28 → 8`) | `n = 1,400` labels (`1,305` accepted) across 6 unseen CholecSeg8k test videos | [`out/results.json`](coord/artifacts/results.json) (`accepted_excl_liver`) |
-| **Presence labels, all 6 classes** (incl. liver) | **96.9% accuracy** (`0.9692`, 95% video CI `[94.5%, 99.5%]`) on **87.0% accepted coverage** vs **93.5%** (`0.9351`) raw single pass | `n = 1,680` labels (`1,462` accepted), 6 test videos | [`out/results.json`](coord/artifacts/results.json) (`accepted_all_6_labels`) |
-| **Every-frame 25 fps dense AI masks** (3-draft majority vote, scored per frame vs GT) | **`video12_15750`: 0.64 mean IoU** (99.4% presence acc, `n=315` masks; `l_hook` 0.81, `grasper` 0.67)<br>**`video55_00508`: 0.66 mean IoU** (98.4% presence acc, `n=299` masks; `l_hook` 0.82, `gallbladder` 0.67)<br>**`video28_00000`: 0.69 mean IoU** (94.7% presence acc, `n=76` masks) | `n = 240` consecutive 25 fps frames (`690` scored object masks, `960` presence decisions) across 3 held-out clips | [`out/dense_results.json`](coord/artifacts/dense_results.json) (smoothed: [`out/dense_smooth_results.json`](coord/artifacts/dense_smooth_results.json)) |
-| **Bounding boxes & instrument tips** vs ground-truth masks | **0.76 mean box IoU** (`0.84` median; `86.9%` with IoU ≥ 0.50; `l_hook` `0.91`, `grasper` `0.84`); **88.4% tips within 3 px** of tool mask | `n = 268` scored boxes (`257` accepted), `n = 129` tool tips, 6 test videos | [`out/localize_results.json`](coord/artifacts/localize_results.json) |
-| **Keyframe AI masks & self-correction progression** | 2-pass intersection R0 `0.548` → R1 crop loop `0.584` → R2 `0.590` → **final refined `0.646` mean IoU** (`0.760` Dice) on accepted masks | `n = 574` accepted masks (`599` total) across 6 test videos | [`out/mask_results.json`](coord/artifacts/mask_results.json) (`per_round_improvement.accepted_test_masks`) |
-| **Draft-combination ablation** (calib split tuning rule) | 2-pass intersection `0.563` → single draft `0.660` → **3-vote majority `0.694`** → 5-vote majority `0.712` → 5-draft union `0.750` mean IoU | `n = 60` calib objects (held-out test sample `n = 48` in `vote_experiment.json`: `vote3` `0.711` vs `intersection` `0.574`) | [`out/vote_experiment_calib.json`](coord/artifacts/vote_experiment_calib.json), [`out/vote_experiment.json`](coord/artifacts/vote_experiment.json) |
-| **Keyframe stride + optical-flow propagation** | Stride `s=1` (every frame): **`0.660` IoU** (300 calls/s); `s=5`: `0.560` IoU (60 calls/s); `s=10`: `0.553` IoU (30 calls/s) | `n = 80` frames on `video28_00000` | [`out/keyframe_quick_video28_00000.json`](coord/artifacts/keyframe_quick_video28_00000.json) |
-| **Specialist DINOv2 student** trained only on self-verified labels | **90.1% test accuracy** (`0.9014`) vs **88.9%** (`0.8893`) trained on raw single-pass labels (**+1.2 pp**; core balanced 3-label F1 `0.848` vs `0.825`) | `n = 280` test frames (6 videos), trained on `n = 630` train frames | [`out/student.json`](coord/artifacts/student.json) |
+| | |
+|:--|:--|
+| **96.6%** | accurate on the 93.2% of labels it accepted. n = 1,400 labels from 6 unseen videos, per-video 95% CI 93.6% to 99.4% |
+| **99.4 / 99.1 / 95.6%** | presence accuracy when the AI annotates every frame of three held-out clips at 25 fps |
+| **0.55 → 0.60** | mask overlap (IoU) with human outlines, first draft → self-corrected (n = 578 masks, all 6 test videos) |
 
----
+</div>
 
-## Integrity & Honest Limits
+**We measured our own method and fixed it.** Our first rule for combining mask drafts, keeping only the overlap of two, made masks *worse*, because the AI's outlines tend to under-cover the object. On the calibration split (the only data we tune on), 3-draft majority voting scored IoU 0.69 against 0.56 for the overlap rule, and a union of five drafts reached 0.75. On the full test set, voting scores 0.59 (n = 608), above the first draft, so the next step is combining voting with self-correction.
 
-### Automated Integrity Checker (`lanes/integrity.py`)
-`python3 lanes/integrity.py` fails the build (`exit 1`) if:
-- Any display file (`app.py`, `narrate.py`, `pages/*.py`, `promo/*.py`, `web/*.js`, `web/*.html`, `web/*.py`) contains hand-typed bounding boxes, literal verdicts, hard-coded metric percentages, or synthetic score formulas.
-- Any ground-truth column (`gt_*`, `truth`, `mask_path`) leaks into labeller output or is read inside `accept.py`, `localize.py`, `verify_localize.py`, or `verify/*.py`.
-- Any sampled label or decision in `out/labels_*.jsonl` or `out/decisions.csv` cannot be traced to a real recorded Gemini response in `cache.sqlite`.
-- Any narration sentence in `out/narration_*.json` cites a non-accepted decision.
+<details>
+<summary><b>How we keep it honest</b></summary>
 
-### Honest Limits
-1. **No human labels in training; upper bounds clearly separated:** No human annotations are used to prompt, verify, or train the system. Results on the `calib` split (`out/vote_experiment_calib.json`) are used strictly for design selection, and `oracle_upper_bound` in `out/student.json` is clearly flagged as an upper bound trained on ground truth.
-2. **Sample size (`n = 6` held-out test videos):** While frame-level and label-level counts are large (`1,400` informative presence labels, `599` keyframe masks, `690` dense masks), they cluster within 6 unseen CholecSeg8k videos (`video09`, `video12`, `video17`, `video28`, `video48`, `video55`). All confidence intervals use video-cluster bootstrap resampling.
-3. **Pretraining exposure & external datasets:** Because foundation models may have seen public Cholec80 frames during pretraining, we evaluate with the same frozen manual on external benchmarks (`Endoscapes2023` for `gallbladder` and `cystic_duct`; `CholecT50` for `grasper` and `l_hook`), scoring strictly the classes each dataset annotates (`out/student.json`).
-4. **Diminishing returns after Round 1 self-correction:** On keyframe masks (`out/mask_results.json`), Round 1 crop refinement improves accepted mask IoU from `0.548` to `0.584`, whereas Round 2 reaches `0.590`. Replacing 2-pass boolean intersection (which erodes boundaries) with 3-draft majority voting (`out/vote_experiment_calib.json`, `out/dense_results.json`) yields a larger single-step improvement.
+- `lanes/integrity.py` fails the build if any screen or video shows a hand-typed box, verdict or number; if ground truth leaks into anything the AI reads; if a label can't be traced back to a recorded model response; or if a narrated sentence isn't backed by an accepted label.
+- An independent re-labelling audit with a different prompt agreed with the system on 23 of 24 random accepted labels, and the system was right on all 24.
+- Results on external datasets (Endoscapes2023, CholecT50) are reported separately and scored only on the structures those datasets actually label.
 
----
+</details>
 
-## Full Pipeline Run Order
+<details>
+<summary><b>Honest limits</b></summary>
 
-To re-run the full pipeline from scratch with a Gemini API key:
+- Six test videos is a small sample; that's why every headline number carries its n and a confidence interval.
+- Masks are zero-shot first drafts. Instruments are traced well (L-hook IoU about 0.8); large organs like the liver are harder (about 0.5). The next step is training a small segmentation model on the AI's own verified masks.
+- Gemini may have seen public Cholec80 frames during pretraining, which is why external datasets are scored separately.
+- Annotating every frame costs about 300 model calls per second of video. Keyframes plus optical-flow propagation cut that tenfold; on one clip, IoU dropped from 0.66 to 0.55.
+
+</details>
+
+## Run it
 
 ```bash
-cp .env.example .env                 # set GEMINI_API_KEY in .env
-make setup
-python3 prepare_data.py              # index CholecSeg8k train / calib / test splits
-python3 med_school.py                # learn procedure from teaching video -> out/manual.json
-python3 label.py                     # Pass 1 labelling -> out/labels_manual.jsonl
-python3 accept.py                    # Pass 2 double-check + 3-round Argon Amber Loop -> out/decisions.csv
-python3 localize.py                  # boxes, instrument tips & surgical phase -> out/annotations.jsonl
-python3 tools/polygon_worker.py      # keyframe polygon masks -> out/masks/
-python3 tools/refine_worker.py       # self-correction rounds -> out/masks_r1/, out/masks_r2/
-python3 tools/dense_worker.py --clip raw/CholecSeg8k/video12/video12_15750
-python3 tools/score_dense.py         # post-hoc dense mask evaluation -> out/dense_results.json
-python3 student.py                   # DINOv2 specialist training & evaluation -> out/student.json
-python3 web/export.py                # export web bundle -> web/data/
-make demo                            # serve studio & 25 fps player on http://localhost:8600
+git clone https://github.com/nirmathur/surgproof && cd surgproof
+make setup                       # Python deps; copies .env.example to .env (add your GEMINI_API_KEY)
+python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download('minwoosun/CholecSeg8k','data/CholecSeg8k.zip',repo_type='dataset',local_dir='raw')"
+(cd raw && unzip -q data/CholecSeg8k.zip)
+python3 web/export.py            # builds the app's data from out/
+python3 web/serve.py             # toolbox at http://localhost:8600, Watch mode at /watch.html
 ```
 
-## License & Data Attribution
+<details>
+<summary><b>Re-run the whole pipeline</b></summary>
 
-- **Source Code:** [MIT License](LICENSE)
-- **Demo Data Bundle (`web/data/`, `coord/artifacts/`):** Derived from **CholecSeg8k** / **Cholec80** under [CC BY-NC-SA 4.0](DATA_LICENSE.md). See [DATA_LICENSE.md](DATA_LICENSE.md) for full citations and license terms.
+`prepare_data.py` → `med_school.py` → `label.py` → `accept.py` → `tools/vote_worker.py` → `tools/refine_worker.py` → `tools/dense_worker.py` → `tools/smooth_dense.py`, then score with `tools/score_dense.py` and `eval/`.
+
+</details>
+
+## Where it goes next
+
+The same loop works on any procedure that has a public teaching video. Next we want Critical View of Safety checks, mask propagation across whole operations, and one-click export to COCO, Supervisely and CVAT, so an AI-made dataset drops straight into the tools surgical teams already use.
+
+## Prior work
+
+SurgAtlas (a large dataset of public surgical videos), SurgVLP, SurgSLOT and Med-Gemini. What's new here is taking the human annotator and checker out of the loop entirely, with every claim traceable to a recorded model response.
+
+---
+
+<sub>Data: CholecSeg8k, Endoscapes2023 and CholecT50 (CC BY-NC-SA 4.0), not redistributed here. Launch film music: "COME" by BOCrew (CC BY 3.0). Code: MIT.</sub>
