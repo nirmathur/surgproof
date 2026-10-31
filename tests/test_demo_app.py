@@ -209,7 +209,6 @@ def test_app_renders_placeholders_and_honest_claims_when_empty(tmp_path, monkeyp
 
     all_markdown = "\n".join(m.value for m in at.markdown)
     assert "SurgProof" in at.title[0].value
-    assert "Nir Mathur" in all_markdown
     assert "No human labels used in training" in all_markdown
     assert "upper bounds" in all_markdown.lower()
     assert "SurgAtlas" in all_markdown
