@@ -126,5 +126,37 @@ def test_director_ui_branding_files_match_design_tokens():
         assert token in toml_text, f"Missing DESIGN.md token {token} in .streamlit/config.toml"
 
 
+def test_directors_cut_script_and_rendered_film():
+    dc_script = ROOT / "promo" / "directors_cut.py"
+    assert dc_script.is_file(), "promo/directors_cut.py must exist"
+    dc_mp4 = ROOT / "out" / "promo" / "surgproof_directors_cut.mp4"
+    if not dc_mp4.is_file():
+        return
+    import subprocess
+    probe = subprocess.check_output(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-show_entries",
+            "stream=codec_name,width,height",
+            "-of",
+            "default=noprint_wrappers=1",
+            str(dc_mp4),
+        ],
+        text=True,
+    )
+    assert "codec_name=h264" in probe
+    assert "width=1920" in probe
+    assert "height=1080" in probe
+    dur_match = re.search(r"duration=([0-9.]+)", probe)
+    assert dur_match, f"Could not parse duration from ffprobe output: {probe}"
+    dur = float(dur_match.group(1))
+    assert 60.0 <= dur <= 90.0, f"Expected surgproof_directors_cut.mp4 duration in 60..90s, got {dur:.2f}s"
+
+
+
 
 
