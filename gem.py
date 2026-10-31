@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import io
 import json
+import os
 import sqlite3
 import time
 
@@ -12,11 +13,47 @@ from PIL import Image
 
 import config as C
 
-client = genai.Client()  # reads GEMINI_API_KEY
+
+def _ensure_api_key():
+    if os.environ.get("GEMINI_API_KEY"):
+        return
+    env_path = C.ROOT / ".env"
+    if env_path.is_file():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            if k.strip() == "GEMINI_API_KEY" and v.strip():
+                os.environ["GEMINI_API_KEY"] = v.strip().strip("'").strip('"')
+                return
+
+
+_ensure_api_key()
+client = genai.Client() if os.environ.get("GEMINI_API_KEY") else None
 _sem = asyncio.Semaphore(C.CONCURRENCY)
-_db = sqlite3.connect(C.CACHE_DB, check_same_thread=False)
+_loop_sems = {}
+_db = sqlite3.connect(C.CACHE_DB, timeout=30.0, check_same_thread=False)
+_db.execute("PRAGMA journal_mode=WAL")
 _db.execute("create table if not exists cache (k text primary key, v text)")
 TRACE = C.OUT_DIR / "trace.jsonl"
+
+
+def _get_client():
+    global client
+    if client is None:
+        _ensure_api_key()
+        client = genai.Client()
+    return client
+
+
+def _get_sem():
+    loop = asyncio.get_running_loop()
+    sem = _loop_sems.get(loop)
+    if sem is None:
+        sem = asyncio.Semaphore(C.CONCURRENCY)
+        _loop_sems[loop] = sem
+    return sem
 
 
 def trace(agent, msg, **kw):
@@ -27,12 +64,19 @@ def trace(agent, msg, **kw):
 
 def img_part(path_or_img, max_side=768, crop=None):
     im = Image.open(path_or_img).convert("RGB") if not isinstance(path_or_img, Image.Image) else path_or_img
-    if crop:  # crop = (ymin, xmin, ymax, xmax) in 0-1000 Gemini convention
+    if crop and len(crop) == 4:  # crop = (ymin, xmin, ymax, xmax) in 0-1000 Gemini convention
         w, h = im.size
         y0, x0, y1, x1 = crop
+        if y0 > y1:
+            y0, y1 = y1, y0
+        if x0 > x1:
+            x0, x1 = x1, x0
         pad = 30
-        im = im.crop((max(0, (x0 - pad) * w // 1000), max(0, (y0 - pad) * h // 1000),
-                      min(w, (x1 + pad) * w // 1000), min(h, (y1 + pad) * h // 1000)))
+        left = max(0, min(w - 1, (x0 - pad) * w // 1000))
+        upper = max(0, min(h - 1, (y0 - pad) * h // 1000))
+        right = max(left + 1, min(w, (x1 + pad) * w // 1000))
+        lower = max(upper + 1, min(h, (y1 + pad) * h // 1000))
+        im = im.crop((left, upper, right, lower))
     im.thumbnail((max_side, max_side))
     buf = io.BytesIO()
     im.save(buf, format="JPEG", quality=90)
@@ -61,10 +105,10 @@ async def call(prompt, *, model=C.FLASH, images=(), schema=None, tools=None, vid
         cfg.update(response_mime_type="application/json", response_schema=schema)
     if tools:
         cfg["tools"] = tools
-    async with _sem:
+    async with _get_sem():
         for attempt in range(5):
             try:
-                r = await client.aio.models.generate_content(
+                r = await _get_client().aio.models.generate_content(
                     model=model, contents=contents, config=types.GenerateContentConfig(**cfg))
                 out = json.loads(r.text) if schema is not None else r.text
                 break
