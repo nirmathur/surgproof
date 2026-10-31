@@ -1068,10 +1068,10 @@ def _inject_keyboard_shortcuts() -> None:
 
 
 def render_human_gate_page() -> None:
-    """Render the Streamlit Release Dataset Sign-Off / Human Gate page (`pages/2_Human_gate.py`)."""
+    """Render the Streamlit Final Pass / Release Dataset Sign-Off page (`pages/2_Human_gate.py`)."""
     try:
         st.set_page_config(
-            page_title="SurgProof — Release Dataset Sign-Off (Human Gate)",
+            page_title="SurgProof — Final Pass · Release Dataset Sign-Off",
             page_icon="🛡️",
             layout="wide",
         )
@@ -1081,31 +1081,42 @@ def render_human_gate_page() -> None:
     st.markdown(
         """
         <style>
+        .stApp, [data-testid="stAppViewContainer"] {
+            background-color: #0A0B0E;
+            color: #F4F5F8;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", sans-serif;
+        }
+        [data-testid="stSidebar"] {
+            background-color: #12141C;
+            border-right: 1px solid #232734;
+        }
         .gate-banner-locked {
-            background: #fffbeb;
-            border: 2px solid #d97706;
-            border-radius: 10px;
+            background: #362407;
+            border: 1px solid #F59E0B;
+            border-radius: 8px;
             padding: 14px 18px;
-            color: #92400e;
+            color: #F59E0B;
             font-weight: 600;
             margin-bottom: 12px;
         }
         .gate-banner-unlocked {
-            background: #f0fdf4;
-            border: 2px solid #16a34a;
-            border-radius: 10px;
+            background: #092E24;
+            border: 1px solid #10B981;
+            border-radius: 8px;
             padding: 14px 18px;
-            color: #166534;
+            color: #10B981;
             font-weight: 600;
             margin-bottom: 12px;
         }
         .pos-card {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
+            background: #12141C;
+            border: 1px solid #232734;
             border-radius: 8px;
-            padding: 10px 14px;
+            padding: 12px 16px;
             margin-bottom: 12px;
+            color: #D8DCE6;
             font-size: 0.93rem;
+            line-height: 1.5;
         }
         </style>
         """,
@@ -1118,7 +1129,7 @@ def render_human_gate_page() -> None:
                 st.page_link("app.py", label="← Back to SurgProof Pipeline", icon="🏠")
             except Exception:
                 pass
-        st.subheader("🛡️ Release Dataset Sign-Off")
+        st.subheader("🛡️ Final Pass · Release Dataset")
         reviewer_name = st.text_input(
             "Sign-Off Reviewer Identity (who)",
             value="Clinical Reviewer (Dataset Sign-Off)",
@@ -1132,9 +1143,10 @@ def render_human_gate_page() -> None:
             "- Press **`Z`** → Undo last human decision"
         )
 
-    st.title("🛡️ Release Dataset Sign-Off — People Stay in Control")
+    st.title("🛡️ Final Pass · Release Dataset Sign-Off — People Stay in Control")
     st.markdown(
         "<div class='pos-card'>"
+        "<span style='color:#8A909E;'>Today: a human at every step.</span> <b style='color:#F4F5F8;'>SurgProof: none — human clears only amber cases.</b><br>"
         "<b>Today (Supervisely / SAM / MixFormer / TAP-Net):</b> A human at every step — drawing the first box, fixing tracking drift, tagging actions by hand, and reviewing every frame.<br>"
         "<b>SurgProof:</b> Removes the human from seeding (<code>out/manual.json</code>), bulk labelling, independent double-check, and the multi-round <b>Amber Loop</b> (<code>out/amber_rounds.jsonl</code>). "
         "<b>People stay in control at the final pass:</b> clear any residual <code>AMBER</code> items and inspect the 20-item auto-accepted audit sample before releasing <code>out/verified_dataset.jsonl</code>."

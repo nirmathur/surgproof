@@ -584,24 +584,168 @@ def test_real_decisions_csv_and_amber_rounds_jsonl_funnel_and_design_1d_fields(t
 
 
 def test_human_gate_page_passes_lanes_integrity_patterns():
-    """Verify pages/2_Human_gate.py passes all display-file anti-fabrication regexes in lanes/integrity.py."""
+    """Verify pages/2_Human_gate.py, web/serve.py, and web/gate.js pass all anti-fabrication regexes in lanes/integrity.py."""
     import re
     patterns = [
-        (r'["\']box["\']\s*:\s*\[\s*\d', "literal bounding box"),
+        (r'["\']?box["\']?\s*:\s*\[\s*\d', "literal bounding box"),
         (r'["\']status["\']\s*:\s*["\'](accept|reject|AMBER|amber)["\']', "literal verdict"),
         (r'["\']\d{1,3}\.\d%["\']', "literal percentage string"),
         (r'0\.7\d?\s*\+\s*0\.\d+\s*\*', "synthetic score formula"),
         (r'(accuracy|acc|precision|coverage)\s*=\s*0\.\d{2,}', "hard-coded metric"),
     ]
+    targets = [
+        GATE_PAGE_PATH,
+        Path(C.ROOT) / "web" / "serve.py",
+        Path(C.ROOT) / "web" / "gate.js",
+    ]
     fails = []
-    for i, line in enumerate(GATE_PAGE_PATH.read_text(encoding="utf-8").splitlines(), 1):
-        s = line.strip()
-        if s.startswith("#") or "integrity: allow" in s:
-            continue
-        for pat, what in patterns:
-            if re.search(pat, line):
-                fails.append(f"pages/2_Human_gate.py:{i}: {what}: {s[:110]}")
-    assert not fails, f"Integrity check failed on pages/2_Human_gate.py: {fails}"
+    for target in targets:
+        assert target.is_file(), f"Missing expected gate file: {target}"
+        for i, line in enumerate(target.read_text(encoding="utf-8").splitlines(), 1):
+            s = line.strip()
+            if s.startswith("#") or "integrity: allow" in s:
+                continue
+            for pat, what in patterns:
+                if re.search(pat, line):
+                    fails.append(f"{target.name}:{i}: {what}: {s[:110]}")
+    assert not fails, f"Integrity check failed: {fails}"
+
+
+def test_web_serve_get_and_post_api_gate_lock_and_release_flow(tmp_path):
+    """Verify web/serve.py GET/POST /api/gate lock logic, audit sign-off, undo, and verified_dataset.jsonl export."""
+    spec = importlib.util.spec_from_file_location("web_serve_mod", Path(C.ROOT) / "web" / "serve.py")
+    assert spec is not None and spec.loader is not None
+    serve_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(serve_mod)
+
+    dec_path = Path(C.OUT_DIR) / "decisions.csv"
+    if not dec_path.is_file():
+        dec_path = Path(C.ROOT) / "coord" / "artifacts" / "decisions.csv"
+    assert dec_path.is_file()
+
+    gate_log_path = tmp_path / "gate_log.jsonl"
+    human_log_path = tmp_path / "human_gate_log.jsonl"
+    verified_path = tmp_path / "verified_dataset.jsonl"
+
+    state0 = serve_mod.build_gate_state_payload(
+        scope="test_5",
+        decisions_csv_path=dec_path,
+        gate_log_path=gate_log_path,
+    )
+    assert state0["ok"] is True
+    assert state0["summary"]["n_pending_amber"] > 0
+    assert state0["summary"]["can_release"] is False
+    assert len(state0["audit_sample"]) == 20
+    for item in state0["pending_ambers"] + state0["audit_sample"]:
+        for k in item:
+            assert k != "truth" and not k.startswith("gt_") and k != "mask_path"
+
+    # Attempt release while AMBERs remain -> must return 409 CONFLICT
+    code_locked, resp_locked = serve_mod.handle_gate_post(
+        {"action": "release_dataset", "scope": "test_5", "reviewer": "Dr. Gate Test"},
+        decisions_csv_path=dec_path,
+        gate_log_path=gate_log_path,
+        human_gate_log_path=human_log_path,
+        verified_jsonl_path=verified_path,
+    )
+    assert int(code_locked) == 409
+    assert resp_locked["ok"] is False
+    assert not verified_path.exists()
+
+    # Approve first AMBER item, then undo, then batch approve all + sign off audit + release
+    first_amber = state0["pending_ambers"][0]
+    code_one, resp_one = serve_mod.handle_gate_post(
+        {
+            "frame_id": first_amber["frame_id"],
+            "key": first_amber["key"],
+            "human_action": "correct",
+            "scope": "test_5",
+            "reviewer": "Dr. Gate Test",
+        },
+        decisions_csv_path=dec_path,
+        gate_log_path=gate_log_path,
+        human_gate_log_path=human_log_path,
+        verified_jsonl_path=verified_path,
+    )
+    assert int(code_one) == 200
+    assert resp_one["state"]["summary"]["n_cleared_amber"] == 1
+
+    code_undo, resp_undo = serve_mod.handle_gate_post(
+        {"action": "undo", "frame_id": first_amber["frame_id"], "key": first_amber["key"], "scope": "test_5"},
+        decisions_csv_path=dec_path,
+        gate_log_path=gate_log_path,
+        human_gate_log_path=human_log_path,
+        verified_jsonl_path=verified_path,
+    )
+    assert int(code_undo) == 200
+    assert resp_undo["state"]["summary"]["n_cleared_amber"] == 0
+
+    code_batch, resp_batch = serve_mod.handle_gate_post(
+        {"action": "batch_approve_ambers", "scope": "test_5", "reviewer": "Dr. Gate Test"},
+        decisions_csv_path=dec_path,
+        gate_log_path=gate_log_path,
+        human_gate_log_path=human_log_path,
+        verified_jsonl_path=verified_path,
+    )
+    assert int(code_batch) == 200
+    assert resp_batch["state"]["summary"]["n_pending_amber"] == 0
+
+    code_audit, resp_audit = serve_mod.handle_gate_post(
+        {"action": "sign_off_audit_sample", "count": 20, "scope": "test_5", "reviewer": "Dr. Gate Test"},
+        decisions_csv_path=dec_path,
+        gate_log_path=gate_log_path,
+        human_gate_log_path=human_log_path,
+        verified_jsonl_path=verified_path,
+    )
+    assert int(code_audit) == 200
+    assert resp_audit["state"]["summary"]["can_release"] is True
+
+    code_rel, resp_rel = serve_mod.handle_gate_post(
+        {"action": "release_dataset", "scope": "test_5", "reviewer": "Dr. Gate Test"},
+        decisions_csv_path=dec_path,
+        gate_log_path=gate_log_path,
+        human_gate_log_path=human_log_path,
+        verified_jsonl_path=verified_path,
+    )
+    assert int(code_rel) == 200
+    assert resp_rel["ok"] is True
+    assert verified_path.is_file()
+    exported_lines = [json.loads(line) for line in verified_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(exported_lines) == state0["summary"]["n_auto_accept"] + state0["summary"]["n_residual_amber"]
+    assert all("provenance" in r and "manual_sources" in r for r in exported_lines)
+
+
+def test_web_serve_live_http_roundtrip():
+    """Start web/serve.py HTTP server on an ephemeral port and verify GET /api/health and GET /api/gate."""
+    import os
+    import threading
+    import urllib.request
+
+    spec = importlib.util.spec_from_file_location("web_serve_http_mod", Path(C.ROOT) / "web" / "serve.py")
+    assert spec is not None and spec.loader is not None
+    serve_mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(serve_mod)
+
+    os.environ["SURGPROOF_QUIET"] = "1"
+    srv = serve_mod.create_server("127.0.0.1", 0)
+    port = srv.server_port
+    t = threading.Thread(target=srv.serve_forever, daemon=True)
+    t.start()
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=5) as r1:
+            assert r1.status == 200
+            h_data = json.loads(r1.read().decode("utf-8"))
+            assert h_data["ok"] is True
+
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/gate?scope=test_5", timeout=5) as r2:
+            assert r2.status == 200
+            g_data = json.loads(r2.read().decode("utf-8"))
+            assert g_data["ok"] is True
+            assert g_data["summary"]["round_0_amber"] >= g_data["summary"]["round_3_amber"]
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
 
 
 
