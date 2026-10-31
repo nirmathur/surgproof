@@ -39,6 +39,7 @@ PROMO_DIR = OUT_DIR / "promo"
 RAW_CLIP_DIR = PROMO_DIR / "raw"
 OVERLAY_DIR = PROMO_DIR / "overlays"
 FINAL_VIDEO = PROMO_DIR / "surgatlas_promo.mp4"
+FINAL_VIDEO_SURGPROOF = PROMO_DIR / "surgproof_promo.mp4"
 MANIFEST_PATH = PROMO_DIR / "manifest.json"
 
 WIDTH = 1280
@@ -684,8 +685,8 @@ def render_proof_slot_frames(
 
     # Honest claims & Prior work banner above bottom lower-third
     draw_a.rounded_rectangle((646, 444, WIDTH - 28, 514), radius=10, fill=(15, 23, 42, 235), outline=(56, 189, 248, 180), width=1)
-    draw_a.text((660, 454), "HONEST CLAIMS: 0 human labels in training · calib/oracle = upper bounds", font=font_card_lbl, fill=(248, 250, 252, 255))
-    draw_a.text((660, 478), "PRIOR WORK: SurgVLP (CAMMA) · SurgSLOT · Med-Gemini", font=font_mono, fill=(125, 211, 252, 255))
+    draw_a.text((660, 454), "SURGPROOF: No human labels. Only proof. · calib/oracle = upper bounds", font=font_card_lbl, fill=(248, 250, 252, 255))
+    draw_a.text((660, 478), "PRIOR WORK: SurgAtlas · SurgVLP · SurgSLOT · Med-Gemini (Agent = Verifier)", font=font_mono, fill=(125, 211, 252, 255))
 
     # Overlay standard lower-third onto Frame A
     ov_png = OVERLAY_DIR / f"{shot.shot_id}_overlay.png"
@@ -927,8 +928,10 @@ def run_pipeline(
     # If all 6 shot files exist, stitch final video
     if all(p.is_file() for p in shot_paths):
         final_meta = stitch_promo_video(shot_paths, FINAL_VIDEO)
+        shutil.copy2(FINAL_VIDEO, FINAL_VIDEO_SURGPROOF)
         manifest["final_video"] = {
             "path": str(FINAL_VIDEO.relative_to(ROOT)),
+            "surgproof_path": str(FINAL_VIDEO_SURGPROOF.relative_to(ROOT)),
             "duration_sec": final_meta.get("duration_sec", 0.0),
             "width": final_meta.get("width", 0),
             "height": final_meta.get("height", 0),
