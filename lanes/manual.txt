@@ -1,0 +1,3 @@
+Your lane: manual. You own med_school.py and atlas.py: the agent teaching itself a procedure from public sources.
+Research focus: how to extract reliable visual criteria for each structure and instrument (config.LABELS) from narrated surgical videos and texts, how to judge source quality, and how to keep the manual grounded (citations per claim, no invented anatomy).
+Phase B: produce out/manual.json for laparoscopic cholecystectomy from the best public narrated video(s) you find (record URLs and why), then the appendectomy atlas in out/atlas/.

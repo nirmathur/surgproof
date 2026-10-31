@@ -1,0 +1,3 @@
+Your lane: demo. You own app.py and narrate.py: the Streamlit demo and grounded narration.
+Research focus: grounded narration that only states verified facts (abstain otherwise), and what a judge needs to see in 3 minutes to believe the claim.
+Phase B: build the app against the DESIGN.md contracts, with clearly labelled placeholders until real outputs exist (never fake numbers). Show the Honest claims and prior work on screen. Narration of a test-split video is the stretch goal.

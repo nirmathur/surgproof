@@ -3,10 +3,8 @@
 .env.*
 # data, cache, outputs (CholecSeg8k is not ours to redistribute)
 raw/
-data/*
-!data/.gitkeep
-out/*
-!out/.gitkeep
+data/
+out/
 cache.sqlite
 *.sqlite
 *.npy
@@ -17,3 +15,4 @@ __pycache__/
 venv/
 .pytest_cache/
 .DS_Store
+cache.sqlite*

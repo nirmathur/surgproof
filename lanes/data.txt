@@ -1,0 +1,4 @@
+Your lane: data. You own prepare_data.py, features.py and everything about the CholecSeg8k split.
+Research focus: CholecSeg8k mask encoding (paper vs released watershed values), video-level splits that avoid leakage between adjacent frames, frame sampling, and what feature backbone a surgical specialist should use (general vs surgical-pretrained).
+Start the dataset download into raw/ immediately (README has the command) while you do Phase A: it is slow and every other lane needs data/index.csv.
+Phase B: produce data/index.csv and the features with the redesigned pipeline, plus evidence for the mask-convention verdict in out/lanes/data_evidence/.

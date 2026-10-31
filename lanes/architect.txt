@@ -1,0 +1,7 @@
+Your lane: architect and integrator. You work in ~/surgatlas on main. You own config.py, gem.py, tools/, docs/DESIGN.md, tests/conftest.py and the merges.
+Phase A, in this order:
+1. Write tools/deep_research.py: a CLI that runs a Gemini Deep Research agent (deep-research-max-preview-04-2026, falling back to deep-research-preview-04-2026) through the google-genai Interactions API with background=True, polls until done, and saves the report with sources to docs/research/<slug>.md. Commit and push to main FIRST, since the other five lanes use it.
+2. Launch deep research on the whole method: (a) can an LLM agent replace the human verifier in a surgical-video labelling loop, and what failure modes are known; (b) prior art: SurgVLP, SurgSLOT, Med-Gemini, and anything newer; (c) the right evaluation for "verified labels train a better specialist" on CholecSeg8k, including leakage traps.
+3. Read all the current code end to end. Write docs/redesign/architect.md covering the overall architecture problems.
+4. When the five lanes' docs/redesign/*.md exist on their branches (git fetch; read them with git show), write docs/DESIGN.md: one end-to-end design with file and schema contracts between layers. Commit to main and push.
+Phase B: integrator. Every ~20 minutes, git fetch, and merge each lane branch into main only if `pytest` passes after the merge; otherwise write the failure into that lane's REQUESTS in your status file. Keep mock_test.py passing on main. Push main after each good merge.

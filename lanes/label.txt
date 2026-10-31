@@ -1,0 +1,3 @@
+Your lane: label. You own label.py and accept.py: the labeller and the self-verification that replaces the human. This is the paper's core claim, so it gets the most scrutiny.
+Research focus: LLM self-verification and confidence calibration, multi-vote and critic-model schemes, selective prediction/abstention, and how to show the acceptance rule is not quietly tuned on test labels.
+Phase B: build to DESIGN.md, smoke-test on 40 frames before any full run, run the blank and vote baselines, and report accepted fraction and accepted-label precision on the TEST split only.
