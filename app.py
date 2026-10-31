@@ -828,46 +828,18 @@ def render_narration():
                 cc2.image([str(x) for x in ev], width=160)
 
 
-# ---------------- Top Landing Header: SurgProof, Real Person, Honest Claims & Prior Work ----------------
+# ---------------- Top Landing Header: SurgProof, Honest Claims & Prior Work ----------------
 st.title("SurgProof — No human labels. Only proof.")
 st.caption(
-    "An autonomous Gemini agent that teaches itself a surgery from public sources, labels surgical video, "
-    "checks its own labels so no human has to, routes uncertain (AMBER) claims to a human gate so people stay in control, "
-    "trains a specialist only on what was verified, and narrates using only what it can stand behind."
+    "Self-taught surgical video labelling with zero-label verification, an AMBER human gate, "
+    "and specialist distillation."
 )
-
-# Judging Test 1: Named real person + Supervisor quote slot
-person_col, sup_col = st.columns(2)
-with person_col:
-    st.markdown(
-        """
-**👤 Built for a Real Person**
-- **Nir Mathur** — *Medical Student, King's College London (KCL)*
-- *"In surgical AI research, medical students and trainees spend hundreds of hours manually annotating laparoscopic frames one by one. SurgProof learns visual criteria from surgical lectures, runs decorrelated verification checks with Gemini 4 Argon, and only asks a human to clear the small AMBER queue."*
-"""
-    )
-with sup_col:
-    sup_quote = load_json(resolve_artifact("supervisor_quote.json"))
-    if sup_quote and sup_quote.get("quote"):
-        st.markdown(
-            f"**🩺 Clinical Supervisor Endorsement**\n"
-            f"- **{sup_quote.get('name', 'Clinical Supervisor')}** *({sup_quote.get('role', '')})*\n"
-            f"- *\"{sup_quote['quote']}\"*"
-        )
-    else:
-        st.markdown(
-            """
-**🩺 Clinical Supervisor Quote Slot**
-- **[PLACEHOLDER — Awaiting supervisor quote card (`out/supervisor_quote.json`)]**
-- *Reserved for exact quote and attribution from Nir Mathur's clinical supervisor; no quote is fabricated.*
-"""
-        )
 
 hc_col, pw_col = st.columns(2)
 with hc_col:
     st.markdown(
         """
-**Honest Claims (Strict Zero-Leakage Protocol)**
+**Honest Claims**
 - **"No human labels used in training."** Ground truth (`gt_*`) is excluded from labeller and verifier inputs and joined **only** to score held-out test videos (`split == "test"`).
 - **Upper bounds explicitly marked:** The `calib` split (`upper_bound_calibrated`) and `oracle_upper_bound` student use human labels and are reported strictly as **upper bounds** for reference only.
 - **Act 1 (any surgery) has no ground truth:** Showcase of zero-setup generalization, not accuracy proof. CholecSeg8k is the blind proof.
@@ -876,7 +848,7 @@ with hc_col:
 with pw_col:
     st.markdown(
         """
-**Prior Work Named on Stage & Our Step**
+**Prior Work & Our Step**
 - **SurgAtlas**: Large-scale dataset of public surgical videos.
 - **SurgVLP** *(CAMMA Strasbourg)*: Learning representations from narrated surgical lectures.
 - **SurgSLOT**: Self-evolving surgical data engine relying on **human verification**.
@@ -899,7 +871,7 @@ with st.sidebar:
         "out/results.json": resolve_artifact("results.json").exists(),
         "out/student.json": resolve_artifact("student.json").exists(),
         "out/live_decisions.csv": resolve_artifact("live_decisions.csv").exists(),
-        "out/human_gate_log.jsonl": resolve_artifact("human_gate_log.jsonl").exists(),
+        "out/gate_log.jsonl": resolve_artifact("gate_log.jsonl").exists() or resolve_artifact("human_gate_log.jsonl").exists(),
         "out/flags.parquet (tracker)": (O / "flags.parquet").exists(),
         "out/narration_*.json": any(O.glob("narration_*.json")),
     }

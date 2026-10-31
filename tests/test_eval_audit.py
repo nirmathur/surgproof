@@ -118,3 +118,21 @@ def test_video_cluster_bootstrap_ci_and_run_audit(tmp_path):
     s5 = res["student_test_evaluation"]["video_bootstrap_acc_5_labels"]
     assert s5["verified"]["point"] > s5["single"]["point"]
     assert s5["oracle_upper_bound"]["is_upper_bound"] is True
+
+
+def test_attach_ground_truth_ignores_unscorable_minus_one():
+    idx = pd.DataFrame([
+        {
+            "frame_id": "ext_1", "video": "ev1", "split": "test",
+            "gt_grasper": 1, "gt_l_hook": 0, "gt_liver": -1,
+            "gt_gallbladder": -1, "gt_cystic_duct": -1, "gt_blood": -1,
+        }
+    ])
+    lbl = pd.DataFrame([
+        {"frame_id": "ext_1", "key": "grasper", "present": 1},
+        {"frame_id": "ext_1", "key": "l_hook", "present": 0},
+        {"frame_id": "ext_1", "key": "liver", "present": 1},
+    ])
+    joined = audit.attach_ground_truth(lbl, idx)
+    assert set(joined["key"]) == {"grasper", "l_hook"}
+    assert (joined["correct"] == 1).all()

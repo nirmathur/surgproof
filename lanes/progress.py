@@ -29,8 +29,6 @@ ev = [f for f in glob.glob(p("out/eval*.json")) + glob.glob(p("out/eval/*.json")
 ext = glob.glob(p("data/external/*/index.csv")); stage("external test sets", len(ext)/2*100, f"{len(ext)}/2 indexed")
 stage("human gate (#14)", issue_state(14), "issue #14")
 stage("live mode (#15)", issue_state(15), "issue #15")
-mp4 = glob.glob(p("out/promo/*.mp4")); fin = os.path.exists(p("out/promo/surgatlas_promo.mp4")) or bool(glob.glob(p("out/promo/*promo*.mp4")))
-stage("promo video", 100 if fin else len(mp4)/6*90, f"{len(mp4)} clips" + (", final cut" if fin else ""))
 A = {}
 try:
     cs = json.loads(subprocess.run(["gh","issue","view","1","-R","nirmathur/surgproof","--json","comments"],capture_output=True,text=True,timeout=20).stdout)["comments"]
@@ -42,8 +40,14 @@ try:
             nx = re.search(r"NEXT:\s*([^|]+)", txt)
             A[mm.group(1)] = {"mins": int((now-t)//60), "doing": (nx.group(1) if nx else txt)[:110]}
 except Exception: pass
+mp4 = glob.glob(p("out/promo/*.mp4"))
+appr = any(c["body"].startswith("[nir-director]") and re.search(r"\bAPPROVED:\s*\S*out/promo/\S+\.mp4", c["body"]) for c in (cs if 'cs' in dir() else []))
+stage("promo video", 100 if appr else min(len(mp4)/8*60, 60), f"{len(mp4)} clips; " + ("director APPROVED" if appr else "not approved by nir-director"))
 dl = dt.datetime.now().replace(hour=15, minute=15, second=0)
 mins = int((dl - dt.datetime.now()).total_seconds() // 60)
-bk = subprocess.run(["rclone","cat","gdrive:SurgProof/backup/LAST_BACKUP"],capture_output=True,text=True,timeout=20).stdout.strip()
+try:
+    bk = subprocess.run(["rclone","cat","gdrive:SurgProof/backup/LAST_BACKUP"],capture_output=True,text=True,timeout=12).stdout.strip()
+except Exception:
+    bk = "unknown (Drive slow)"
 print(json.dumps({"at": dt.datetime.now().strftime("%H:%M:%S"), "minsLeft": mins, "overall": int(sum(s["pct"] for s in S)/len(S)), "stages": S,
   "agents": [{"lane": k, **v} for k, v in sorted(A.items())], "backup": bk or "none yet"}))

@@ -1,5 +1,166 @@
 {
   "procedure": "Laparoscopic Cholecystectomy",
+  "sources": [
+    {
+      "url": "https://www.youtube.com/watch?v=PNydeaI2WIU",
+      "title": "Ellie Scrubs In: Laparoscopic Cholecystectomy",
+      "source_type": "video",
+      "is_real_intraop_footage": false,
+      "real_intraop_footage_note": "No continuous dynamic intra-operative video footage. This video is a narrated surgical clerkship lecture presented over a single static intra-operative laparoscopic still photograph (displayed 00:00-04:25) showing the liver, gallbladder retracted by two laparoscopic graspers, and Calot's triangle region; dynamic phase transitions and L-hook electrocautery visual criteria come from the voiceover narration timestamps and the text sources below.",
+      "timestamps": [
+        "00:00-04:25 - Static intra-operative laparoscopic photograph showing liver, gallbladder under cephalad/lateral retraction by two graspers, and adjacent hepatocystic fat",
+        "00:23 - Step 1: Patient positioning and operating room setup",
+        "00:51 - Step 2: Peritoneal access, insufflation, and four-port placement",
+        "01:37-01:59 - Step 3: Diagnostic laparoscopy and fundic/infundibular grasper retraction exposing Calot's triangle",
+        "02:05-02:40 - Step 4: Electrocautery dissection of Calot's triangle, Critical View of Safety isolation of cystic duct and cystic artery, clipping and division",
+        "02:47-03:08 - Step 5: Separation of gallbladder from the hepatic bed using hook cautery (02:56), electrocautery hemostasis (03:00), and umbilical bag retrieval",
+        "03:20-03:27 - Step 6: Final inspection of liver bed and clipped ductal/arterial stumps for bleeding or bile leak, and port closure"
+      ],
+      "structure_timestamps": {
+        "grasper": [
+          "00:00-04:25 (visual: two metallic laparoscopic graspers visible in the static intra-operative photograph holding the gallbladder fundus and infundibulum)",
+          "01:48-01:54 (narration: retracting gallbladder fundus superiorly and laterally using a grasper via lateral port)",
+          "01:54-01:59 (narration: retracting infundibulum medially and inferiorly with right-hand grasper to open Calot's triangle)"
+        ],
+        "l_hook": [
+          "02:06-02:11 (narration: electrocautery dissection of peritoneum and fibrofatty tissue in Calot's triangle; not visually depicted in the static frame)",
+          "02:54-03:00 (narration: dissecting gallbladder off the liver bed using hook cautery at 02:56; detailed single-frame hook geometry from text sources)"
+        ],
+        "liver": [
+          "00:00-04:25 (visual: dark reddish-brown hepatic parenchyma with glistening Glisson's capsule specular reflections in the static intra-operative photograph)",
+          "02:52-02:56 (narration: dissecting gallbladder from the hepatic/liver bed)",
+          "03:20-03:25 (narration: inspecting the liver bed for bleeding or bile leak)"
+        ],
+        "gallbladder": [
+          "00:00-04:25 (visual: distended pear-shaped gallbladder serosa held under traction beneath the liver edge in the static intra-operative photograph)",
+          "00:06-00:09, 00:48-00:51 (narration: overview and initial exposure moving bowel away from gallbladder)",
+          "01:48-01:59 (narration: cephalad fundic and inferolateral infundibular retraction)",
+          "02:22-02:26, 02:47-03:16 (narration: two structures entering gallbladder in CVS, retrograde removal from liver bed, and umbilical retrieval)"
+        ],
+        "cystic_duct": [
+          "00:00-04:25 (visual: infundibular neck region leading into Calot's triangle in the static intra-operative photograph)",
+          "02:08-02:27 (narration: skeletonization and isolation of the cystic duct and cystic artery in Calot's triangle to achieve the Critical View of Safety)",
+          "02:36-02:40 (narration: clipping and dividing the isolated cystic duct)"
+        ],
+        "blood": [
+          "00:00-04:25 (visual: minor red vascular/peritoneal surface staining along the hepatic bed and pericholecystic tissue in the static photograph)",
+          "03:00-03:04 (narration: controlling liver bed bleeding with electrocautery or hemostatic agents)",
+          "03:20-03:25 (narration: final inspection of the liver bed and clip sites for active bleeding)"
+        ]
+      }
+    },
+    {
+      "url": "https://arxiv.org/abs/2012.12453",
+      "title": "CholecSeg8k: A Semantic Segmentation Dataset for Laparoscopic Cholecystectomy Based on Cholec80 (Hong et al., 2020)",
+      "source_type": "text",
+      "is_real_intraop_footage": true,
+      "real_intraop_footage_note": "Text & benchmark reference defining pixel-level visual class boundaries on real intra-operative Cholec80 laparoscopic cholecystectomy frames.",
+      "timestamps": [],
+      "structure_timestamps": {
+        "grasper": [
+          "Section 2 / Table 1: Laparoscopic grasper shaft and hinged jaw class definition"
+        ],
+        "l_hook": [
+          "Section 2 / Table 1: L-hook electrocautery instrument class definition"
+        ],
+        "liver": [
+          "Section 2 / Table 1: Liver parenchyma and Glisson's capsule class definition"
+        ],
+        "gallbladder": [
+          "Section 2 / Table 1: Gallbladder sac and infundibulum class definition (excluding cystic duct)"
+        ],
+        "cystic_duct": [
+          "Section 2 / Table 1: Isolated tubular cystic duct class definition"
+        ],
+        "blood": [
+          "Section 2 / Table 1: Free extravasated blood / clot class definition"
+        ]
+      }
+    },
+    {
+      "url": "https://arxiv.org/abs/2307.10926",
+      "title": "Endoscapes: A Dataset for Critical View of Safety Assessment and Hepatocystic Anatomy Segmentation in Laparoscopic Cholecystectomy (Murali et al., MICCAI 2023)",
+      "source_type": "text",
+      "is_real_intraop_footage": true,
+      "real_intraop_footage_note": "Text & benchmark reference for hepatocystic anatomy and Critical View of Safety criteria on real laparoscopic video.",
+      "timestamps": [],
+      "structure_timestamps": {
+        "liver": [
+          "Hepatocystic window background liver (Segment V) and cystic plate exposure criteria"
+        ],
+        "gallbladder": [
+          "Lower one-third gallbladder detachment from cystic plate"
+        ],
+        "cystic_duct": [
+          "Skeletonized tubular cystic duct vs cystic artery isolation in Calot's triangle"
+        ]
+      }
+    },
+    {
+      "url": "https://www.sages.org/safe-cholecystectomy-program/",
+      "title": "SAGES Safe Cholecystectomy Program \u2014 Strategies for Minimizing Bile Duct Injuries",
+      "source_type": "text",
+      "is_real_intraop_footage": false,
+      "real_intraop_footage_note": "Clinical surgical society guideline text defining the 3-part Critical View of Safety (CVS) checklist and R4U line / Rouviere's sulcus landmarks.",
+      "timestamps": [],
+      "structure_timestamps": {
+        "cystic_duct": [
+          "CVS Criterion 1 & 3: Hepatocystic triangle fat clearance and two-structure-only duct/artery confirmation"
+        ],
+        "gallbladder": [
+          "CVS Criterion 2: Lower third dissected off the fibrous cystic plate"
+        ],
+        "liver": [
+          "Rouviere's sulcus and Segment IV/V R4U safety line landmarks"
+        ]
+      }
+    },
+    {
+      "url": "https://pubmed.ncbi.nlm.nih.gov/7818839/",
+      "title": "An Analysis of the Problem of Biliary Injury During Laparoscopic Cholecystectomy \u2014 Critical View of Safety (Strasberg et al., J Am Coll Surg 1995; Strasberg & Brunt, Ann Surg 2017)",
+      "source_type": "text",
+      "is_real_intraop_footage": false,
+      "real_intraop_footage_note": "Peer-reviewed surgical literature establishing the Critical View of Safety and the infundibular ('tunnel') error trap.",
+      "timestamps": [],
+      "structure_timestamps": {
+        "cystic_duct": [
+          "Differentiation of cystic duct (2-3 mm, beaded valves of Heister) from common bile duct (CBD) and cystic artery"
+        ]
+      }
+    },
+    {
+      "url": "https://ieeexplore.ieee.org/document/7519080",
+      "title": "EndoNet: A Deep Architecture for Recognition Tasks on Laparoscopic Videos / Cholec80 (Twinanda et al., IEEE TMI 2017)",
+      "source_type": "text",
+      "is_real_intraop_footage": true,
+      "real_intraop_footage_note": "Benchmark paper defining the 7 ordered surgical phases and tool presence annotations on 80 real laparoscopic cholecystectomy videos.",
+      "timestamps": [],
+      "structure_timestamps": {
+        "grasper": [
+          "Phases 1-7: Retraction and tissue handling across all surgical phases"
+        ],
+        "l_hook": [
+          "Phases 2, 4, 6: Electrocautery dissection of Calot's triangle and liver bed"
+        ]
+      }
+    },
+    {
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29090866/",
+      "title": "Tokyo Guidelines 2018 (TG18): Safe Steps in Laparoscopic Cholecystectomy for Acute Cholecystitis (Wakabayashi et al., J Hepatobiliary Pancreat Sci 2018)",
+      "source_type": "text",
+      "is_real_intraop_footage": false,
+      "real_intraop_footage_note": "International consensus guideline text on acute cholecystitis visual appearance, subserosal cystic plate dissection, and hemorrhage/thermal injury avoidance.",
+      "timestamps": [],
+      "structure_timestamps": {
+        "gallbladder": [
+          "Edematous, thick-walled, or beefy-red/violaceous serosal appearance in acute/chronic inflammation"
+        ],
+        "blood": [
+          "Middle hepatic vein tributary oozing when breaching the fibrous cystic plate and thermal/clipping hazards"
+        ]
+      }
+    }
+  ],
   "phases": [
     "1. Preparation: Pneumoperitoneum creation, trocar placement, camera insertion, initial diagnostic sweep, and cephalad retraction of the gallbladder fundus over the liver edge.",
     "2. Calot's (Hepatocystic) Triangle Dissection: Incision of visceral peritoneum over Hartmann's pouch, blunt and electrocautery clearance of fibrofatty tissue to isolate the cystic duct and cystic artery, culminating in the Critical View of Safety (CVS).",
