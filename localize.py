@@ -454,25 +454,38 @@ async def main(
     for p in (ann_file, live_file, rnd_file, res_file):
         p.parent.mkdir(parents=True, exist_ok=True)
 
-    # Order frames so test split and frames already in decisions.csv (including video12_15750_15758) come first
+    # Order frames so:
+    # 1) video12_15750_15758 comes first,
+    # 2) top 2 multi-structure frames of each test video come next (ensuring n_test_videos = 6),
+    # 3) all remaining video12 frames come next (for web/data/video12.json),
+    # 4) remaining test frames follow in round-robin video order.
     frame_order: list[str] = []
     if not df.empty:
         df["_is_showcase"] = (df["frame_id"].astype(str) == "video12_15750_15758").astype(int)
         df["_is_test"] = (df["split"].astype(str) == "test").astype(int)
+        df["_is_v12"] = (df["video"].astype(str) == "video12").astype(int)
         df["_has_inst"] = df["key"].astype(str).isin(INSTRUMENT_KEYS).astype(int)
-        ordered = (
+        grouped = (
             df.groupby("frame_id", as_index=False)
             .agg(
+                video=("video", "first"),
                 _is_showcase=("_is_showcase", "max"),
                 _is_test=("_is_test", "max"),
+                _is_v12=("_is_v12", "max"),
                 _from_dec=("_from_decisions_csv", "max"),
                 _has_inst=("_has_inst", "max"),
                 _n_keys=("key", "count"),
             )
             .sort_values(
-                ["_is_showcase", "_is_test", "_from_dec", "_has_inst", "_n_keys", "frame_id"],
-                ascending=[False, False, False, False, False, True],
+                ["_is_showcase", "_is_test", "_has_inst", "_n_keys", "frame_id"],
+                ascending=[False, False, False, False, True],
             )
+        )
+        grouped["_vid_rank"] = grouped.groupby("video").cumcount()
+        grouped["_top2_per_vid"] = (grouped["_vid_rank"] < 2).astype(int)
+        ordered = grouped.sort_values(
+            ["_is_showcase", "_is_test", "_top2_per_vid", "_is_v12", "_vid_rank", "_has_inst", "_n_keys", "frame_id"],
+            ascending=[False, False, False, False, True, False, False, True],
         )
         frame_order = ordered["frame_id"].astype(str).tolist()
 
