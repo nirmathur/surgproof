@@ -235,3 +235,15 @@ Beyond presence labels, `nir-localize` draws bounding boxes (`[ymin, xmin, ymax,
 - **`out/localize_rounds.jsonl`**: per-round disagreement resolution records (`frame_id, label, round, iou, verdict, reason`).
 - **`out/localize_results.json`**: post-loop held-out `test` evaluation against watershed-mask-derived bounding boxes and instrument masks (never read during localization/verification).
 
+---
+
+## 6. Grounded Narration & Promo Provenance (`out/narration_<video>.json`, `out/promo/manifest.json`)
+Enforced by `lanes/integrity.py`:
+- **`out/narration_<video>.json`** (`narrate.py` -> `app.py`):
+  - Top-level object: `{"video": "video12", "sentences": [...]}`.
+  - Every item in `sentences` MUST include non-empty `evidence: [{"frame_id": str, "key": str, "present": bool}]` where every `(frame_id, key)` has `status == "accept"` in `out/decisions.csv`, plus `claims: [{"text": str, "status": "verified" | "unsupported" | "contradicted", "evidence_frames": [frame_id]}]`.
+- **`out/promo/manifest.json`** (`promo/render.py` -> `lanes/integrity.py`):
+  - Every `shots.<shot>.shown_labels[]` item `{"frame_id", "key", "status"}` must exist in `out/decisions.csv` with matching `status`.
+  - Every `shots.<shot>.hero_number` (when not `null`/`"pending"`) MUST declare `hero_number_source` (`"<file>:<key>"`, e.g. `"out/results.json:accepted_5_informative.accuracy"`).
+
+
