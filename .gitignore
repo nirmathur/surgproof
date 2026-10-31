@@ -1,6 +1,7 @@
 # secrets
 .env
 .env.*
+!.env.example
 # data, cache, outputs (CholecSeg8k is not ours to redistribute)
 /raw
 /data

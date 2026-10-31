@@ -33,8 +33,12 @@ Known limits: 6 test videos is a small n (see the confidence intervals). Gemini 
 
 ## Run it
 ```bash
-pip install -r requirements.txt
-export GEMINI_API_KEY=...            # or put it in .env
+cp .env.example .env                 # set GEMINI_API_KEY in .env (or export it)
+make setup && make run               # or: ./run.sh (serves unified app on http://localhost:8600)
+```
+Manual steps:
+```bash
+pip install -r requirements.txt -r web/requirements.txt
 python3 web/export.py                # builds web/data from out/
 python3 web/serve.py                 # annotation toolbox on http://localhost:8600
 ```

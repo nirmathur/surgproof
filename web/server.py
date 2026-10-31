@@ -1,29 +1,60 @@
-"""SurgProof web UI backend: serves real pipeline outputs as JSON and real CholecSeg8k frames.
+"""SurgProof unified web UI backend: serves real pipeline outputs as JSON, real CholecSeg8k frames,
+AI masks/polygons, and the Final Pass Human Gate (/api/gate GET & POST).
 
-Run:  .venv/bin/python -m uvicorn web.server:app --port 8600
+Run:  python3 -m uvicorn web.server:app --port 8600   (or ./run.sh / make run)
+Configurable via environment variables:
+  - SURGPROOF_ROOT          (default: repo root)
+  - SURGPROOF_OUT_DIR       (default: <root>/out)
+  - SURGPROOF_COORD_DIR     (default: <root>/coord/artifacts)
+  - SURGPROOF_CHOLEC_DIR    (default: auto-detected from <root>/raw/CholecSeg8k or <root>/data/cholecseg8k/CholecSeg8k)
+  - SURGPROOF_NARRATOR_DIR  (default: <root>/narrator/out)
+
 Reads only files other lanes write (out/ first, then coord/artifacts/). Never invents numbers:
 a missing file is returned as null and the UI shows it as pending.
 """
 from __future__ import annotations
 
+import csv
 import io
 import json
 import math
+import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
-ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "out"
-COORD = ROOT / "coord" / "artifacts"
-CHOLEC = ROOT / "data" / "cholecseg8k" / "CholecSeg8k"
-NARRATOR_OUT = ROOT / "narrator" / "out"
-DIST = Path(__file__).resolve().parent / "dist"
+ROOT = Path(os.environ.get("SURGPROOF_ROOT", Path(__file__).resolve().parents[1])).resolve()
+WEB_DIR = Path(__file__).resolve().parent
+OUT = Path(os.environ.get("SURGPROOF_OUT_DIR", ROOT / "out"))
+COORD = Path(os.environ.get("SURGPROOF_COORD_DIR", ROOT / "coord" / "artifacts"))
+NARRATOR_OUT = Path(os.environ.get("SURGPROOF_NARRATOR_DIR", ROOT / "narrator" / "out"))
+DIST = WEB_DIR / "dist"
+
+
+def _resolve_default_cholec_dir() -> Path:
+    env_cholec = os.environ.get("SURGPROOF_CHOLEC_DIR") or os.environ.get("SURGPROOF_RAW_DIR")
+    if env_cholec:
+        p = Path(env_cholec)
+        if (p / "CholecSeg8k").is_dir():
+            return p / "CholecSeg8k"
+        return p
+    for cand in (
+        ROOT / "raw" / "CholecSeg8k",
+        ROOT / "data" / "cholecseg8k" / "CholecSeg8k",
+        ROOT / "raw",
+    ):
+        if cand.is_dir():
+            return cand
+    return ROOT / "raw" / "CholecSeg8k"
+
+
+CHOLEC = _resolve_default_cholec_dir()
 TEST_VIDEOS = ["video09", "video12", "video17", "video28", "video48", "video55"]
 DECISION_COLS = [
     "label_id", "frame_id", "video", "split", "key", "present", "conf", "box", "evidence",
@@ -32,7 +63,37 @@ DECISION_COLS = [
     "status_round_3", "resolved_round", "argon_reason", "model",
 ]
 
-app = FastAPI(title="SurgProof UI")
+app = FastAPI(title="SurgProof Unified UI")
+
+
+def _cholec_roots() -> list[Path]:
+    roots = [CHOLEC]
+    for fallback in (
+        ROOT / "raw" / "CholecSeg8k",
+        ROOT / "data" / "cholecseg8k" / "CholecSeg8k",
+        ROOT / "raw",
+    ):
+        if fallback not in roots:
+            roots.append(fallback)
+    return roots
+
+
+@lru_cache(maxsize=4)
+def _index_frame_map(index_csv_str: str) -> dict[str, str]:
+    p = Path(index_csv_str)
+    if not p.is_file():
+        return {}
+    out: dict[str, str] = {}
+    try:
+        with p.open("r", encoding="utf-8") as fh:
+            for r in csv.DictReader(fh):
+                fid = (r.get("frame_id") or "").strip()
+                fpath = (r.get("path") or r.get("img_path") or "").strip()
+                if fid and fpath:
+                    out[fid] = fpath
+    except Exception:
+        pass
+    return out
 
 
 def artifact(name: str) -> Path | None:
@@ -91,10 +152,22 @@ def parse_box(raw):
 
 def frame_png(frame_id: str) -> Path | None:
     parts = frame_id.split("_")
-    if len(parts) != 3 or not parts[2].isdigit():
-        return None
-    p = CHOLEC / parts[0] / f"{parts[0]}_{parts[1]}" / f"frame_{int(parts[2])}_endo.png"
-    return p if p.is_file() else None
+    if len(parts) == 3 and parts[2].isdigit():
+        for root_dir in _cholec_roots():
+            p = root_dir / parts[0] / f"{parts[0]}_{parts[1]}" / f"frame_{int(parts[2])}_endo.png"
+            if p.is_file():
+                return p
+    # Fallback to data/index.csv path column
+    idx_map = _index_frame_map(str(ROOT / "data" / "index.csv"))
+    mapped = idx_map.get(frame_id)
+    if mapped:
+        mp = Path(mapped)
+        if mp.is_file():
+            return mp
+        rel = ROOT / mapped.lstrip("/")
+        if rel.is_file():
+            return rel
+    return None
 
 
 def load_labels() -> tuple[pd.DataFrame | None, str | None]:
@@ -111,11 +184,20 @@ def load_labels() -> tuple[pd.DataFrame | None, str | None]:
     return None, None
 
 
+@app.get("/api/health")
+@app.get("/health")
+def health():
+    return {"ok": True, "service": "surgproof-web", "cholec_dir": str(CHOLEC), "out_dir": str(OUT)}
+
+
 @app.get("/api/overview")
 def overview():
     res = read_json("results.json")
     stu = read_json("student.json")
     man = read_json("manual.json")
+    loc_res = read_json("localize_results.json")
+    mask_res = read_json("mask_results.json")
+    mask_ref = read_json("mask_refine_results.json")
     curve = None
     bc = OUT / "eval" / "budget_curve.csv"
     if bc.exists():
@@ -140,6 +222,9 @@ def overview():
         "manual": man,
         "results": res,
         "student": stu,
+        "localize_results": loc_res,
+        "mask_results": mask_res,
+        "mask_refine_results": mask_ref,
         "amber_rounds": amber,
         "n_verified_labels": n_verified,
         "tracker": {
@@ -202,12 +287,7 @@ def frame(frame_id: str):
     return Response(_jpeg(str(p)), media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
 
 
-
-# ---------- Clip player + report (real inputs only: narrator/out/real + decisions.csv) ----------
-NARR_REAL = NARRATOR_OUT / "real"
-GT_PRESENCE = NARRATOR_OUT / "gt_presence.parquet"
-
-
+# ---------- Clip player + report (real inputs only: narrator/out/real + decisions.csv + data/index.csv fallback) ----------
 def _jl(v):
     if isinstance(v, str) and v[:1] in "[{":
         try:
@@ -218,29 +298,73 @@ def _jl(v):
 
 
 def _real_claims() -> pd.DataFrame | None:
-    p = NARR_REAL / "claims.parquet"
+    p = NARRATOR_OUT / "real" / "claims.parquet"
     return pd.read_parquet(p) if p.exists() else None
 
 
 def _clip_frames(clip_id: str) -> list[int]:
     vid = clip_id.split("_")[0]
-    d = CHOLEC / vid / clip_id
-    if not d.is_dir():
-        return []
-    out = []
-    for f in d.glob("frame_*_endo.png"):
+    for root_dir in _cholec_roots():
+        d = root_dir / vid / clip_id
+        if d.is_dir():
+            out = []
+            for f in d.glob("frame_*_endo.png"):
+                try:
+                    out.append(int(f.name.split("_")[1]))
+                except ValueError:
+                    pass
+            if out:
+                return sorted(out)
+    # Fallback to data/index.csv
+    idx_csv = ROOT / "data" / "index.csv"
+    if idx_csv.is_file():
+        out = []
         try:
-            out.append(int(f.name.split("_")[1]))
-        except ValueError:
+            with idx_csv.open("r", encoding="utf-8") as fh:
+                for r in csv.DictReader(fh):
+                    if r.get("clip") == clip_id:
+                        fid = str(r.get("frame_id") or "")
+                        tail = fid.split("_")[-1]
+                        if tail.isdigit():
+                            out.append(int(tail))
+        except Exception:
             pass
-    return sorted(out)
+        if out:
+            return sorted(set(out))
+    return []
 
 
 @app.get("/api/clips")
 def clips():
     d, _ = load_labels()
     c = _real_claims()
-    ids = sorted(set(c["clip_id"])) if c is not None else []
+    ids_set: set[str] = set()
+    if c is not None and "clip_id" in c.columns:
+        ids_set.update(str(x) for x in c["clip_id"].dropna().unique())
+    if d is not None and "frame_id" in d.columns:
+        for fid in d["frame_id"].dropna().unique():
+            parts = str(fid).split("_")
+            if len(parts) == 3 and parts[0] in TEST_VIDEOS:
+                ids_set.add(f"{parts[0]}_{parts[1]}")
+    idx_csv = ROOT / "data" / "index.csv"
+    if not ids_set and idx_csv.is_file():
+        try:
+            with idx_csv.open("r", encoding="utf-8") as fh:
+                for r in csv.DictReader(fh):
+                    cid = (r.get("clip") or "").strip()
+                    if cid:
+                        ids_set.add(cid)
+        except Exception:
+            pass
+    if not ids_set:
+        for root_dir in _cholec_roots():
+            for vid in TEST_VIDEOS:
+                vdir = root_dir / vid
+                if vdir.is_dir():
+                    for cdir in vdir.iterdir():
+                        if cdir.is_dir():
+                            ids_set.add(cdir.name)
+    ids = sorted(ids_set)
     out = []
     for cid in ids:
         fr = _clip_frames(cid)
@@ -248,12 +372,23 @@ def clips():
             continue
         rows = d[d["frame_id"].str.startswith(cid + "_")] if d is not None else pd.DataFrame()
         st = rows["status"].map(lambda s: str(s)) if "status" in rows else pd.Series(dtype=str)
-        cc = c[c["clip_id"] == cid]
+        cc = c[c["clip_id"] == cid] if (c is not None and "clip_id" in c.columns) else pd.DataFrame()
+        n_spoken = (
+            int(((cc["mode"] == "grounded") & (cc["verdict"] == "speak")).sum())
+            if ("mode" in cc.columns and "verdict" in cc.columns)
+            else 0
+        )
         out.append({
-            "clip_id": cid, "video": cid.split("_")[0], "split": "test" if cid.split("_")[0] in TEST_VIDEOS else "train",
-            "first_frame": fr[0], "last_frame": fr[-1], "n_frames": len(fr),
-            "n_labels": int(len(rows)), "n_accept": int((st == "accept").sum()),
-            "n_claims": int(len(cc)), "n_spoken": int(((cc["mode"] == "grounded") & (cc["verdict"] == "speak")).sum()),
+            "clip_id": cid,
+            "video": cid.split("_")[0],
+            "split": "test" if cid.split("_")[0] in TEST_VIDEOS else "train",
+            "first_frame": fr[0],
+            "last_frame": fr[-1],
+            "n_frames": len(fr),
+            "n_labels": int(len(rows)),
+            "n_accept": int((st == "accept").sum()),
+            "n_claims": int(len(cc)),
+            "n_spoken": n_spoken,
         })
     return {"clips": out}
 
@@ -264,28 +399,41 @@ def clip(clip_id: str):
     if not fr:
         raise HTTPException(404, f"No frames for {clip_id}")
     d, src = load_labels()
-    labels = []
+    labels_list = []
     if d is not None:
-        rows = d[d["frame_id"].str.startswith(clip_id + "_")]
+        rows = d[d["frame_id"].str.startswith(cid_prefix := (clip_id + "_"))]
         cols = [k for k in DECISION_COLS + ["trust", "amber_rounds_used"] if k in rows.columns]
         for r in rows[cols].to_dict(orient="records"):
             r = {k: clean(v) for k, v in r.items()}
             r["box"] = parse_box(r.get("box"))
             r["frame"] = int(str(r["frame_id"]).split("_")[-1])
-            labels.append(r)
-    gt = {}
-    if GT_PRESENCE.exists() and clip_id.split("_")[0] in TEST_VIDEOS:
-        g = pd.read_parquet(GT_PRESENCE, columns=["clip_id", "frame_idx", "label", "present"])
+            labels_list.append(r)
+    gt: dict[str, int] = {}
+    gt_presence = NARRATOR_OUT / "gt_presence.parquet"
+    if gt_presence.exists() and clip_id.split("_")[0] in TEST_VIDEOS:
+        g = pd.read_parquet(gt_presence, columns=["clip_id", "frame_idx", "label", "present"])
         g = g[g["clip_id"] == clip_id]
         for r in g.to_dict(orient="records"):
             gt[f"{int(r['frame_idx'])}:{r['label']}"] = int(bool(r["present"]))
-    for r in labels:
+    elif (ROOT / "data" / "index.csv").is_file() and clip_id.split("_")[0] in TEST_VIDEOS:
+        try:
+            with (ROOT / "data" / "index.csv").open("r", encoding="utf-8") as fh:
+                for r in csv.DictReader(fh):
+                    if r.get("clip") == clip_id:
+                        fidx = int(str(r["frame_id"]).split("_")[-1])
+                        for k in ("grasper", "l_hook", "liver", "gallbladder", "cystic_duct", "blood"):
+                            v = r.get(f"gt_{k}")
+                            if v not in (None, "", "nan", "NaN"):
+                                gt[f"{fidx}:{k}"] = int(float(v) > 0)
+        except Exception:
+            pass
+    for r in labels_list:
         k = f"{r['frame']}:{r['key']}"
         fp = r.get("final_present") if r.get("final_present") is not None else r.get("present")
         r["gt_present"] = gt.get(k)
         r["gt_correct"] = None if k not in gt or fp is None else bool(int(fp) == gt[k])
     events = []
-    ep = NARR_REAL / "events.jsonl"
+    ep = NARRATOR_OUT / "real" / "events.jsonl"
     if ep.exists():
         for ln in ep.read_text().splitlines():
             try:
@@ -296,8 +444,8 @@ def clip(clip_id: str):
                 events.append({k: e.get(k) for k in ("event_id", "type", "label", "t_start", "t_end", "status", "frames", "source")})
     claims_out = []
     c = _real_claims()
-    if c is not None:
-        sc = NARR_REAL / "claims_scored.parquet"
+    if c is not None and "clip_id" in c.columns:
+        sc = NARRATOR_OUT / "real" / "claims_scored.parquet"
         gtc = {}
         if sc.exists():
             s = pd.read_parquet(sc, columns=["claim_id", "gt_correct"])
@@ -312,8 +460,15 @@ def clip(clip_id: str):
                 "layers": {l: r.get(l) for l in layers}, "evidence_refs": _jl(r.get("evidence_refs")),
                 "gt_correct": gtc.get(r["claim_id"]) if isinstance(gtc.get(r["claim_id"]), bool) else None,
             })
-    return {"clip_id": clip_id, "video": clip_id.split("_")[0], "frames": fr, "label_source": src,
-            "labels": labels, "events": events, "claims": claims_out}
+    return {
+        "clip_id": clip_id,
+        "video": clip_id.split("_")[0],
+        "frames": fr,
+        "label_source": src,
+        "labels": labels_list,
+        "events": events,
+        "claims": claims_out,
+    }
 
 
 @lru_cache(maxsize=256)
@@ -337,10 +492,79 @@ def crop(frame_id: str, y0: int, x0: int, y1: int, x1: int):
     return Response(_crop(str(p), (y0, x0, y1, x1)), media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
 
 
-if DIST.exists():
+# ---------- Final Pass Human Gate (/api/gate GET & POST) ----------
+@app.get("/api/gate")
+@app.get("/gate")
+def get_gate_state(scope: str = Query(default="test_5")):
+    from web.serve import build_gate_state_payload
+    dec_path = artifact("decisions.csv") or (OUT / "decisions.csv")
+    return JSONResponse(
+        build_gate_state_payload(
+            scope=scope,
+            decisions_csv_path=dec_path,
+            gate_log_path=OUT / "gate_log.jsonl",
+            index_csv_path=ROOT / "data" / "index.csv",
+        )
+    )
+
+
+@app.post("/api/gate")
+@app.post("/gate")
+async def post_gate_action(request: Request):
+    from web.serve import handle_gate_post
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            payload = {}
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": f"Invalid JSON body: {exc}"}, status_code=400)
+    dec_path = artifact("decisions.csv") or (OUT / "decisions.csv")
+    status_code, resp = handle_gate_post(
+        payload,
+        decisions_csv_path=dec_path,
+        gate_log_path=OUT / "gate_log.jsonl",
+        human_gate_log_path=OUT / "human_gate_log.jsonl",
+        verified_jsonl_path=OUT / "verified_dataset.jsonl",
+        index_csv_path=ROOT / "data" / "index.csv",
+    )
+    return JSONResponse(resp, status_code=int(status_code))
+
+
+# ---------- Static assets (Studio web/*, Watch mode, out/, data/, raw/, and React web/dist) ----------
+if DIST.exists() and (DIST / "assets").exists():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
 
-    @app.get("/{path:path}")
-    def spa(path: str):
-        f = DIST / path
-        return FileResponse(f if path and f.is_file() else DIST / "index.html")
+
+@app.get("/studio")
+def studio_index():
+    return FileResponse(WEB_DIR / "index.html")
+
+
+@app.get("/{path:path}")
+def spa(path: str):
+    if not path:
+        if (WEB_DIR / "index.html").is_file():
+            return FileResponse(WEB_DIR / "index.html")
+        if (DIST / "index.html").is_file():
+            return FileResponse(DIST / "index.html")
+    clean_rel = path.lstrip("/")
+    # 1. Direct match inside web/ (index.html, watch.html, app.js, viewer.js, timeline.js, gate.js, style.css, data/*)
+    cand_web = (WEB_DIR / clean_rel).resolve()
+    if str(cand_web).startswith(str(WEB_DIR.resolve())) and cand_web.is_file():
+        return FileResponse(cand_web)
+    # 2. Match inside web/dist/
+    if DIST.exists():
+        cand_dist = (DIST / clean_rel).resolve()
+        if str(cand_dist).startswith(str(DIST.resolve())) and cand_dist.is_file():
+            return FileResponse(cand_dist)
+    # 3. Safe fallback to repo root for out/, data/, raw/, coord/
+    for allowed_prefix in ("out/", "data/", "raw/", "coord/"):
+        if clean_rel.startswith(allowed_prefix):
+            cand_repo = (ROOT / clean_rel).resolve()
+            if cand_repo.is_file():
+                return FileResponse(cand_repo)
+    if (DIST / "index.html").is_file():
+        return FileResponse(DIST / "index.html")
+    if (WEB_DIR / "index.html").is_file():
+        return FileResponse(WEB_DIR / "index.html")
+    raise HTTPException(404, f"Not found: {path}")

@@ -864,6 +864,62 @@ class SurgProofRequestHandler(SimpleHTTPRequestHandler):
             self._send_json(HTTPStatus.OK, payload)
             return
 
+        if route.startswith("/api/"):
+            try:
+                from web import server as unified_server
+
+                if route == "/api/overview":
+                    self._send_json(HTTPStatus.OK, unified_server.overview())
+                    return
+                if route == "/api/clips":
+                    self._send_json(HTTPStatus.OK, unified_server.clips())
+                    return
+                if route.startswith("/api/clip/"):
+                    cid = route.split("/api/clip/", 1)[1]
+                    self._send_json(HTTPStatus.OK, unified_server.clip_bundle(cid))
+                    return
+                if route == "/api/labels":
+                    video = (qs.get("video") or [None])[0]
+                    status_f = (qs.get("status") or [None])[0]
+                    key_f = (qs.get("key") or [None])[0]
+                    limit_f = int((qs.get("limit") or ["400"])[0])
+                    self._send_json(
+                        HTTPStatus.OK,
+                        unified_server.labels(video=video, status=status_f, key=key_f, limit=limit_f),
+                    )
+                    return
+                if route == "/api/narration":
+                    clip_f = (qs.get("clip_id") or [None])[0]
+                    self._send_json(HTTPStatus.OK, unified_server.narration(clip_id=clip_f))
+                    return
+                if route.startswith("/api/frame/") and route.endswith(".jpg"):
+                    fid = route[len("/api/frame/") : -len(".jpg")]
+                    resp = unified_server.frame_jpg(fid)
+                    body = resp.body
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "image/jpeg")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                    return
+                if route.startswith("/api/crop/") and route.endswith(".jpg"):
+                    tail = route[len("/api/crop/") : -len(".jpg")]
+                    if "/" in tail:
+                        fid, lbl = tail.split("/", 1)
+                        resp = unified_server.crop_jpg(fid, lbl)
+                        body = resp.body
+                        self.send_response(HTTPStatus.OK)
+                        self.send_header("Content-Type", "image/jpeg")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.end_headers()
+                        self.wfile.write(body)
+                        return
+            except Exception as exc:
+                code = getattr(exc, "status_code", 500)
+                detail = getattr(exc, "detail", str(exc))
+                self._send_json(int(code), {"ok": False, "error": detail})
+                return
+
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802

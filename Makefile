@@ -1,9 +1,17 @@
-PY ?= .venv/bin/python
+PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python3; fi)
+PORT ?= 8600
 SRC ?= gt_corrupted
 
-.PHONY: all gt corrupted eval recheck render test clean-tracker
+.PHONY: all setup run gt corrupted eval recheck render test clean-tracker
 
 all: gt corrupted eval recheck render
+
+setup:
+	$(PY) -m pip install -r requirements.txt -r web/requirements.txt
+	@if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi
+
+run:
+	./run.sh
 
 gt:
 	$(PY) -m tracker.index
