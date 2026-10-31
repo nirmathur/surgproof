@@ -120,30 +120,25 @@ def snap_tip_to_instrument_pixels(
     py = int(round(ty * (h - 1) / 1000.0))
     px = int(round(tx * (w - 1) / 1000.0))
 
-    # Measure "warm tissue score": biological tissue in laparoscopy has strong R > G and R > B.
-    # Instruments (silver/white metallic jaws/hooks or matte black/grey shafts) have low R - max(G,B).
+    # Measure "warm tissue score": biological tissue in laparoscopy has R > G and R > B.
+    # Metallic silver/grey jaws and matte dark instrument shafts are achromatic (R - max(G,B) <= 2).
     def _instrument_likelihood(arr_rgb: np.ndarray) -> np.ndarray:
         r, g, b = arr_rgb[..., 0], arr_rgb[..., 1], arr_rgb[..., 2]
         red_excess = r - np.maximum(g, b)
+        rg_diff = r - g
         brightness = (r + g + b) / 3.0
-        # Specular metallic silver/white OR dark matte shaft inside the box (avoiding black viewport border < 12)
-        not_viewport_border = (brightness >= 14.0).astype(np.float32)
-        low_red_score = np.clip((35.0 - red_excess) / 35.0, -1.0, 1.5)
-        return low_red_score * not_viewport_border
+        not_viewport_border = ((brightness >= 20.0) & (brightness <= 248.0)).astype(np.float32)
+        achromatic_score = np.clip((6.0 - red_excess) / 10.0, -1.5, 1.2) + np.clip((8.0 - rg_diff) / 14.0, -1.0, 0.8)
+        return achromatic_score * not_viewport_border
 
-    # Check if current pixel is already clearly non-tissue (red_excess <= 22 and brightness >= 15)
-    r0, g0, b0 = im[py, px]
-    if (r0 - max(g0, b0)) <= 22.0 and ((r0 + g0 + b0) / 3.0) >= 15.0:
-        return tip
-
-    # Search within a small neighborhood inside the predicted box for the strongest instrument surface pixel
+    # Search within a neighborhood inside the predicted box for a solid 3x3 metallic/shaft surface pixel
     by0 = max(0, int(round(box[0] * (h - 1) / 1000.0)))
     bx0 = max(0, int(round(box[1] * (w - 1) / 1000.0)))
     by1 = min(h, int(round(box[2] * (h - 1) / 1000.0)) + 1)
     bx1 = min(w, int(round(box[3] * (w - 1) / 1000.0)) + 1)
 
-    rad_y = max(4, int(round(search_radius_norm * h / 1000.0)))
-    rad_x = max(4, int(round(search_radius_norm * w / 1000.0)))
+    rad_y = max(6, int(round(search_radius_norm * h / 1000.0)))
+    rad_x = max(6, int(round(search_radius_norm * w / 1000.0)))
     sy0 = max(by0, py - rad_y)
     sy1 = min(by1, py + rad_y + 1)
     sx0 = max(bx0, px - rad_x)
@@ -153,11 +148,27 @@ def snap_tip_to_instrument_pixels(
 
     patch = im[sy0:sy1, sx0:sx1]
     inst_score = _instrument_likelihood(patch)
+    # 3x3 box-filter smoothing so we pick the interior of a metallic jaw/shaft rather than a boundary pixel
+    if inst_score.shape[0] >= 3 and inst_score.shape[1] >= 3:
+        padded = np.pad(inst_score, 1, mode="edge")
+        smooth = (
+            padded[:-2, :-2] + padded[:-2, 1:-1] + padded[:-2, 2:]
+            + padded[1:-1, :-2] + padded[1:-1, 1:-1] + padded[1:-1, 2:]
+            + padded[2:, :-2] + padded[2:, 1:-1] + padded[2:, 2:]
+        ) / 9.0
+        inst_score = 0.4 * inst_score + 0.6 * smooth
+
+    # Check if current pixel is already strongly metallic/achromatic
+    cur_y_in = min(inst_score.shape[0] - 1, max(0, py - sy0))
+    cur_x_in = min(inst_score.shape[1] - 1, max(0, px - sx0))
+    if inst_score[cur_y_in, cur_x_in] >= 1.15:
+        return tip
+
     yy, xx = np.mgrid[sy0:sy1, sx0:sx1]
-    dist_penalty = 0.015 * np.sqrt((yy - py) ** 2 + (xx - px) ** 2)
+    dist_penalty = 0.018 * np.sqrt((yy - py) ** 2 + (xx - px) ** 2)
     total_score = inst_score - dist_penalty
     best_idx = np.unravel_index(int(np.argmax(total_score)), total_score.shape)
-    if total_score[best_idx] > 0.15:
+    if total_score[best_idx] > inst_score[cur_y_in, cur_x_in] + 0.08:
         new_py = sy0 + int(best_idx[0])
         new_px = sx0 + int(best_idx[1])
         new_y = int(round(new_py * 1000.0 / (h - 1)))
