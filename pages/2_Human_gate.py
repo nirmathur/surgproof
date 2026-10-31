@@ -345,10 +345,11 @@ def discover_decision_sources(
     elif coord_csv.is_file() and coord_csv.stat().st_size > 0:
         sources.append(("Shared Verifier Output (coord/artifacts/decisions.csv)", coord_csv, "csv"))
 
-    if smoke_jsonl.is_file() and smoke_jsonl.stat().st_size > 0:
-        sources.append(("Smoke Labels via Verifier (coord/artifacts/labels_smoke.jsonl)", smoke_jsonl, "jsonl"))
-    elif manual_jsonl.is_file() and manual_jsonl.stat().st_size > 0:
+    if manual_jsonl.is_file() and manual_jsonl.stat().st_size > 0:
         sources.append(("Manual Labels via Verifier (out/labels_manual.jsonl)", manual_jsonl, "jsonl"))
+    if smoke_jsonl.is_file() and smoke_jsonl.stat().st_size > 0:
+        if not manual_jsonl.is_file() or smoke_jsonl.stat().st_size != manual_jsonl.stat().st_size:
+            sources.append(("Smoke Labels via Verifier (coord/artifacts/labels_smoke.jsonl)", smoke_jsonl, "jsonl"))
 
     if live_csv.is_file() and live_csv.stat().st_size > 0:
         if not primary_csv.is_file() or live_csv.resolve() != primary_csv.resolve():
@@ -429,7 +430,20 @@ def compute_amber_funnel(
         }
     ]
 
-    if by_round:
+    round_cols = [f"status_round_{k}" for k in (1, 2, 3) if f"status_round_{k}" in df.columns and df[f"status_round_{k}"].notna().any()]
+    if round_cols:
+        prev_amber = int(r0_amber)
+        for k_idx, col_name in enumerate(round_cols, start=1):
+            rem_k = int((df[col_name].map(normalize_status) == "AMBER").sum())
+            res_k = max(0, prev_amber - rem_k)
+            stages.append({
+                "stage": f"Amber Loop · Round {k_idx}",
+                "ambers_remaining": rem_k,
+                "resolved_in_step": res_k,
+                "note": f"Argon resolved {res_k} -> {rem_k} AMBER left",
+            })
+            prev_amber = rem_k
+    elif by_round:
         running_amber = r0_amber
         for r_num in sorted(by_round.keys()):
             evts = by_round[r_num]
@@ -807,8 +821,8 @@ def build_verified_dataset_records(
                 "box": box_val,
                 "rationale": rationale,
                 "evidence": rationale,
-                "original_status": "accept",
-                "status": "accept",
+                "original_status": ns,
+                "status": ns,
                 "final_by": final_by,
                 "verification_source": v_src,
                 "reviewer": rev_name,
@@ -825,7 +839,7 @@ def build_verified_dataset_records(
                     "double_check": double_check_prov,
                     "amber_loop_rounds": item_rounds,
                     "release_gate": {
-                        "original_status": "accept",
+                        "original_status": ns,
                         "final_by": final_by,
                         "reviewer": rev_name,
                         "audit_signed_off_by": rev_name or default_signoff_reviewer,
@@ -856,8 +870,8 @@ def build_verified_dataset_records(
                     "box": box_val,
                     "rationale": rationale,
                     "evidence": rationale,
-                    "original_status": "AMBER",
-                    "status": "accept",
+                    "original_status": ns,
+                    "status": "accept",  # integrity: allow (human action)
                     "final_by": "human",
                     "verification_source": "human_gate",
                     "reviewer": rev_name,
@@ -874,7 +888,7 @@ def build_verified_dataset_records(
                         "double_check": double_check_prov,
                         "amber_loop_rounds": item_rounds,
                         "release_gate": {
-                            "original_status": "AMBER",
+                            "original_status": ns,
                             "final_by": "human",
                             "reviewer": rev_name,
                             "audit_signed_off_by": rev_name,

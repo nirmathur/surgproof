@@ -121,8 +121,8 @@ def endoscapes_presence(mask_arr):
             out[f"gt_{key}"] = int(frac >= C.MIN_FRAC.get(key, C.MIN_FRAC["default"]))
             out[f"frac_{key}"] = round(frac, 5)
         else:
-            out[f"gt_{key}"] = -1
-            out[f"frac_{key}"] = -1.0
+            out[f"gt_{key}"] = None
+            out[f"frac_{key}"] = None
     frac_tool = float((mask_arr == 6).sum()) / total
     out["gt_tool_any"] = int(frac_tool >= C.MIN_FRAC["default"])
     out["frac_tool_any"] = round(frac_tool, 5)
@@ -230,8 +230,8 @@ def cholect50_presence(instruments):
             out[f"gt_{key}"] = present
             out[f"frac_{key}"] = float(present)
         else:
-            out[f"gt_{key}"] = -1
-            out[f"frac_{key}"] = -1.0
+            out[f"gt_{key}"] = None
+            out[f"frac_{key}"] = None
     return out
 
 

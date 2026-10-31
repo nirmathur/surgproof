@@ -174,8 +174,9 @@ def test_score_amber_rounds_and_exclude_liver_from_headline(tmp_path):
     )
 
     res = evaluate_decisions(data_dir=data_dir, out_dir=out_dir)
-    assert res["n_test_labels"] == 1  # excludes liver from headline!
+    assert res["n_test_labels_excl_liver"] == 1  # excludes liver from headline!
     assert res["n_test_labels_all_6"] == 2
+    assert res["accepted_5_informative"]["n_test_labels_excl_liver"] == 1
     assert len(res["amber_loop_by_round"]) == 2
     assert res["amber_loop_by_round"][0]["ambers_remaining"] == 1
     assert res["amber_loop_by_round"][1]["ambers_remaining"] == 0

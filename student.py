@@ -138,12 +138,17 @@ def _eval_trained_models_on_external(models_by_key_source: dict, const_by_key_so
         if len(ext_te) == 0:
             continue
 
+        allowed_ext_keys = {"endoscapes2023": {"gallbladder", "cystic_duct"}, "cholect50": {"grasper", "l_hook"}}.get(
+            ds_name, set(C.LABELS)
+        )
         per_label_ext = {}
         for key in C.LABELS:
+            if key not in allowed_ext_keys:
+                continue
             col = f"gt_{key}"
             if col not in ext_te.columns:
                 continue
-            yte = ext_te[col].values
+            yte = pd.to_numeric(ext_te[col], errors="coerce").values
             valid = np.isin(yte, [0, 1])
             if not np.any(valid):
                 continue
@@ -226,6 +231,27 @@ def main():
         dec["final_present"] = dec["present"]
     dec = dec.drop_duplicates(subset=["frame_id", "key"], keep="last")
 
+    # If labels_manual.jsonl in the same OUT_DIR has additional train rows not yet written to decisions.csv,
+    # backfill their zero-label double-checked status while keeping decisions.csv authoritative on all shared rows.
+    manual_p = C.OUT_DIR / "labels_manual.jsonl"
+    if manual_p.exists() and manual_p.stat().st_size > 0:
+        try:
+            raw_m = pd.read_json(manual_p, lines=True)
+            if len(raw_m) > len(dec) and {"frame_id", "key", "present"}.issubset(raw_m.columns):
+                from eval.score_decisions import _initial_status, _initial_trust
+
+                if "split" not in raw_m.columns:
+                    raw_m["split"] = raw_m.frame_id.map(split_of)
+                if "conf" not in raw_m.columns and "confidence" in raw_m.columns:
+                    raw_m["conf"] = raw_m["confidence"]
+                raw_m["trust"] = [_initial_trust(r) for r in raw_m.itertuples()]
+                raw_m["status"] = raw_m["trust"].map(_initial_status)
+                raw_m["final_present"] = raw_m["present"].astype(int)
+                combined = pd.concat([raw_m, dec], ignore_index=True)
+                dec = combined.drop_duplicates(subset=["frame_id", "key"], keep="last")
+        except Exception:
+            pass
+
     # Enforce strict split separation: student trains ONLY on 'train' split, evaluates ONLY on 'test' split
     tr = dec[dec.split == "train"].copy()
     te_idx = idx[idx.split == "test"].copy()
@@ -257,15 +283,6 @@ def main():
             s = s[s.frame_id.isin(row_of)]
             rows = [row_of[f] for f in s.frame_id]
             y_vals = s.present.values
-            sw = None
-            if name == "verified" and len(np.unique(y_vals)) == 2 and len(t) > 0:
-                # Horvitz-Thompson inverse-acceptance weighting: positive claims undergo the extra
-                # blind-crop gate (`verify_box`), so when positive acceptance rate >= 0.50 we weight by
-                # inverse class-conditional acceptance rate (using zero human labels).
-                r1 = (y_vals == 1).sum() / max(1, (t.present.values == 1).sum())
-                r0 = (y_vals == 0).sum() / max(1, (t.present.values == 0).sum())
-                if r1 >= 0.50 and r0 > 0:
-                    sw = np.where(y_vals == 1, 1.0 / max(0.25, r1), 1.0 / max(0.25, r0))
             r, p, m = fit_eval(
                 X[rows],
                 y_vals,
@@ -274,7 +291,6 @@ def main():
                 is_upper_bound=(name in UPPER_BOUND_SOURCES),
                 informative=is_informative,
                 return_model=True,
-                sample_weight=sw,
             )
             results[key][name] = r
             if r is not None:
