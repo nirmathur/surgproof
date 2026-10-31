@@ -1,6 +1,10 @@
 """Independent leakage audit, video-level cluster bootstrap CIs, and judge-attack report (Issue #13).
 
-Reads from out/ (or coord/artifacts/ fallback) and data/index.csv.
+Reads real artifacts from data/index.csv and out/ (with coord/artifacts/ fallback).
+Per Validation Audit 12:42:
+- Verifies that labels_*.jsonl and verifier inputs do NOT carry `truth` or `gt_*`.
+- Joins ground truth (`gt_<key>`) from `data/index.csv` ONLY inside this independent eval step.
+- Computes video-level cluster bootstrap 95% CIs on real TEST split predictions.
 Writes out/eval_audit.json and out/eval_report.md.
 
 Usage:
@@ -17,6 +21,7 @@ import config as C
 
 UNINFORMATIVE_LABELS = {"liver"}
 HEADLINE_LABELS = [k for k in C.LABELS if k not in UNINFORMATIVE_LABELS]
+CORE_BALANCED_LABELS = ["grasper", "l_hook", "gallbladder"]
 
 
 def _resolve_file(name: str, out_dir: Path, coord_dir: Path, data_dir: Path) -> Path | None:
@@ -25,6 +30,56 @@ def _resolve_file(name: str, out_dir: Path, coord_dir: Path, data_dir: Path) -> 
         if p.exists() and p.stat().st_size > 0:
             return p
     return None
+
+
+def attach_ground_truth(df: pd.DataFrame, idx: pd.DataFrame | None) -> pd.DataFrame:
+    """Join ground-truth `truth` from data/index.csv (`gt_<key>`) onto label/decision rows."""
+    out = df.copy()
+    if idx is not None and "frame_id" in out.columns and "key" in out.columns:
+        gt_cols = [f"gt_{k}" for k in C.LABELS if f"gt_{k}" in idx.columns]
+        if gt_cols:
+            long_gt = (
+                idx[["frame_id", "video", "split"] + gt_cols]
+                .melt(id_vars=["frame_id", "video", "split"], value_vars=gt_cols, var_name="gt_col", value_name="gt_val")
+            )
+            long_gt["key"] = long_gt["gt_col"].str.removeprefix("gt_")
+            gt_map = long_gt.set_index(["frame_id", "key"])["gt_val"]
+            out["truth"] = out.set_index(["frame_id", "key"]).index.map(gt_map).values
+            if "split" not in out.columns:
+                sp_map = dict(zip(idx.frame_id, idx.split))
+                out["split"] = out["frame_id"].map(sp_map)
+            if "video" not in out.columns:
+                v_map = dict(zip(idx.frame_id, idx.video))
+                out["video"] = out["frame_id"].map(v_map)
+    if "truth" in out.columns:
+        # Filter out unscorable rows where truth == -1 (external datasets Endoscapes2023 / CholecT50)
+        scorable_mask = out["truth"].isin([0, 1])
+        out = out[scorable_mask].copy()
+        out["truth"] = out["truth"].astype(int)
+    if "truth" in out.columns and "present" in out.columns:
+        out["correct"] = (out["present"].astype(int) == out["truth"]).astype(int)
+    if "truth" in out.columns and "final_present" in out.columns:
+        out["final_correct"] = (out["final_present"].astype(int) == out["truth"]).astype(int)
+    return out
+
+
+def risk_coverage_metrics(correct, score) -> dict:
+    correct = np.asarray(correct, dtype=float)
+    score = np.asarray(score, dtype=float)
+    if len(correct) == 0:
+        return {"coverage_at_95": 0.0, "acc_at_60": 0.0, "aurc": 1.0}
+    order = np.argsort(-score, kind="mergesort")
+    c = correct[order]
+    n = len(c)
+    cov = np.arange(1, n + 1) / n
+    acc = np.cumsum(c) / np.arange(1, n + 1)
+    at95 = float(cov[acc >= 0.95].max()) if (acc >= 0.95).any() else 0.0
+    idx60 = max(0, int(0.6 * n) - 1)
+    return {
+        "coverage_at_95": round(at95, 4),
+        "acc_at_60": round(float(acc[idx60]), 4),
+        "aurc": round(float((1.0 - acc).mean()), 4),
+    }
 
 
 def video_cluster_bootstrap_ci(
@@ -73,8 +128,7 @@ def audit_splits(idx: pd.DataFrame | None, dec: pd.DataFrame | None) -> dict:
         return {"status": "SKIP", "detail": "No index.csv or decisions.csv available yet"}
 
     vcol = "video" if "video" in source_df.columns else "video_id"
-    splits = {}
-    frames = {}
+    splits, frames = {}, {}
     for sp in ("train", "calib", "test"):
         sub = source_df[source_df.split == sp]
         splits[sp] = set(sub[vcol].dropna().unique()) if vcol in sub.columns else set()
@@ -130,7 +184,7 @@ def audit_prevalence_and_liver(idx: pd.DataFrame | None, dec: pd.DataFrame | Non
         "degenerate_labels": degenerate,
         "sparse_test_positive_labels": sparse_on_test,
         "headline_labels": HEADLINE_LABELS,
-        "core_balanced_test_labels": ["grasper", "l_hook", "gallbladder"],
+        "core_balanced_test_labels": CORE_BALANCED_LABELS,
         "recommendation": (
             f"Labels {degenerate} have ~100%/0% overall prevalence (excluded from headline). "
             f"On the SEED=0 video split, {sparse_on_test} have <=1 positive test frame "
@@ -142,14 +196,37 @@ def audit_prevalence_and_liver(idx: pd.DataFrame | None, dec: pd.DataFrame | Non
     }
 
 
-def audit_verifier_leakage(dec: pd.DataFrame | None) -> dict:
+def audit_gt_separation_in_label_files(out_dir: Path, coord_dir: Path) -> dict:
+    """Validation Audit 12:42 check: labels_*.jsonl must NOT contain `truth` or `gt_*`."""
+    checked = {}
+    leaked_files = []
+    for name in ("labels_blank.jsonl", "labels_manual.jsonl", "labels_manual_v2.jsonl", "labels_smoke.jsonl"):
+        p = _resolve_file(name, out_dir, coord_dir, out_dir)
+        if p is None:
+            continue
+        df = pd.read_json(p, lines=True)
+        forbidden = [c for c in df.columns if c == "truth" or c.startswith("gt_")]
+        checked[name] = {"n_rows": int(len(df)), "forbidden_gt_cols": forbidden}
+        if forbidden:
+            leaked_files.append(f"{name}: {forbidden}")
+    return {
+        "status": "FAIL" if leaked_files else ("PASS" if checked else "SKIP"),
+        "checked_files": checked,
+        "leaked_files": leaked_files,
+    }
+
+
+def audit_verifier_leakage(dec: pd.DataFrame | None, idx: pd.DataFrame | None = None) -> dict:
     """Verify that verifier trust/status on train and test never leaked ground truth `truth`."""
     if dec is None:
         return {"status": "SKIP", "detail": "decisions.csv not found"}
 
+    raw_has_truth_col = ("truth" in dec.columns) or any(c.startswith("gt_") for c in dec.columns)
+    dec_eval = attach_ground_truth(dec, idx)
     issues = []
+
     # Check 1: verify pv_match bug (if present=1 and pv_match is True/1.0, trust shouldn't be halved on all rows)
-    flash_pos = dec[(dec.get("final_by", "flash") == "flash") & (dec.present == 1)]
+    flash_pos = dec_eval[(dec_eval.get("final_by", "flash") == "flash") & (dec_eval.present == 1)]
     if not flash_pos.empty and "pv_match" in flash_pos.columns and "trust" in flash_pos.columns:
         pv_true = flash_pos[flash_pos.pv_match.apply(lambda x: bool(pd.notna(x) and x))]
         if not pv_true.empty:
@@ -161,7 +238,7 @@ def audit_verifier_leakage(dec: pd.DataFrame | None) -> dict:
                 )
 
     # Check 2: check if trust on flash rows depends on `truth` after controlling for (conf, p_wrong, present, pv_match)
-    flash_rows = dec[dec.get("final_by", "flash") == "flash"].copy()
+    flash_rows = dec_eval[dec_eval.get("final_by", "flash") == "flash"].copy()
     leaked_truth = False
     if not flash_rows.empty and {"conf", "p_wrong", "present", "trust", "truth"}.issubset(flash_rows.columns):
         pv_factor = np.where(
@@ -174,7 +251,6 @@ def audit_verifier_leakage(dec: pd.DataFrame | None) -> dict:
         resid_fixed = np.abs(flash_rows.trust - recon_trust_fixed)
         resid_buggy = np.abs(flash_rows.trust - recon_trust_buggy)
         min_resid = np.minimum(resid_fixed, resid_buggy)
-        # If trust cannot be explained by model observables and correlates with truth, flag leakage
         if min_resid.max() > 1e-4:
             corr_with_truth = np.corrcoef(min_resid, flash_rows.truth)[0, 1]
             if pd.notna(corr_with_truth) and abs(corr_with_truth) > 0.25:
@@ -184,6 +260,7 @@ def audit_verifier_leakage(dec: pd.DataFrame | None) -> dict:
     return {
         "status": "FAIL" if leaked_truth else ("WARN" if issues else "PASS"),
         "zero_human_label_verified": not leaked_truth,
+        "raw_decisions_contained_truth_col": raw_has_truth_col,
         "issues": issues,
     }
 
@@ -197,38 +274,111 @@ def audit_manual_provenance(out_dir: Path, coord_dir: Path) -> dict:
 
     man_txt = man_path.read_text(encoding="utf-8", errors="ignore")
     notes_txt = notes_path.read_text(encoding="utf-8", errors="ignore") if notes_path else ""
-    combined = man_txt + "\n" + notes_txt
-    urls = re.findall(r"https?://[^\s)\"'>]+", combined)
-    timestamps = re.findall(r"\b\d{1,2}:\d{2}\b", combined)
-    has_provenance = len(urls) > 0 or len(timestamps) > 0
+    man_urls = re.findall(r"https?://[^\s)\"'>]+", man_txt)
+    notes_urls = re.findall(r"https?://[^\s)\"'>]+", notes_txt)
+    timestamps = re.findall(r"\b\d{1,2}:\d{2}\b", man_txt + "\n" + notes_txt)
+    has_manual_sources = len(man_urls) > 0
     return {
-        "status": "PASS" if has_provenance else "WARN",
-        "n_urls_found": len(urls),
+        "status": "PASS" if has_manual_sources else "WARN",
+        "n_urls_in_manual_json": len(man_urls),
+        "n_urls_in_research_notes": len(notes_urls),
         "n_timestamps_found": len(timestamps),
-        "sample_urls": urls[:5],
+        "sample_urls": (man_urls + notes_urls)[:5],
         "detail": (
-            "Provenance verified (URLs/timestamps present)."
-            if has_provenance
-            else "No source URLs or video timestamps found in manual.json / research_notes.md."
+            f"Provenance verified in manual.json ({len(man_urls)} URLs, {len(timestamps)} timestamps)."
+            if has_manual_sources
+            else f"manual.json has 0 URLs (research_notes.md has {len(notes_urls)} URLs); add sources[] with URL+timestamps inside manual.json per 12:42 audit."
         ),
     }
 
 
-def compute_verifier_test_metrics(dec: pd.DataFrame | None) -> dict:
-    """Compute independent video-level cluster bootstrap CIs on TEST split for verifier claims."""
-    if dec is None or "split" not in dec.columns:
+def evaluate_raw_labels_jsonl(path: Path | None, idx: pd.DataFrame | None) -> dict | None:
+    """Evaluate a raw labels_*.jsonl file on TEST split by joining GT from index.csv."""
+    if path is None or idx is None:
+        return None
+    df = pd.read_json(path, lines=True)
+    df = attach_ground_truth(df, idx)
+    test = df[df.split == "test"].copy()
+    if test.empty or "correct" not in test.columns:
+        return None
+
+    test_5 = test[test.key.isin(HEADLINE_LABELS)]
+    test_3 = test[test.key.isin(CORE_BALANCED_LABELS)]
+    conf_col = "conf" if "conf" in test.columns else "confidence"
+
+    per_label = {}
+    for k in C.LABELS:
+        sub = test[test.key == k]
+        if sub.empty:
+            continue
+        per_label[k] = {
+            "informative": k not in UNINFORMATIVE_LABELS,
+            "n_frames": int(len(sub)),
+            "n_pos_gt": int(sub.truth.sum()),
+            "pred_pos_rate": round(float(sub.present.mean()), 4),
+            "acc": video_cluster_bootstrap_ci(sub, lambda d: float(d.correct.mean())),
+        }
+
+    scorable_keys = sorted(per_label.keys())
+    return {
+        "file": path.name,
+        "scorable_keys": scorable_keys,
+        "n_test_rows": int(len(test)),
+        "n_test_videos": int(test.video.nunique()),
+        "headline_5_labels_acc": video_cluster_bootstrap_ci(test_5, lambda d: float(d.correct.mean())) if not test_5.empty else None,
+        "core_3_balanced_labels_acc": video_cluster_bootstrap_ci(test_3, lambda d: float(d.correct.mean())) if not test_3.empty else None,
+        "all_6_labels_non_headline_acc": video_cluster_bootstrap_ci(test, lambda d: float(d.correct.mean())),
+        "headline_5_risk_coverage": risk_coverage_metrics(test_5.correct.values, test_5[conf_col].values) if not test_5.empty else None,
+        "per_label": per_label,
+    }
+
+
+def evaluate_external_datasets(data_dir: Path, out_dir: Path) -> dict:
+    """Discover and evaluate external held-out datasets (Endoscapes2023, CholecT50) with gt=-1 support."""
+    ext_root = data_dir / "external"
+    if not ext_root.exists():
         return {}
-    test = dec[dec.split == "test"].copy()
+    out_ext = {}
+    for ext_idx_p in sorted(ext_root.glob("*/index.csv")):
+        ds_name = ext_idx_p.parent.name
+        ext_idx = pd.read_csv(ext_idx_p)
+        scorable = [
+            k for k in C.LABELS
+            if f"gt_{k}" in ext_idx.columns and ext_idx[f"gt_{k}"].isin([0, 1]).any()
+        ]
+        ds_info = {
+            "n_frames": int(len(ext_idx)),
+            "n_videos": int(ext_idx.video.nunique()) if "video" in ext_idx.columns else None,
+            "scorable_labels": scorable,
+            "pos_counts": {k: int((ext_idx[f"gt_{k}"] == 1).sum()) for k in scorable},
+        }
+        # Match any labels_*<ds_name>*.jsonl or decisions_*<ds_name>*.csv in out_dir
+        lbl_candidates = sorted(out_dir.glob(f"*{ds_name}*.jsonl"))
+        dec_candidates = sorted(out_dir.glob(f"*decisions*{ds_name}*.csv"))
+        if lbl_candidates:
+            ds_info["raw_labels_eval"] = evaluate_raw_labels_jsonl(lbl_candidates[-1], ext_idx)
+        if dec_candidates:
+            ext_dec = pd.read_csv(dec_candidates[-1])
+            ds_info["verifier_eval"] = compute_verifier_test_metrics(ext_dec, ext_idx)
+        out_ext[ds_name] = ds_info
+    return out_ext
+
+
+def compute_verifier_test_metrics(dec: pd.DataFrame | None, idx: pd.DataFrame | None = None) -> dict:
+    """Compute independent video-level cluster bootstrap CIs on TEST split for verifier claims."""
+    if dec is None:
+        return {}
+    dec_eval = attach_ground_truth(dec, idx)
+    if "split" not in dec_eval.columns or "correct" not in dec_eval.columns:
+        return {}
+    test = dec_eval[dec_eval.split == "test"].copy()
     if test.empty:
         return {}
     if "video" not in test.columns and "video_id" in test.columns:
         test["video"] = test["video_id"]
-    if "correct" not in test.columns:
-        test["correct"] = (test.present == test.truth).astype(int)
-    if "final_correct" not in test.columns:
-        test["final_correct"] = (test.final_present == test.truth).astype(int)
 
     test_5 = test[test.key.isin(HEADLINE_LABELS)].copy()
+    test_3 = test[test.key.isin(CORE_BALANCED_LABELS)].copy()
 
     def _raw_acc(d):
         return float(d.correct.mean()) if len(d) else np.nan
@@ -254,6 +404,7 @@ def compute_verifier_test_metrics(dec: pd.DataFrame | None) -> dict:
             continue
         per_label[k] = {
             "informative": k not in UNINFORMATIVE_LABELS,
+            "n_pos_test_gt": int(sub_k.truth.sum()),
             "raw_acc": video_cluster_bootstrap_ci(sub_k, _raw_acc),
             "accepted_acc": video_cluster_bootstrap_ci(sub_k, _acc_acc),
             "accepted_coverage": video_cluster_bootstrap_ci(sub_k, _acc_cov),
@@ -266,6 +417,13 @@ def compute_verifier_test_metrics(dec: pd.DataFrame | None) -> dict:
             "accepted_acc": video_cluster_bootstrap_ci(test_5, _acc_acc),
             "accepted_coverage": video_cluster_bootstrap_ci(test_5, _acc_cov),
             "accepted_minus_raw_acc_delta": video_cluster_bootstrap_ci(test_5, _delta_acc),
+        },
+        "core_3_balanced_labels": {
+            "labels": CORE_BALANCED_LABELS,
+            "single_raw_acc": video_cluster_bootstrap_ci(test_3, _raw_acc),
+            "accepted_acc": video_cluster_bootstrap_ci(test_3, _acc_acc),
+            "accepted_coverage": video_cluster_bootstrap_ci(test_3, _acc_cov),
+            "accepted_minus_raw_acc_delta": video_cluster_bootstrap_ci(test_3, _delta_acc),
         },
         "all_6_labels_non_headline": {
             "note": "Includes liver (100% prevalence); shown for completeness only, not headline.",
@@ -296,21 +454,25 @@ def compute_student_test_metrics(
         if any(f"{k}__{s}" in te.columns for k in HEADLINE_LABELS)
     ]
 
-    by_source_ci = {}
+    by_source_ci_5, by_source_ci_3 = {}, {}
     for s in present_sources:
-        def _src_acc_5(d, src=s):
+        def _src_acc(d, src=s, keys=HEADLINE_LABELS):
             accs = []
-            for k in HEADLINE_LABELS:
+            for k in keys:
                 col = f"{k}__{src}"
                 if col in d.columns and f"gt_{k}" in d.columns:
                     preds = (d[col].values >= 0.5).astype(int)
                     accs.append(float((preds == d[f"gt_{k}"].values).mean()))
             return float(np.mean(accs)) if accs else np.nan
 
-        ci = video_cluster_bootstrap_ci(te, _src_acc_5)
-        if ci is not None:
-            ci["is_upper_bound"] = (s == "oracle_upper_bound")
-            by_source_ci[s] = ci
+        ci5 = video_cluster_bootstrap_ci(te, lambda d, src=s: _src_acc(d, src, HEADLINE_LABELS))
+        ci3 = video_cluster_bootstrap_ci(te, lambda d, src=s: _src_acc(d, src, CORE_BALANCED_LABELS))
+        if ci5 is not None:
+            ci5["is_upper_bound"] = (s == "oracle_upper_bound")
+            by_source_ci_5[s] = ci5
+        if ci3 is not None:
+            ci3["is_upper_bound"] = (s == "oracle_upper_bound")
+            by_source_ci_3[s] = ci3
 
     delta_verified_vs_single = None
     if "verified" in present_sources and "single" in present_sources:
@@ -329,9 +491,11 @@ def compute_student_test_metrics(
 
     return {
         "headline_labels": HEADLINE_LABELS,
+        "core_balanced_labels": CORE_BALANCED_LABELS,
         "excluded_uninformative_labels": sorted(UNINFORMATIVE_LABELS),
         "upper_bounds": ["oracle_upper_bound"],
-        "video_bootstrap_acc_5_labels": by_source_ci,
+        "video_bootstrap_acc_5_labels": by_source_ci_5,
+        "video_bootstrap_acc_core_3_labels": by_source_ci_3,
         "verified_minus_single_acc_delta": delta_verified_vs_single,
     }
 
@@ -350,14 +514,15 @@ def build_judge_attack_vectors(audit_res: dict) -> list[dict]:
             ),
         },
         {
-            "id": "attack_2_liver_100pct_prevalence",
-            "judge_question": "In CholecSeg8k, 'liver' is visible in 100% of sampled frames. Doesn't pooling 'liver' into mean accuracy artificially inflate your headline numbers?",
+            "id": "attack_2_liver_100pct_and_sparse_test_positives",
+            "judge_question": "In CholecSeg8k, 'liver' is 100% present, and under SEED=0 'blood' (0/280) and 'cystic_duct' (1/280) have almost no positive frames in the 6 test videos. Doesn't that distort macro accuracy?",
             "severity": "HIGH",
             "status": "MITIGATED",
             "defense": (
-                "Our audit explicitly flags `gt_liver = 1.000` as uninformative and excludes `liver` from all "
-                "headline means (`mean_acc_by_source` averages over the 5 informative structures/instruments only), "
-                "reporting `liver` separately in per-label tables."
+                "1) We exclude 100%-present `liver` from all headline metrics (`mean_acc_by_source` uses the 5 remaining "
+                "labels). 2) We report both the 5-label headline AND the Core-3 balanced test subset (`grasper`, `l_hook`, "
+                "`gallbladder`, which have 201/280, 92/280, and 194/280 positives on TEST), while explicitly framing "
+                "`cystic_duct` and `blood` on TEST as false-positive suppression (specificity) benchmarks."
             ),
         },
         {
@@ -367,9 +532,9 @@ def build_judge_attack_vectors(audit_res: dict) -> list[dict]:
             "status": audit_res["split_audit"]["status"],
             "defense": (
                 "1) Splits are strictly disjoint at the video level (0 overlapping videos between train/calib/test). "
-                "2) The primary verifier uses fixed zero-label trust rules (`conf * (1 - p_wrong) * pv_factor`) with "
-                "zero access to `truth`. 3) `upper_bound_calibrated` (fit on `calib`) and `oracle_upper_bound` "
-                "(student fit on `train` human GT) are isolated and explicitly marked as UPPER BOUNDS ONLY."
+                "2) `labels_*.jsonl` files carry zero ground-truth fields (`truth` dropped at generation time); GT is "
+                "joined only inside the post-hoc evaluation step. 3) `upper_bound_calibrated` and `oracle_upper_bound` "
+                "are isolated and explicitly marked as UPPER BOUNDS ONLY."
             ),
         },
         {
@@ -411,6 +576,8 @@ def run_audit(
     dec_p = _resolve_file("decisions.csv", out_dir, coord_dir, data_dir)
     stu_p = _resolve_file("student.json", out_dir, coord_dir, data_dir)
     probs_p = _resolve_file("student_probs.csv", out_dir, coord_dir, data_dir)
+    blank_p = _resolve_file("labels_blank.jsonl", out_dir, coord_dir, data_dir)
+    manual_lbl_p = _resolve_file("labels_manual.jsonl", out_dir, coord_dir, data_dir)
 
     idx = pd.read_csv(idx_p) if idx_p else None
     dec = pd.read_csv(dec_p) if dec_p else None
@@ -420,10 +587,14 @@ def run_audit(
     res = {
         "split_audit": audit_splits(idx, dec),
         "prevalence_audit": audit_prevalence_and_liver(idx, dec),
-        "verifier_leakage_audit": audit_verifier_leakage(dec),
+        "gt_separation_in_label_files": audit_gt_separation_in_label_files(out_dir, coord_dir),
+        "verifier_leakage_audit": audit_verifier_leakage(dec, idx),
         "manual_provenance": audit_manual_provenance(out_dir, coord_dir),
-        "verifier_test_evaluation": compute_verifier_test_metrics(dec),
+        "blank_baseline_test_evaluation": evaluate_raw_labels_jsonl(blank_p, idx),
+        "manual_raw_test_evaluation": evaluate_raw_labels_jsonl(manual_lbl_p, idx),
+        "verifier_test_evaluation": compute_verifier_test_metrics(dec, idx),
         "student_test_evaluation": compute_student_test_metrics(idx, probs, stu_json),
+        "external_validation": evaluate_external_datasets(data_dir, out_dir),
     }
     res["judge_attack_vectors"] = build_judge_attack_vectors(res)
 
@@ -441,14 +612,41 @@ def format_markdown_report(res: dict) -> str:
         "## 1. Leakage & Integrity Checks",
         f"- **Split Disjointness (Video & Frame level)**: `{res['split_audit']['status']}` "
         f"(videos: `{res['split_audit'].get('video_counts', {})}`, frames: `{res['split_audit'].get('frame_counts', {})}`)",
-        f"- **Degenerate Label Audit**: `{res['prevalence_audit']['status']}` "
-        f"(degenerate: `{res['prevalence_audit'].get('degenerate_labels', [])}`; headline uses `{res['prevalence_audit'].get('headline_labels', [])}`)",
+        f"- **GT Separation in `labels_*.jsonl` (12:42 Audit)**: `{res['gt_separation_in_label_files']['status']}` "
+        f"(`{res['gt_separation_in_label_files'].get('checked_files', {})}`)",
+        f"- **Degenerate & Split-Sparse Label Audit**: `{res['prevalence_audit']['status']}` "
+        f"(100%-present excluded from headline: `{res['prevalence_audit'].get('degenerate_labels', [])}`; "
+        f"sparse on test: `{res['prevalence_audit'].get('sparse_test_positive_labels', [])}`; "
+        f"core balanced test labels: `{res['prevalence_audit'].get('core_balanced_test_labels', [])}`)",
         f"- **Zero-Human-Label Verifier Leakage Check**: `{res['verifier_leakage_audit']['status']}` "
         f"(issues: `{res['verifier_leakage_audit'].get('issues', [])}`)",
         f"- **Manual Provenance Check**: `{res['manual_provenance']['status']}` ({res['manual_provenance'].get('detail', '')})",
         "",
-        "## 2. Verifier Test Metrics (5 Informative Labels, Video-Level Cluster Bootstrap 95% CIs)",
+        "## 2. Raw Labeller Baselines on Held-Out TEST Split (Video-Level Cluster Bootstrap 95% CIs)",
     ]
+    for label_title, key in [("Blank Baseline (`labels_blank.jsonl`)", "blank_baseline_test_evaluation"),
+                             ("Manual Single-Pass (`labels_manual.jsonl`)", "manual_raw_test_evaluation")]:
+        ev = res.get(key)
+        if ev:
+            h5 = ev["headline_5_labels_acc"]
+            c3 = ev["core_3_balanced_labels_acc"]
+            rc = ev["headline_5_risk_coverage"]
+            lines.append(
+                f"- **{label_title}** ({ev['n_test_rows']} rows, {ev['n_test_videos']} test videos): "
+                f"5-label headline acc = `{h5['point']:.4f}` (95% video CI `{h5['ci95']}`), "
+                f"Core-3 balanced acc = `{c3['point']:.4f}` (95% video CI `{c3['ci95']}`), "
+                f"coverage@95% = `{rc['coverage_at_95']:.3f}`, AURC = `{rc['aurc']:.4f}`"
+            )
+            per_l = ", ".join(
+                f"{k}={v['acc']['point']:.3f} {v['acc']['ci95']} (pos={v['n_pos_gt']}/{v['n_frames']})"
+                for k, v in ev["per_label"].items()
+            )
+            lines.append(f"  - Per-label: {per_l}")
+
+    lines.extend([
+        "",
+        "## 3. Verifier Test Metrics (5 Informative Labels, Video-Level Cluster Bootstrap 95% CIs)",
+    ])
     v5 = res.get("verifier_test_evaluation", {}).get("headline_5_labels")
     if v5:
         for k in ("single_raw_acc", "accepted_acc", "accepted_coverage", "accepted_minus_raw_acc_delta"):
@@ -460,7 +658,7 @@ def format_markdown_report(res: dict) -> str:
 
     lines.extend([
         "",
-        "## 3. Student Specialist Test Metrics (5 Informative Labels, Video-Level Cluster Bootstrap 95% CIs)",
+        "## 4. Student Specialist Test Metrics (5 Informative Labels, Video-Level Cluster Bootstrap 95% CIs)",
     ])
     st_eval = res.get("student_test_evaluation", {})
     v_acc = st_eval.get("video_bootstrap_acc_5_labels", {})
@@ -479,7 +677,7 @@ def format_markdown_report(res: dict) -> str:
 
     lines.extend([
         "",
-        "## 4. What a Judge Could Attack & Defenses",
+        "## 5. What a Judge Could Attack & Defenses",
     ])
     for atk in res.get("judge_attack_vectors", []):
         lines.append(f"### [{atk['severity']}] {atk['id']} (`{atk['status']}`)")

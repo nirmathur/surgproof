@@ -56,6 +56,8 @@ def _l2_normalize(X):
 def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True):
     y = np.asarray(y, dtype=int)
     yte = np.asarray(yte, dtype=int)
+    valid_tr = np.isin(y, [0, 1])
+    X, y = X[valid_tr], y[valid_tr]
     if len(y) == 0:
         return None, None
     uniq = np.unique(y)
@@ -71,16 +73,33 @@ def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True):
         p = m.predict_proba(Xten)[:, 1]
         single_class = False
 
-    preds = (p >= 0.5).astype(int)
+    valid_te = np.isin(yte, [0, 1])
+    if not np.any(valid_te):
+        return {
+            "n_train": int(len(y)),
+            "n_pos_train": int(y.sum()),
+            "n_test_scorable": 0,
+            "acc": None,
+            "f1": None,
+            "is_upper_bound": bool(is_upper_bound),
+            "informative": False,
+            "excluded_from_headline": True,
+            "unscorable_on_test": True,
+        }, p
+
+    yte_v = yte[valid_te]
+    p_v = p[valid_te]
+    preds = (p_v >= 0.5).astype(int)
     out = {
         "n_train": int(len(y)),
         "n_pos_train": int(y.sum()),
-        "n_pos_test_gt": int(yte.sum()),
+        "n_test_scorable": int(len(yte_v)),
+        "n_pos_test_gt": int(yte_v.sum()),
         "pos_rate_train": round(float(y.mean()), 4),
-        "pos_rate_test_gt": round(float(yte.mean()), 4),
-        "acc": round(float((preds == yte).mean()), 4),
-        "balanced_acc": round(float(balanced_accuracy_score(yte, preds)), 4) if len(np.unique(yte)) == 2 else None,
-        "f1": round(float(f1_score(yte, preds, zero_division=0)), 4),
+        "pos_rate_test_gt": round(float(yte_v.mean()), 4),
+        "acc": round(float((preds == yte_v).mean()), 4),
+        "balanced_acc": round(float(balanced_accuracy_score(yte_v, preds)), 4) if len(np.unique(yte_v)) == 2 else None,
+        "f1": round(float(f1_score(yte_v, preds, zero_division=0)), 4),
         "pred_pos_rate_test": round(float(preds.mean()), 4),
         "is_upper_bound": bool(is_upper_bound),
         "informative": bool(informative),
@@ -88,8 +107,8 @@ def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True):
     }
     if single_class:
         out["single_class_fallback"] = True
-    if len(np.unique(yte)) == 2:
-        out["auroc"] = round(float(roc_auc_score(yte, p)), 4)
+    if len(np.unique(yte_v)) == 2:
+        out["auroc"] = round(float(roc_auc_score(yte_v, p_v)), 4)
     return out, p
 
 
