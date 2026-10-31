@@ -209,11 +209,11 @@ def _load_cholec_frames() -> List[Image.Image]:
 def _load_target_frame_and_boxes(out_dir: Path = OUT_DIR) -> Tuple[Image.Image, List[Dict[str, Any]]]:
     """Load real frame video12_15750_15758, verifier statuses from decisions.csv, and boxes ONLY from out/annotations.jsonl."""
     items: List[Dict[str, Any]] = [
-        {"key": "grasper", "box": [], "status": "accept", "corner": "tl"},
-        {"key": "l_hook", "box": [], "status": "accept", "corner": "tr"},
-        {"key": "gallbladder", "box": [], "status": "accept", "corner": "tl"},
-        {"key": "liver", "box": [], "status": "AMBER", "corner": "br"},
-        {"key": "cystic_duct", "box": [], "status": "reject", "corner": "bl"},
+        {"key": "grasper", "box": [], "status": "", "corner": "tl"},
+        {"key": "l_hook", "box": [], "status": "", "corner": "tr"},
+        {"key": "gallbladder", "box": [], "status": "", "corner": "tl"},
+        {"key": "liver", "box": [], "status": "", "corner": "br"},
+        {"key": "cystic_duct", "box": [], "status": "", "corner": "bl"},
     ]
     frame_img: Optional[Image.Image] = None
     idx_csv = DATA_DIR / "index.csv"
@@ -226,7 +226,7 @@ def _load_target_frame_and_boxes(out_dir: Path = OUT_DIR) -> Tuple[Image.Image, 
     if frame_img is None:
         frame_img = _load_cholec_frames()[1]
 
-    # Read Round-0 double-check statuses from out/decisions.csv
+    # Read statuses strictly from out/decisions.csv for the shown frame_id
     dec_csv = out_dir / "decisions.csv"
     if dec_csv.is_file():
         by_key: Dict[str, Dict[str, Any]] = {}
@@ -237,13 +237,8 @@ def _load_target_frame_and_boxes(out_dir: Path = OUT_DIR) -> Tuple[Image.Image, 
         for item in items:
             k = item["key"]
             if k in by_key:
-                st0 = by_key[k].get("status_round_0")
-                if st0 in ("accept", "AMBER", "reject"):
-                    item["status"] = st0
-                elif k != "liver":
-                    st = by_key[k].get("status", "")
-                    if st in ("accept", "AMBER", "reject"):
-                        item["status"] = st
+                st = by_key[k].get("status_round_0") or by_key[k].get("status") or ""
+                item["status"] = str(st)
 
     # Strictly read boxes ONLY from out/annotations.jsonl (or out/annotations_live.jsonl) model output
     for ann_name in ("annotations.jsonl", "annotations_live.jsonl"):
