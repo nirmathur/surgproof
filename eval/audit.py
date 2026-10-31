@@ -201,19 +201,51 @@ def audit_gt_separation_in_label_files(out_dir: Path, coord_dir: Path) -> dict:
     """Validation Audit 12:42 check: labels_*.jsonl must NOT contain `truth` or `gt_*`."""
     checked = {}
     leaked_files = []
-    for name in ("labels_blank.jsonl", "labels_manual.jsonl", "labels_manual_v2.jsonl", "labels_smoke.jsonl"):
-        p = _resolve_file(name, out_dir, coord_dir, out_dir)
-        if p is None:
+    for p in sorted(set(list(out_dir.glob("labels_*.jsonl")) + list(coord_dir.glob("labels_*.jsonl")))):
+        if not p.exists() or p.stat().st_size == 0:
             continue
         df = pd.read_json(p, lines=True)
         forbidden = [c for c in df.columns if c == "truth" or c.startswith("gt_")]
-        checked[name] = {"n_rows": int(len(df)), "forbidden_gt_cols": forbidden}
+        checked[p.name] = {"n_rows": int(len(df)), "forbidden_gt_cols": forbidden}
         if forbidden:
-            leaked_files.append(f"{name}: {forbidden}")
+            leaked_files.append(f"{p.name}: {forbidden}")
     return {
         "status": "FAIL" if leaked_files else ("PASS" if checked else "SKIP"),
         "checked_files": checked,
         "leaked_files": leaked_files,
+    }
+
+
+def audit_code_gt_isolation(root_dir: Path) -> dict:
+    """Static AST audit of label.py, accept.py, and verify/ to ensure zero references to `truth` or `gt_`."""
+    import ast
+
+    targets = [root_dir / "label.py", root_dir / "accept.py"]
+    verify_dir = root_dir / "verify"
+    if verify_dir.exists():
+        targets.extend(sorted(verify_dir.glob("*.py")))
+
+    violations = {}
+    checked = []
+    for path in targets:
+        if not path.exists():
+            continue
+        checked.append(path.name)
+        src = path.read_text(encoding="utf-8", errors="ignore")
+        tree = ast.parse(src, filename=str(path))
+        bad_Hits = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Attribute) and (node.attr == "truth" or node.attr.startswith("gt_")):
+                bad_Hits.append(f"line {node.lineno}: attr .{node.attr}")
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                if node.value == "truth" or node.value.startswith("gt_"):
+                    bad_Hits.append(f"line {node.lineno}: str {node.value!r}")
+        if bad_Hits:
+            violations[path.name] = bad_Hits
+    return {
+        "status": "FAIL" if violations else "PASS",
+        "checked_files": checked,
+        "violations": violations,
     }
 
 
@@ -588,6 +620,7 @@ def run_audit(
     res = {
         "split_audit": audit_splits(idx, dec),
         "prevalence_audit": audit_prevalence_and_liver(idx, dec),
+        "code_gt_isolation": audit_code_gt_isolation(C.ROOT),
         "gt_separation_in_label_files": audit_gt_separation_in_label_files(out_dir, coord_dir),
         "verifier_leakage_audit": audit_verifier_leakage(dec, idx),
         "manual_provenance": audit_manual_provenance(out_dir, coord_dir),
