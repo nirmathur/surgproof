@@ -1,0 +1,322 @@
+{
+ "video12_15750_15758": {
+  "phase": "2. Calot's (Hepatocystic) Triangle Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_15750_15766": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.89
+ },
+ "video12_15750_15790": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.87
+ },
+ "video12_15750_15814": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_15750_15822": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_15830_15846": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_15830_15854": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.91
+ },
+ "video12_15830_15862": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_15830_15870": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.9
+ },
+ "video12_15830_15878": {
+  "phase": "2. Calot's (Hepatocystic) Triangle Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_15830_15886": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_15830_15894": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.95
+ },
+ "video12_15830_15902": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19500_19500": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.93
+ },
+ "video12_19500_19508": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19500_19524": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19500_19564": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19500_19572": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19580_19588": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19580_19612": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19580_19644": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_19660_19668": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19660_19676": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_19660_19692": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19660_19724": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.915
+ },
+ "video12_19980_20028": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.965
+ },
+ "video12_19980_20036": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.96
+ },
+ "video12_19980_20044": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_15750_15750": {
+  "phase": "2. Calot's (Hepatocystic) Triangle Dissection",
+  "phase_conf": 0.96
+ },
+ "video12_15750_15774": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.96
+ },
+ "video12_15750_15782": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_15750_15798": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_15750_15806": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.96
+ },
+ "video12_15830_15830": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.935
+ },
+ "video12_15830_15838": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.91
+ },
+ "video12_19500_19516": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19500_19532": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.98
+ },
+ "video12_19500_19540": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19500_19548": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_19500_19556": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19580_19580": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19580_19604": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_19580_19620": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19580_19628": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.98
+ },
+ "video12_19580_19636": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_19580_19652": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19660_19660": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.98
+ },
+ "video12_19660_19684": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19660_19708": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.93
+ },
+ "video12_19660_19716": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.95
+ },
+ "video12_19740_19772": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19740_19780": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_19740_19788": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.965
+ },
+ "video12_19740_19804": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.94
+ },
+ "video12_19740_19812": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.925
+ },
+ "video12_19980_19988": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.965
+ },
+ "video12_19980_19996": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.965
+ },
+ "video12_19980_20004": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_19980_20012": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19980_20020": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19980_20052": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.96
+ },
+ "video12_19580_19596": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_19660_19700": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19660_19732": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.95
+ },
+ "video12_19740_19740": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.965
+ },
+ "video12_19740_19748": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19740_19756": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19740_19764": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19740_19796": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.95
+ },
+ "video12_19900_19900": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19900_19908": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.96
+ },
+ "video12_19900_19916": {
+  "phase": "2. Calot's (Hepatocystic) Triangle Dissection",
+  "phase_conf": 0.935
+ },
+ "video12_19900_19924": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.955
+ },
+ "video12_19900_19932": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.92
+ },
+ "video12_19900_19940": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.95
+ },
+ "video12_19900_19948": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.965
+ },
+ "video12_19900_19956": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.97
+ },
+ "video12_19900_19964": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.965
+ },
+ "video12_19900_19972": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.95
+ },
+ "video12_19980_19980": {
+  "phase": "4. Gallbladder Dissection",
+  "phase_conf": 0.925
+ }
+}
