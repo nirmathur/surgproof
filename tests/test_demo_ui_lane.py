@@ -117,3 +117,27 @@ def test_load_label_rows_prefers_decisions_then_labels(tmp_path):
     finally:
         C.OUT_DIR = old
         app.O = old
+
+
+def test_narrator_verdict_mapping():
+    from types import SimpleNamespace as NS
+    assert app.narrator_claim_status(NS(verdict="speak")) == "verified"
+    assert app.narrator_claim_status(NS(verdict="drop", L3="fail")) == "contradicted"
+    assert app.narrator_claim_status(NS(verdict="drop", L3="abstain")) == "unsupported"
+    assert app.narrator_claim_status(NS(verdict="hedge", L1="fail")) == "unsupported"
+    assert app._json_list('["a", "b"]') == ["a", "b"] and app._json_list("bad") == []
+
+
+def test_loop_shows_amber_rounds_and_smoke_warning(tmp_path):
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "results.json").write_text(json.dumps({
+        "n_test_labels": 90, "manual_raw_acc": 0.9, "accepted": {"coverage": 0.9, "accuracy": 0.98},
+        "accepted_5_informative": {"coverage": 0.9, "accuracy": 0.97, "n_test_labels_excl_liver": 75},
+        "amber_loop": {"max_rounds": 3, "ambers_by_round_test": [15, 7, 4, 2],
+                       "per_round_test": [{"round": i, "accepted_count": 70 + i, "rejected_count": 5} for i in range(4)]}}))
+    at = _run(out)
+    assert not at.exception, [e.value for e in at.exception]
+    vals = [m.value for m in at.metric]
+    assert "15 AMBER" in vals and "2 AMBER" in vals
+    assert any("Interim smoke run" in w.value for w in at.warning)

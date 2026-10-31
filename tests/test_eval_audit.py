@@ -136,3 +136,50 @@ def test_attach_ground_truth_ignores_unscorable_minus_one():
     joined = audit.attach_ground_truth(lbl, idx)
     assert set(joined["key"]) == {"grasper", "l_hook"}
     assert (joined["correct"] == 1).all()
+
+
+def test_score_amber_rounds_and_exclude_liver_from_headline(tmp_path):
+    from eval.score_decisions import evaluate_decisions
+
+    data_dir = tmp_path / "data"
+    out_dir = tmp_path / "out"
+    data_dir.mkdir()
+    out_dir.mkdir()
+
+    pd.DataFrame([
+        {
+            "frame_id": "v1_1", "video": "v1", "split": "test",
+            "gt_grasper": 1, "gt_l_hook": 0, "gt_liver": 1,
+            "gt_gallbladder": 1, "gt_cystic_duct": 0, "gt_blood": 0,
+        }
+    ]).to_csv(data_dir / "index.csv", index=False)
+
+    # Create decisions where grasper starts AMBER in Round 0 (conf=0.6, p_wrong=0.1, pv_match=True -> init_trust=0.54)
+    # and resolves to accept in Round 1 via amber_rounds.jsonl
+    pd.DataFrame([
+        {
+            "frame_id": "v1_1", "video": "v1", "split": "test", "key": "grasper",
+            "present": 1, "conf": 0.60, "p_wrong": 0.10, "pv_match": True, "pv_conf": 0.9,
+            "trust": 0.90, "status": "accept", "final_present": 1, "final_by": "argon",
+        },
+        {
+            "frame_id": "v1_1", "video": "v1", "split": "test", "key": "liver",
+            "present": 1, "conf": 0.95, "p_wrong": 0.01, "pv_match": True, "pv_conf": 0.95,
+            "trust": 0.94, "status": "accept", "final_present": 1, "final_by": "flash",
+        },
+    ]).to_csv(out_dir / "decisions.csv", index=False)
+
+    (out_dir / "amber_rounds.jsonl").write_text(
+        json.dumps({"label_id": "v1_1__grasper", "round": 1, "verdict": "accept", "present": 1, "reason": "clear jaws"}) + "\n"
+    )
+
+    res = evaluate_decisions(data_dir=data_dir, out_dir=out_dir)
+    assert res["n_test_labels_excl_liver"] == 1  # excludes liver from headline!
+    assert res["n_test_labels_all_6"] == 2
+    assert res["accepted_5_informative"]["n_test_labels_excl_liver"] == 1
+    assert len(res["amber_loop_by_round"]) == 2
+    assert res["amber_loop_by_round"][0]["ambers_remaining"] == 1
+    assert res["amber_loop_by_round"][1]["ambers_remaining"] == 0
+    assert res["amber_loop_by_round"][1]["resolved_in_round"] == 1
+    assert res["amber_loop_by_round"][1]["resolved_in_round_precision"] == 1.0
+

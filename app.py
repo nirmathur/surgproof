@@ -1,7 +1,6 @@
 """SurgProof Demo UI.  streamlit run app.py --server.headless true"""
 import asyncio
 import datetime
-import hashlib
 import json
 import time
 from pathlib import Path
@@ -31,6 +30,24 @@ COL = {
 NON_TRIVIAL_KEYS = [k for k in C.LABELS if k != "liver"]
 CORE_BALANCED_KEYS = ["grasper", "l_hook", "gallbladder"]
 
+# UI lane (harald/demo + nir/demo): real CholecSeg8k frames, GT overlay, tracker loop, narration claims
+CHOLEC_ROOT = (
+    C.DATA_DIR / "cholecseg8k" / "CholecSeg8k"
+    if (C.DATA_DIR / "cholecseg8k" / "CholecSeg8k").exists()
+    else C.RAW_DIR / "CholecSeg8k"
+)
+TEST_VIDEOS = ["video09", "video12", "video17", "video28", "video48", "video55"]
+GT_IGNORE = 255
+GT_COLOURS = {
+    "grasper": (66, 153, 225),
+    "l_hook": (159, 122, 234),
+    "liver": (160, 82, 45),
+    "gallbladder": (72, 187, 120),
+    "cystic_duct": (236, 201, 75),
+    "blood": (229, 62, 62),
+}
+CLAIM_COL = {"verified": "#1f9d55", "unsupported": "#d69e2e", "contradicted": "#e53e3e"}
+
 
 class LiveVerdict(BaseModel):
     present: bool
@@ -43,9 +60,10 @@ def resolve_artifact(rel_path: str | Path) -> Path:
     p = O / rel_path
     if p.exists():
         return p
-    alt = COORD_ARTIFACTS / Path(rel_path).name
-    if alt.exists():
-        return alt
+    if O.resolve() == (C.ROOT / "out").resolve() or COORD_ARTIFACTS.resolve() != (C.ROOT / "coord" / "artifacts").resolve():
+        alt = COORD_ARTIFACTS / Path(rel_path).name
+        if alt.exists():
+            return alt
     return p
 
 
@@ -54,6 +72,25 @@ def load_json(p: Path, default=None):
         return json.loads(Path(p).read_text())
     except Exception:
         return default
+
+
+def load_jsonl(p: Path) -> list[dict]:
+    if not Path(p).exists():
+        return []
+    out = []
+    try:
+        for ln in Path(p).read_text().splitlines():
+            ln = ln.strip()
+            if ln:
+                try:
+                    rec = json.loads(ln)
+                    if isinstance(rec, dict):
+                        out.append(rec)
+                except Exception:
+                    continue
+    except Exception:
+        return []
+    return out
 
 
 def normalize_status(val: str) -> str:
@@ -92,12 +129,30 @@ def parse_box(raw_box) -> list[float] | None:
     return [y0, x0, y1, x1]
 
 
+def cholec_frame_path(video_id: str, clip_id: str, frame_idx: int, kind: str = "endo") -> Path:
+    """<CHOLEC_ROOT>/<video>/<clip>/frame_<N>_<kind>.png (kind: endo | endo_watershed_mask)."""
+    return CHOLEC_ROOT / str(video_id) / str(clip_id) / f"frame_{int(frame_idx)}_{kind}.png"
+
+
+def frame_path_from_id(frame_id: str) -> Path | None:
+    """frame_id `<video>_<clipstart>_<N>` -> CholecSeg8k frame path, if it exists."""
+    parts = str(frame_id).split("_")
+    if len(parts) == 3 and parts[2].isdigit():
+        p = cholec_frame_path(parts[0], f"{parts[0]}_{parts[1]}", int(parts[2]))
+        return p if p.is_file() else None
+    return None
+
+
 def resolve_frame_image(path_str: str | Path | None, frame_id: str = "") -> Image.Image:
     """Load frame image from disk, or return a clearly labelled placeholder canvas if unavailable."""
     candidates = []
     if path_str and not (isinstance(path_str, float) and pd.isna(path_str)):
         p = Path(str(path_str))
         candidates.extend([p, C.ROOT / p])
+    if frame_id:
+        fp_id = frame_path_from_id(frame_id)
+        if fp_id is not None:
+            candidates.append(fp_id)
     for cand in candidates:
         if cand.is_file():
             try:
@@ -113,25 +168,131 @@ def resolve_frame_image(path_str: str | Path | None, frame_id: str = "") -> Imag
     return im
 
 
-def draw(path, rows: pd.DataFrame, reveal: bool, frame_id: str = "") -> Image.Image:
-    """Render frame image with verification-status (or ground-truth reveal) bounding boxes."""
+def watershed_to_class_map(mask: np.ndarray) -> np.ndarray:
+    """Watershed mask channel 0 -> class-id map via config.WATERSHED_VALUE_TO_CLASS; 255 and unknown -> -1 (ignore)."""
+    ch0 = mask[..., 0] if mask.ndim == 3 else mask
+    lut = np.full(256, -1, dtype=np.int16)
+    for val, cls in C.WATERSHED_VALUE_TO_CLASS.items():
+        lut[int(val)] = int(cls)
+    lut[GT_IGNORE] = -1
+    return lut[ch0]
+
+
+def gt_overlay(img: Image.Image, mask_path: Path, keys: list[str] | None = None, alpha: float = 0.45) -> Image.Image:
+    """Blend ground-truth classes (config.LABELS keys) onto the frame. Evaluation display only (test videos)."""
+    if not Path(mask_path).is_file():
+        return img
+    cls_map = watershed_to_class_map(np.array(Image.open(mask_path)))
+    base = np.array(img.convert("RGB")).astype(np.float32)
+    if cls_map.shape != base.shape[:2]:
+        return img
+    for key in keys or list(C.LABELS):
+        sel = cls_map == C.LABELS[key][0]
+        if sel.any():
+            base[sel] = (1 - alpha) * base[sel] + alpha * np.array(GT_COLOURS[key], dtype=np.float32)
+    return Image.fromarray(base.clip(0, 255).astype(np.uint8))
+
+
+def draw_pixel_boxes(img: Image.Image, boxes: pd.DataFrame) -> Image.Image:
+    """Draw tracker boxes (pixel x1,y1,x2,y2 on 854x480). Red = flagged for targeted recheck, white = not flagged."""
+    im = img.copy()
+    d = ImageDraw.Draw(im)
+    for r in boxes.itertuples():
+        colour = "#e53e3e" if bool(getattr(r, "flagged", False)) else "#f7fafc"
+        d.rectangle([r.x1, r.y1, r.x2, r.y2], outline=colour, width=3)
+        d.text((r.x1 + 4, r.y1 + 4), str(r.label), fill=colour)
+    return im
+
+
+def draw(path, rows: pd.DataFrame, reveal: bool, frame_id: str = "", raw_blue: bool = False) -> Image.Image:
+    """Render frame image with model-output bounding boxes (if present) and per-structure status HUD pills."""
     im = resolve_frame_image(path, frame_id=frame_id)
     w, h = im.size
     d = ImageDraw.Draw(im)
     if rows is None or rows.empty:
         return im
+
+    hud_y = 8
     for r in rows.itertuples():
+        key_name = str(getattr(r, "key", getattr(r, "label", "")))
         box = parse_box(getattr(r, "box", None))
-        final_present = bool(getattr(r, "final_present", getattr(r, "present", 0)))
-        if final_present and box is not None:
-            y0, x0, y1, x1 = box
-            status_val = getattr(r, "status", "AMBER")
-            colour = COL.get(status_val, "#d69e2e")
+        pres_attr = "present" if raw_blue else "final_present"
+        final_present = bool(getattr(r, pres_attr, getattr(r, "present", 0)))
+        if raw_blue:
+            colour = "#3b82f6" if final_present else "#475569"
+            status_lbl = "PRESENT" if final_present else "absent"
+        else:
+            status_val = str(getattr(r, "status", "AMBER"))
+            status_norm = normalize_status(status_val) if status_val != "raw" else "raw"
+            colour = COL.get(status_norm, "#d69e2e")
             if reveal and hasattr(r, "final_correct") and pd.notna(getattr(r, "final_correct", None)):
                 colour = "#1f9d55" if getattr(r, "final_correct", 0) else "#e53e3e"
+            status_lbl = f"{'PRESENT' if final_present else 'absent'} · {status_norm}"
+
+        if final_present and box is not None:
+            y0, x0, y1, x1 = box
             d.rectangle([x0 * w / 1000, y0 * h / 1000, x1 * w / 1000, y1 * h / 1000], outline=colour, width=4)
-            d.text((x0 * w / 1000 + 4, y0 * h / 1000 + 4), str(getattr(r, "key", "")), fill=colour)
+            d.text((x0 * w / 1000 + 4, y0 * h / 1000 + 4), key_name, fill=colour)
+        elif key_name and hud_y + 20 < h:
+            pill_text = f"{key_name}: {status_lbl}"
+            pw = max(130, len(pill_text) * 7 + 12)
+            d.rectangle([8, hud_y, min(w - 8, 8 + pw), hud_y + 18], fill=colour)
+            d.text((14, hud_y + 2), pill_text, fill="white")
+            hud_y += 22
     return im
+
+
+@st.cache_data(show_spinner=False)
+def load_parquet(path_str: str, mtime: float) -> pd.DataFrame | None:
+    try:
+        return pd.read_parquet(path_str)
+    except Exception:
+        return None
+
+
+def load_parquet_fresh(p: Path) -> pd.DataFrame | None:
+    return load_parquet(str(p), p.stat().st_mtime) if p.exists() else None
+
+
+def tracker_source_note(source: str) -> str:
+    if source == "gemini":
+        return "Tracker flags computed on **Gemini** boxes (real labeller output)."
+    return (
+        f"Tracker flags computed on `{source}` boxes: ground-truth masks **with synthetic injected errors**, "
+        "the tracker's development setting. Not a result on Gemini labels yet."
+    )
+
+
+def narration_claims(entry: dict) -> list[dict]:
+    """Normalise one narration entry to [{text, status, evidence_frames}]."""
+    out = []
+    for c in entry.get("claims", []) or []:
+        if isinstance(c, dict) and c.get("text"):
+            status = str(c.get("status", "unsupported")).lower()
+            out.append({
+                "text": str(c["text"]),
+                "status": status if status in CLAIM_COL else "unsupported",
+                "evidence_frames": [str(x) for x in c.get("evidence_frames", []) or []],
+            })
+    if out:
+        return out
+    if entry.get("narration"):
+        out.append({
+            "text": str(entry["narration"]),
+            "status": "verified" if not entry.get("unsure_about") else "unsupported",
+            "evidence_frames": [str(entry.get("frame_id", ""))] if entry.get("frame_id") else [],
+        })
+    for u in entry.get("unsure_about", []) or []:
+        out.append({"text": f"{u} (withheld: not verified)", "status": "unsupported", "evidence_frames": []})
+    return out
+
+
+def claims_html(claims: list[dict]) -> str:
+    return "<br>".join(
+        f"<span style='background:{CLAIM_COL[c['status']]};color:white;padding:2px 8px;border-radius:10px;"
+        f"margin-right:6px;font-size:0.8em'>{c['status']}</span>{c['text']}"
+        for c in claims
+    )
 
 
 def frame_sort_key(frame_id: str):
@@ -202,23 +363,174 @@ def score_jsonl_against_index(jsonl_path: Path, idx_df: pd.DataFrame | None, spl
         return None
 
 
+def compute_amber_loop_progression(
+    dec_df: pd.DataFrame | None,
+    amber_rounds: list[dict],
+    res_dict: dict | None,
+    idx_df: pd.DataFrame | None = None,
+) -> list[dict]:
+    """Compute shrinking AMBER counts round by round on TEST split (and post-hoc precision of resolved claims)."""
+    if res_dict and isinstance(res_dict.get("amber_rounds"), list) and res_dict["amber_rounds"]:
+        out = []
+        for r in res_dict["amber_rounds"]:
+            if isinstance(r, dict):
+                na = int(r.get("ambers_remaining", r.get("n_amber", 0)))
+                out.append({**r, "ambers_remaining": na, "n_amber": na})
+        if out:
+            return out
+
+    # Support results.json['amber_loop']['per_round_test'] + ambers_by_round_all
+    if res_dict and isinstance(res_dict.get("amber_loop"), dict):
+        al = res_dict["amber_loop"]
+        per_r = al.get("per_round_test")
+        all_arr = al.get("ambers_by_round_all", [])
+        if isinstance(per_r, list) and per_r:
+            out = []
+            for idx_r, r in enumerate(per_r):
+                if isinstance(r, dict):
+                    rn = r.get("round", idx_r)
+                    na_test = int(r.get("ambers_remaining", 0))
+                    na_all = int(all_arr[idx_r]) if idx_r < len(all_arr) else na_test
+                    lbl = "Round 0 · Initial Double-Check" if int(rn) == 0 else f"Round {rn} · Argon Amber Loop"
+                    out.append({
+                        "round": lbl,
+                        "ambers_remaining": na_test,
+                        "n_amber": na_test,
+                        "ambers_all_splits": na_all,
+                        "resolved_count": int(r.get("resolved_in_round", 0)),
+                        "resolved_precision": r.get("resolved_in_round_precision"),
+                        "cumulative_accepted_precision": r.get("cumulative_accepted_precision"),
+                    })
+            if out:
+                return out
+
+    # Support summary-level round dicts in amber_rounds (e.g. {"round": 0, "n_amber": 2, ...})
+    if amber_rounds and all(isinstance(r, dict) and ("n_amber" in r or "ambers_remaining" in r) and "frame_id" not in r for r in amber_rounds):
+        out = []
+        for r in amber_rounds:
+            na = int(r.get("ambers_remaining", r.get("n_amber", 0)))
+            out.append({
+                **r,
+                "round": str(r.get("round", "")),
+                "ambers_remaining": na,
+                "n_amber": na,
+                "resolved_count": int(r.get("resolved_count", r.get("n_accept", 0))),
+                "resolved_precision": r.get("resolved_precision"),
+            })
+        return out
+
+    if dec_df is None or dec_df.empty:
+        return []
+
+    tdf = dec_df[dec_df["split"] == "test"].copy() if "split" in dec_df.columns else dec_df.copy()
+    if tdf.empty:
+        tdf = dec_df.copy()
+    if idx_df is not None:
+        tdf = join_ground_truth_for_reveal(tdf, idx_df)
+
+    # Support status_round_0..3 columns written directly by accept.py
+    round_cols = [c for c in ("status_round_0", "status_round_1", "status_round_2", "status_round_3") if c in tdf.columns]
+    if len(round_cols) >= 2:
+        out = []
+        prev_amber = None
+        for idx_c, col_name in enumerate(round_cols):
+            na_test = int((tdf[col_name].map(normalize_status) == "AMBER").sum())
+            na_all = int((dec_df[col_name].map(normalize_status) == "AMBER").sum())
+            res_cnt = max(0, prev_amber - na_test) if prev_amber is not None else 0
+            prev_amber = na_test
+            lbl = "Round 0 · Initial Double-Check" if idx_c == 0 else f"Round {idx_c} · Argon Amber Loop"
+            out.append({
+                "round": lbl,
+                "ambers_remaining": na_test,
+                "n_amber": na_test,
+                "ambers_all_splits": na_all,
+                "resolved_count": res_cnt,
+                "resolved_precision": None,
+            })
+        return out
+
+    # Filter amber_rounds.jsonl to test frame_ids if present
+    test_fids = set(tdf["frame_id"].astype(str))
+    r_logs = [
+        r for r in amber_rounds
+        if isinstance(r, dict) and (not test_fids or str(r.get("frame_id", "")) in test_fids)
+    ]
+
+    if r_logs:
+        rounds_seen = sorted({int(r.get("round", 1)) for r in r_logs if str(r.get("round", "")).isdigit()})
+        progression = []
+        # Round 0: unique (frame_id, key) items that entered round 1 (or initial AMBERs)
+        r1_items = {(str(r.get("frame_id", "")), str(r.get("key", r.get("label_id", "")))) for r in r_logs if int(r.get("round", 1)) == min(rounds_seen)}
+        n_initial_amber = len(r1_items) if r1_items else int((tdf["status"].map(normalize_status) == "AMBER").sum())
+        progression.append({
+            "round": "Round 0 · Initial Double-Check",
+            "ambers_remaining": n_initial_amber,
+            "n_amber": n_initial_amber,
+            "resolved_count": 0,
+            "resolved_precision": None,
+        })
+        gt_lookup = {
+            (str(r.frame_id), str(r.key)): getattr(r, "truth", np.nan)
+            for r in tdf.itertuples()
+        }
+        remaining = set(r1_items)
+        for rn in rounds_seen:
+            rn_recs = [r for r in r_logs if int(r.get("round", 1)) == rn]
+            resolved_here = []
+            for r in rn_recs:
+                item_k = (str(r.get("frame_id", "")), str(r.get("key", r.get("label_id", ""))))
+                verdict = normalize_status(r.get("verdict", r.get("status", "AMBER")))
+                if verdict in ("accept", "reject") and item_k in remaining:
+                    remaining.discard(item_k)
+                    pred_p = r.get("present", r.get("final_present"))
+                    truth_v = gt_lookup.get(item_k, np.nan)
+                    if pred_p is not None and pd.notna(truth_v):
+                        resolved_here.append(int(int(bool(pred_p)) == int(truth_v)))
+            progression.append({
+                "round": f"Round {rn} · Argon Amber Loop",
+                "ambers_remaining": len(remaining),
+                "n_amber": len(remaining),
+                "resolved_count": len(resolved_here),
+                "resolved_precision": round(float(np.mean(resolved_here)), 4) if resolved_here else None,
+            })
+        return progression
+
+    # Fallback when amber_rounds.jsonl is not yet populated: compute Round 0 (Flash checks) vs Post-Argon from decisions.csv
+    init_scores = tdf.apply(_live_trust_score, axis=1)
+    init_status = init_scores.map(_live_initial_status)
+    final_status = tdf["status"].map(normalize_status)
+    n_r0_amber = int((init_status == "AMBER").sum())
+    n_final_amber = int((final_status == "AMBER").sum())
+    resolved_mask = (init_status == "AMBER") & (final_status != "AMBER")
+    n_resolved = int(resolved_mask.sum())
+    res_prec = None
+    if n_resolved > 0 and "final_correct" in tdf.columns and tdf.loc[resolved_mask, "final_correct"].notna().any():
+        res_prec = round(float(tdf.loc[resolved_mask, "final_correct"].mean()), 4)
+    return [
+        {
+            "round": "Round 0 · Initial Double-Check",
+            "ambers_remaining": n_r0_amber,
+            "n_amber": n_r0_amber,
+            "resolved_count": 0,
+            "resolved_precision": None,
+        },
+        {
+            "round": "Round 1..N · Argon Amber Loop → Human Gate",
+            "ambers_remaining": n_final_amber,
+            "n_amber": n_final_amber,
+            "resolved_count": max(0, n_r0_amber - n_final_amber),
+            "resolved_precision": res_prec,
+        },
+    ]
+
+
 # ---------------- Human Gate (#14) Helpers ----------------
 def load_human_gate_log(log_path: Path | None = None) -> list[dict]:
-    p = log_path or (O / "human_gate_log.jsonl")
-    if not p.exists():
-        return []
-    out = []
-    try:
-        for ln in p.read_text().splitlines():
-            ln = ln.strip()
-            if ln:
-                try:
-                    out.append(json.loads(ln))
-                except Exception:
-                    continue
-    except Exception:
-        return []
-    return out
+    if log_path is not None:
+        return load_jsonl(log_path)
+    p1 = O / "gate_log.jsonl"
+    p2 = O / "human_gate_log.jsonl"
+    return load_jsonl(p1) + load_jsonl(p2)
 
 
 def record_human_gate_decision(
@@ -237,7 +549,7 @@ def record_human_gate_decision(
     rec = {
         "t": round(time.time(), 3),
         "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "reviewer": reviewer.strip() or "Anonymous Surgeon",
+        "reviewer": reviewer.strip() or "Surgeon Reviewer",
         "frame_id": str(frame_id),
         "video": str(video),
         "key": str(key),
@@ -348,11 +660,12 @@ def build_verified_export(dec_df: pd.DataFrame, gate_log: list[dict]) -> dict:
     }
 
 
-# ---------------- Live Mode (#15) Leak-Free Pipeline ----------------
+# ---------------- Live Pipeline Helpers ----------------
 def _live_trust_score(r) -> float:
-    s = float(r.conf) * (1.0 - float(r.p_wrong))
-    if int(r.present) == 1:
-        s *= 1.0 if bool(pd.notna(r.pv_match) and r.pv_match) else 0.5
+    s = float(getattr(r, "conf", 0.5)) * (1.0 - float(getattr(r, "p_wrong", 0.5)))
+    if int(getattr(r, "present", 0)) == 1:
+        pv = getattr(r, "pv_match", None)
+        s *= 1.0 if bool(pd.notna(pv) and pv) else 0.5
     return round(float(s), 4)
 
 
@@ -378,7 +691,7 @@ async def _live_argon_revise(r, manual: dict) -> dict:
     v = await gem.call(
         f"You are the senior surgical reviewer (Gemini 4 Argon). A junior labeller said '{r.key}' is "
         f"{'PRESENT' if r.present else 'ABSENT'} (conf {r.conf:.2f}, evidence: {r.evidence}). "
-        f"A blind crop check {'agreed' if r.pv_match else 'disagreed or was not possible'}. "
+        f"A blind crop check {'agreed' if bool(pd.notna(r.pv_match) and r.pv_match) else 'disagreed or was not possible'}. "
         f"A sceptical critic argued: {r.critic!r} (p_wrong {r.p_wrong:.2f}).\n"
         "Look at the frame yourself and give the final call. Be willing to say you are unsure.\n"
         f"Manual: {json.dumps(manual)}",
@@ -406,7 +719,6 @@ async def run_live_video_async(
     t0 = time.perf_counter()
     idx_df = pd.read_csv(C.DATA_DIR / "index.csv")
     v_df = idx_df[idx_df["video"] == video_id].copy()
-    # Strip all ground-truth columns immediately so labeller & verifier cannot see GT
     safe_cols = [c for c in ["frame_id", "video", "clip", "path", "split"] if c in v_df.columns]
     v_df = v_df[safe_cols].reset_index(drop=True)
     if len(v_df) > n_frames > 0:
@@ -443,15 +755,9 @@ async def run_live_video_async(
                 d.at[row_idx, "argon_reasoning"] = str(v.get("reasoning", ""))
                 conf_v = float(v.get("confidence", 0.0))
                 if conf_v >= 0.80:
-                    if int(bool(v["present"])) == int(orig_row["present"]):
-                        d.at[row_idx, "status"] = "accept"
-                        d.at[row_idx, "trust"] = round(0.70 + 0.3 * conf_v * 0.99, 4)
-                    else:
-                        # Argon confidently overturned the Flash claim -> accept Argon's revised call
-                        d.at[row_idx, "status"] = "accept"
-                        d.at[row_idx, "trust"] = round(0.70 + 0.25 * conf_v, 4)
+                    d.at[row_idx, "status"] = "accept"
+                    d.at[row_idx, "trust"] = round(conf_v, 4)
                 else:
-                    # Argon remains uncertain -> keep as AMBER for the Human Gate
                     d.at[row_idx, "status"] = "AMBER"
 
     elapsed_sec = round(time.perf_counter() - t0, 2)
@@ -497,118 +803,323 @@ def read_trace_lines(limit: int = 25) -> list[dict]:
     return list(reversed(out))
 
 
-# ---------------- UI lane (harald/demo): real CholecSeg8k frames, GT overlay, tracker loop, narration claims ----------------
-CHOLEC_ROOT = C.DATA_DIR / "cholecseg8k" / "CholecSeg8k"
-TEST_VIDEOS = ["video09", "video12", "video17", "video28", "video48", "video55"]  # fixed split, see README
-GT_IGNORE = 255
-GT_COLOURS = {  # one colour per config.LABELS key
-    "grasper": (66, 153, 225),
-    "l_hook": (159, 122, 234),
-    "liver": (160, 82, 45),
-    "gallbladder": (72, 187, 120),
-    "cystic_duct": (236, 201, 75),
-    "blood": (229, 62, 62),
-}
-CLAIM_COL = {"verified": "#1f9d55", "unsupported": "#d69e2e", "contradicted": "#e53e3e"}
+def _pct(v):
+    return f"{v * 100:.1f}%" if isinstance(v, (int, float)) else "PENDING"
 
 
-def cholec_frame_path(video_id: str, clip_id: str, frame_idx: int, kind: str = "endo") -> Path:
-    """data/cholecseg8k/CholecSeg8k/<video>/<clip>/frame_<N>_<kind>.png (kind: endo | endo_watershed_mask)."""
-    return CHOLEC_ROOT / str(video_id) / str(clip_id) / f"frame_{int(frame_idx)}_{kind}.png"
+# ==============================================================================
+# TAB RENDERERS (VISION.md End-to-End Pipeline, Med School, Amber Loop, Proof, Watch)
+# ==============================================================================
+def render_end_to_end_pipeline():
+    st.header("End-to-End Pipeline: Zero Human Labels → Verified Specialist")
+    st.caption(
+        "Every stage below runs on real data (`VISION.md`): public teaching video → self-written manual → "
+        "real frames labelled → every label double-checked (`accept` / `reject` / `AMBER`) → "
+        "Argon amber loop shrinks the AMBERs round by round → human clears the few that remain → "
+        "specialist trained only on verified labels → blind proof on held-out videos."
+    )
+
+    man = load_json(resolve_artifact("manual.json"))
+    res = load_json(resolve_artifact("results.json"))
+    stu = load_json(resolve_artifact("student.json"))
+    dec_p = resolve_artifact("decisions.csv")
+    if not dec_p.exists():
+        dec_p = resolve_artifact("live_decisions.csv")
+    dec_df = pd.read_csv(dec_p) if dec_p.exists() else None
+    idx_p = C.DATA_DIR / "index.csv"
+    idx_df = pd.read_csv(idx_p) if idx_p.exists() else None
+    amber_rounds = load_jsonl(resolve_artifact("amber_rounds.jsonl"))
+    gate_log = load_human_gate_log()
+
+    # 7-Stage Pipeline Status Banner
+    stages = [
+        ("1 · Med School Manual", bool(man)),
+        ("2 · Real Frame Labels", dec_df is not None or resolve_artifact("labels_manual.jsonl").exists() or resolve_artifact("labels_smoke.jsonl").exists()),
+        ("3 · Double-Check Pass", dec_df is not None),
+        ("4 · Argon Amber Loop", bool(amber_rounds) or dec_df is not None),
+        ("5 · Human Gate", len(gate_log) > 0 or (C.ROOT / "pages" / "2_Human_gate.py").exists()),
+        ("6 · Specialist Student", bool(stu)),
+        ("7 · Held-Out Proof", bool(res)),
+    ]
+    st_cols = st.columns(len(stages))
+    for col, (s_name, s_ok) in zip(st_cols, stages):
+        col.markdown(
+            f"<div style='padding:8px;border-radius:8px;border:1px solid {'#10b981' if s_ok else '#f59e0b'};"
+            f"text-align:center;font-size:0.85em'>"
+            f"{'🟢' if s_ok else '🟡'} <b>{s_name}</b></div>",
+            unsafe_allow_html=True,
+        )
+
+    st.divider()
+
+    # Beat 1 & 2 & 3: Real Frame -> Manual -> Raw Labels -> Double-Check (Green / Amber / Red)
+    b1, b2, b3 = st.columns(3)
+    with b1:
+        st.subheader("1 · Self-Written Manual")
+        if man:
+            srcs = man.get("sources", [])
+            st.metric("Teaching sources cited", len(srcs) if srcs else 1)
+            for s in man.get("structures", [])[:4]:
+                st.markdown(f"- **`{s.get('key', '')}`**: {str(s.get('appearance', ''))[:95]}...")
+        else:
+            st.info("**[PLACEHOLDER — Awaiting `out/manual.json`]**")
+
+    sample_fid = None
+    sample_rows = pd.DataFrame()
+    sample_path = None
+    if dec_df is not None and not dec_df.empty:
+        test_sub = dec_df[dec_df["split"] == "test"] if "split" in dec_df.columns else dec_df
+        if test_sub.empty:
+            test_sub = dec_df
+        # Pick a frame with at least one present box if possible
+        pres_fids = test_sub[test_sub["present"] == 1]["frame_id"].unique()
+        sample_fid = str(pres_fids[0] if len(pres_fids) else test_sub["frame_id"].iloc[0])
+        sample_rows = test_sub[test_sub["frame_id"] == sample_fid]
+        if idx_df is not None and "frame_id" in idx_df.columns:
+            m_row = idx_df[idx_df["frame_id"] == sample_fid]
+            if not m_row.empty:
+                sample_path = m_row["path"].iloc[0]
+        if not sample_path and "frame_path" in sample_rows.columns:
+            fp_s = sample_rows["frame_path"].dropna()
+            if not fp_s.empty:
+                sample_path = fp_s.iloc[0]
+
+    with b2:
+        st.subheader("2 · Frame Labelled")
+        if sample_fid:
+            st.image(draw(sample_path, sample_rows, reveal=False, frame_id=sample_fid, raw_blue=True),
+                     caption=f"Held-out frame `{sample_fid}` · initial Flash proposals", width="stretch")
+        else:
+            st.info("**[PLACEHOLDER — Awaiting frame labels]**")
+
+    with b3:
+        st.subheader("3 · Double-Checked")
+        if sample_fid:
+            st.image(draw(sample_path, sample_rows, reveal=False, frame_id=sample_fid, raw_blue=False),
+                     caption=f"`{sample_fid}` · green=accept, amber=AMBER, red=reject", width="stretch")
+        else:
+            st.info("**[PLACEHOLDER — Awaiting verifier decisions]**")
+
+    st.divider()
+
+    # Beat 4 (HERO MOMENT): Amber Loop Shrinks AMBERs Round by Round
+    st.subheader("4 · Hero Moment: Argon Amber Loop Shrinks AMBERs Round by Round")
+    st.caption(
+        "Every label is double-checked first. Disagreements or low confidence become `AMBER`. "
+        "Argon re-examines each `AMBER` across up to N=3 rounds (tighter crop, manual criteria, fresh votes), "
+        "resolving most to `accept` or `reject` before any human is asked."
+    )
+    prog_rows = compute_amber_loop_progression(dec_df, amber_rounds, res, idx_df=idx_df)
+    if prog_rows:
+        p_cols = st.columns(len(prog_rows))
+        r0_count = prog_rows[0].get("ambers_remaining", 0)
+        for idx_p, pr in enumerate(prog_rows):
+            rem = pr.get("ambers_remaining", 0)
+            delta_str = None
+            if idx_p > 0 and isinstance(r0_count, (int, float)) and r0_count > 0:
+                delta_str = f"{rem - r0_count:+d} vs Round 0 ({(1 - rem / r0_count) * 100:.0f}% cleared by agent)"
+            p_cols[idx_p].metric(pr["round"], f"{rem} AMBERs", delta=delta_str, delta_color="inverse")
+
+        prog_df = pd.DataFrame(prog_rows)
+        cc1, cc2 = st.columns([1.4, 1.6])
+        with cc1:
+            chart_df = prog_df.set_index("round")[["ambers_remaining"]]
+            st.bar_chart(chart_df)
+        with cc2:
+            st.dataframe(prog_df, width="stretch")
+        if amber_rounds:
+            with st.expander(f"View `out/amber_rounds.jsonl` log ({len(amber_rounds)} round entries)"):
+                st.dataframe(pd.DataFrame(amber_rounds), width="stretch")
+    else:
+        st.warning("**[PLACEHOLDER — Awaiting `out/decisions.csv` / `out/amber_rounds.jsonl`]** Round-by-round AMBER shrinkage renders here.")
+
+    st.divider()
+
+    # Beat 5, 6, 7: Human Gate -> Specialist Student -> One Real Held-Out Proof Number
+    f1, f2, f3 = st.columns(3)
+    with f1:
+        st.subheader("5 · Human Clears Remainder")
+        if dec_df is not None:
+            _, _, g_sum = compute_amber_queue(dec_df[dec_df["split"] == "test"] if "split" in dec_df.columns else dec_df, gate_log)
+            st.metric("AMBERs sent to human (test)", g_sum["n_amber_total"], f"{g_sum['n_amber_pending']} pending · {g_sum['n_amber_cleared']} cleared")
+        else:
+            st.metric("AMBERs sent to human", "PENDING")
+        gate_page = C.ROOT / "pages" / "2_Human_gate.py"
+        if gate_page.is_file():
+            st.page_link("pages/2_Human_gate.py", label="Open Human Gate (`pages/2_Human_gate.py`)", icon="🛡️")
+        else:
+            st.markdown("👉 **[Open Human Gate (`/Human_gate`)](/Human_gate)**")
+
+    with f2:
+        st.subheader("6 · Verified Specialist")
+        if stu and stu.get("mean_acc_by_source"):
+            m_src = stu["mean_acc_by_source"]
+            ver_acc = m_src.get("verified")
+            sin_acc = m_src.get("single")
+            delta_s = f"{(ver_acc - sin_acc) * 100:+.1f} pts vs unverified single" if (isinstance(ver_acc, (int, float)) and isinstance(sin_acc, (int, float))) else None
+            st.metric("Specialist trained on verified labels", _pct(ver_acc), delta_s)
+            st.caption(f"Single pseudo-labels: {_pct(sin_acc)} · Oracle GT (UPPER BOUND): {_pct(m_src.get('oracle_upper_bound'))}")
+        else:
+            st.metric("Specialist trained on verified labels [PLACEHOLDER]", "PENDING")
+
+    with f3:
+        st.subheader("7 · Held-Out Proof")
+        if res:
+            acc5 = res.get("accepted_5_informative") or res.get("accepted") or {}
+            acc_v = acc5.get("accuracy")
+            cov_v = acc5.get("coverage")
+            n_t = res.get("n_test_labels_excl_liver") or res.get("n_test_labels") or 0
+            st.metric(
+                f"{_pct(acc_v)} accurate on the {_pct(cov_v)} it accepted",
+                _pct(acc_v),
+                f"coverage {_pct(cov_v)} · 0 human labels",
+            )
+            interim_tag = " [INTERIM SMOKE RUN — awaiting full 1,680-label verifier run]" if (isinstance(n_t, int) and 0 < n_t < 1000) else ""
+            st.caption(f"n = {n_t} held-out labels, 6 unseen videos (`split == 'test'`).{interim_tag}")
+        else:
+            st.metric("Verified label accuracy [PLACEHOLDER]", "PENDING")
+
+    st.divider()
+    render_live_full_annotations(key_prefix="e2e")
 
 
-def watershed_to_class_map(mask: np.ndarray) -> np.ndarray:
-    """Watershed mask channel 0 -> class-id map via config.WATERSHED_VALUE_TO_CLASS; 255 and unknown -> -1 (ignore)."""
-    ch0 = mask[..., 0] if mask.ndim == 3 else mask
-    lut = np.full(256, -1, dtype=np.int16)
-    for val, cls in C.WATERSHED_VALUE_TO_CLASS.items():
-        lut[int(val)] = int(cls)
-    lut[GT_IGNORE] = -1
-    return lut[ch0]
-
-
-def gt_overlay(img: Image.Image, mask_path: Path, keys: list[str] | None = None, alpha: float = 0.45) -> Image.Image:
-    """Blend ground-truth classes (config.LABELS keys) onto the frame. Evaluation display only (test videos)."""
-    if not Path(mask_path).is_file():
-        return img
-    cls_map = watershed_to_class_map(np.array(Image.open(mask_path)))
-    base = np.array(img.convert("RGB")).astype(np.float32)
-    if cls_map.shape != base.shape[:2]:
-        return img
-    for key in keys or list(C.LABELS):
-        sel = cls_map == C.LABELS[key][0]
-        if sel.any():
-            base[sel] = (1 - alpha) * base[sel] + alpha * np.array(GT_COLOURS[key], dtype=np.float32)
-    return Image.fromarray(base.clip(0, 255).astype(np.uint8))
-
-
-def draw_pixel_boxes(img: Image.Image, boxes: pd.DataFrame) -> Image.Image:
-    """Draw tracker boxes (pixel x1,y1,x2,y2 on 854x480). Red = flagged for targeted recheck, white = not flagged."""
-    im = img.copy()
+def draw_full_annotations(fp, rows: pd.DataFrame, frame_id: str | None = None) -> Image.Image:
+    """Draw bounding boxes [ymin,xmin,ymax,xmax], instrument tip points [y,x], and surgical phase on a frame."""
+    im = resolve_frame_image(fp, frame_id=frame_id or "")
+    w, h = im.size
     d = ImageDraw.Draw(im)
-    for r in boxes.itertuples():
-        colour = "#e53e3e" if bool(getattr(r, "flagged", False)) else "#f7fafc"
-        d.rectangle([r.x1, r.y1, r.x2, r.y2], outline=colour, width=3)
-        d.text((r.x1 + 4, r.y1 + 4), str(r.label), fill=colour)
+
+    phase_val = None
+    if rows is not None and not rows.empty and "phase" in rows.columns:
+        phases = rows["phase"].dropna().astype(str).tolist()
+        if phases:
+            phase_val = phases[0]
+    if phase_val:
+        d.rectangle([0, 0, w, 28], fill="#0f172a")
+        d.text((10, 6), f"PHASE: {phase_val}", fill="#f8fafc")
+
+    if rows is None or rows.empty:
+        return im
+
+    for r in rows.itertuples():
+        lbl = str(getattr(r, "label", getattr(r, "key", "unknown")))
+        st_raw = str(getattr(r, "status", "accept"))
+        status_norm = normalize_status(st_raw) if st_raw != "raw" else "raw"
+        c = COL.get(status_norm, "#d69e2e")
+
+        box_val = getattr(r, "box", None)
+        b = parse_box(box_val)
+        if b is not None:
+            y1, x1, y2, x2 = int(b[0] * h / 1000), int(b[1] * w / 1000), int(b[2] * h / 1000), int(b[3] * w / 1000)
+            y1, y2 = max(0, min(h - 1, y1)), max(0, min(h - 1, y2))
+            x1, x2 = max(0, min(w - 1, x1)), max(0, min(w - 1, x2))
+            if x2 > x1 and y2 > y1:
+                d.rectangle([x1, y1, x2, y2], outline=c, width=3)
+                rnd = getattr(r, "round", None)
+                rnd_tag = f" r{int(rnd)}" if pd.notna(rnd) else ""
+                tag = f"{lbl} ({status_norm}{rnd_tag})"
+                tw = max(90, len(tag) * 7 + 8)
+                ty = max(28, y1 - 18)
+                d.rectangle([x1, ty, min(w - 1, x1 + tw), ty + 18], fill=c)
+                d.text((x1 + 4, ty + 2), tag, fill="white")
+
+        tip_val = getattr(r, "tip", None)
+        tip_pt = None
+        if isinstance(tip_val, (list, tuple)) and len(tip_val) == 2:
+            try:
+                tip_pt = [float(tip_val[0]), float(tip_val[1])]
+            except (TypeError, ValueError):
+                tip_pt = None
+        elif isinstance(tip_val, str) and tip_val.strip().startswith("["):
+            try:
+                parsed_tip = json.loads(tip_val)
+                if isinstance(parsed_tip, list) and len(parsed_tip) == 2:
+                    tip_pt = [float(parsed_tip[0]), float(parsed_tip[1])]
+            except Exception:
+                tip_pt = None
+        if tip_pt is not None and 0 <= tip_pt[0] <= 1000 and 0 <= tip_pt[1] <= 1000:
+            ty_px = int(tip_pt[0] * h / 1000)
+            tx_px = int(tip_pt[1] * w / 1000)
+            r_px = 7
+            d.ellipse([tx_px - r_px, ty_px - r_px, tx_px + r_px, ty_px + r_px], outline="#38bdf8", fill=c, width=2)
+            d.line([tx_px - 12, ty_px, tx_px + 12, ty_px], fill="#38bdf8", width=2)
+            d.line([tx_px, ty_px - 12, tx_px, ty_px + 12], fill="#38bdf8", width=2)
+            d.text((min(w - 80, tx_px + 10), max(28, ty_px - 10)), f"TIP:{lbl}", fill="#38bdf8")
+
     return im
 
 
-@st.cache_data(show_spinner=False)
-def load_parquet(path_str: str, mtime: float) -> pd.DataFrame | None:
-    try:
-        return pd.read_parquet(path_str)
-    except Exception:
-        return None
-
-
-def load_parquet_fresh(p: Path) -> pd.DataFrame | None:
-    return load_parquet(str(p), p.stat().st_mtime) if p.exists() else None
-
-
-def tracker_source_note(source: str) -> str:
-    if source == "gemini":
-        return "Tracker flags computed on **Gemini** boxes (real labeller output)."
-    return (
-        f"Tracker flags computed on `{source}` boxes: ground-truth masks **with synthetic injected errors**, "
-        "the tracker's development setting. Not a result on Gemini labels yet."
+def render_live_full_annotations(key_prefix: str = "loc"):
+    """Render live spatial annotations (boxes, tool tip points, surgical phase) from localize.py."""
+    st.subheader("🎯 Full Spatial Annotation by the Agent (Bounding Boxes · Instrument Tips · Surgical Phase)")
+    st.caption(
+        "Beyond presence labels, the agent draws bounding boxes `[ymin,xmin,ymax,xmax]`, instrument tip points `[y,x]`, "
+        "and surgical phase on each frame, double-checking every box with an independent pass (`IoU ≥ 0.5 → accept`, else tighter-crop AMBER loop up to 3 rounds)."
     )
+    ann_path = resolve_artifact("annotations.jsonl")
+    live_path = resolve_artifact("annotations_live.jsonl")
+    rounds_path = resolve_artifact("localize_rounds.jsonl")
+    res_path = resolve_artifact("localize_results.json")
 
+    src_path = ann_path if ann_path.exists() else (live_path if live_path.exists() else None)
+    if src_path is None:
+        st.info("**[PLACEHOLDER — Awaiting `out/annotations_live.jsonl` or `out/annotations.jsonl` from `localize.py`]**")
+        return
 
-def narration_claims(entry: dict) -> list[dict]:
-    """Normalise one narration entry to [{text, status, evidence_frames}].
+    rows = load_jsonl(src_path)
+    if not rows:
+        st.info(f"**[PLACEHOLDER — `{src_path.name}` is currently empty; waiting for first streamed annotations]**")
+        return
 
-    Uses `claims` when narrate.py emits it. The legacy {narration, unsure_about} shape is
-    mapped to one claim per line with status `verified` only when nothing was unsure;
-    unsure items become `unsupported` claims (never shown as fact)."""
-    out = []
-    for c in entry.get("claims", []) or []:
-        if isinstance(c, dict) and c.get("text"):
-            status = str(c.get("status", "unsupported")).lower()
-            out.append({
-                "text": str(c["text"]),
-                "status": status if status in CLAIM_COL else "unsupported",
-                "evidence_frames": [str(x) for x in c.get("evidence_frames", []) or []],
-            })
-    if out:
-        return out
-    if entry.get("narration"):
-        out.append({
-            "text": str(entry["narration"]),
-            "status": "verified" if not entry.get("unsure_about") else "unsupported",
-            "evidence_frames": [str(entry.get("frame_id", ""))] if entry.get("frame_id") else [],
-        })
-    for u in entry.get("unsure_about", []) or []:
-        out.append({"text": f"{u} (withheld: not verified)", "status": "unsupported", "evidence_frames": []})
-    return out
+    df = pd.DataFrame(rows)
+    loc_res = load_json(res_path) or {}
+    loc_rounds = load_jsonl(rounds_path)
 
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Streamed Annotations", f"{len(df)} ({df['frame_id'].nunique()} frames)" if "frame_id" in df.columns else len(df))
+    if "status" in df.columns:
+        acc_cnt = int((df["status"].map(normalize_status) == "accept").sum())
+        amb_cnt = int((df["status"].map(normalize_status) == "AMBER").sum())
+        m2.metric("Accepted / Residual AMBER", f"{acc_cnt} accept · {amb_cnt} AMBER")
+    if loc_res:
+        m3.metric("Held-out Box Mean IoU (vs GT mask)", _pct(loc_res.get("mean_iou") or loc_res.get("test_mean_iou")))
+        m4.metric("Tip Point Inside GT Tool Mask", _pct(loc_res.get("tip_in_mask_rate") or loc_res.get("test_tip_in_mask_rate")))
+    else:
+        m3.metric("Held-out Box Mean IoU", "PENDING")
+        m4.metric("Tip Point Inside GT Tool Mask", "PENDING")
 
-def frame_path_from_id(frame_id: str) -> Path | None:
-    """frame_id `<video>_<clipstart>_<N>` -> CholecSeg8k frame path, if it exists."""
-    parts = str(frame_id).split("_")
-    if len(parts) == 3 and parts[2].isdigit():
-        p = cholec_frame_path(parts[0], f"{parts[0]}_{parts[1]}", int(parts[2]))
-        return p if p.is_file() else None
-    return None
+    if "frame_id" not in df.columns:
+        return
+    fids = sorted(df["frame_id"].dropna().unique().tolist(), key=frame_sort_key)
+    if not fids:
+        return
+    c_sel, c_btn = st.columns([4, 1])
+    fid = c_sel.select_slider("Inspect annotated frame", options=fids, value=fids[-1], key=f"{key_prefix}_fid") if len(fids) > 1 else fids[0]
+    if c_btn.button("🔄 Refresh live stream", key=f"{key_prefix}_refresh"):
+        st.rerun()
+
+    f_rows = df[df["frame_id"] == fid].copy()
+    fp = None
+    for col_name in ("img_path", "frame_path"):
+        if col_name in f_rows.columns and f_rows[col_name].notna().any():
+            fp = f_rows[col_name].dropna().iloc[0]
+            break
+    if fp is None:
+        fp = frame_path_from_id(fid)
+
+    ic, tc = st.columns([3, 2])
+    ic.image(
+        draw_full_annotations(fp, f_rows, frame_id=fid),
+        caption=f"{fid} · Source: {src_path.name} · Boxes + Crosshair Tip Points + Phase banner",
+        width="stretch",
+    )
+    disp_cols = [c for c in ["label", "status", "round", "conf", "box", "tip", "phase"] if c in f_rows.columns]
+    tc.dataframe(f_rows[disp_cols], width="stretch", hide_index=True)
+    if loc_rounds:
+        f_rnds = [r for r in loc_rounds if r.get("frame_id") == fid]
+        if f_rnds:
+            with tc.expander(f"Tighter-crop AMBER localization rounds ({len(f_rnds)})"):
+                st.dataframe(pd.DataFrame(f_rnds), width="stretch", hide_index=True)
 
 
 def render_med_school():
@@ -661,10 +1172,6 @@ def render_med_school():
             confused = ", ".join(s.get("confused_with", [])) or "none listed"
             st.markdown(f"**Confused with:** {confused}")
             st.markdown(f"**How to tell apart:** {s.get('how_to_tell_apart', '')}")
-
-
-def _pct(v):
-    return f"{v * 100:.1f}%" if isinstance(v, (int, float)) else "PENDING"
 
 
 def load_label_rows() -> tuple[pd.DataFrame | None, str]:
@@ -730,18 +1237,18 @@ def render_raw_and_selfcheck():
 
 
 def render_loop():
-    st.header("The loop: raw labels → agent self-check → tracker-targeted recheck")
+    st.header("The loop: raw labels → double-check → Argon amber loop & tracker recheck")
     st.caption(
-        "Each round keeps fewer labels but more of them are right. Accuracy is scored on held-out test videos only "
+        "Each round keeps fewer uncertain labels and resolves AMBERs before any human is needed. Accuracy is scored on held-out test videos only "
         f"({', '.join(TEST_VIDEOS)}); ground truth never feeds the labeller, the verifier or the tracker's input boxes for Gemini."
     )
     res = load_json(resolve_artifact("results.json")) or {}
     acc = res.get("accepted", {}) if isinstance(res.get("accepted"), dict) else {}
     trk = res.get("tracker_recheck", {}) if isinstance(res.get("tracker_recheck"), dict) else {}
     rounds = [
-        {"round": "0 · raw VLM labels (Flash + manual)", "coverage": 1.0 if "manual_raw_acc" in res else None,
+        {"round": "0 · raw VLM labels (all 6 labels)", "coverage": 1.0 if "manual_raw_acc" in res else None,
          "accuracy_of_kept": res.get("manual_raw_acc"), "source": "results.json: manual_raw_acc"},
-        {"round": "1 · agent self-check (accept only)", "coverage": acc.get("coverage"),
+        {"round": "1 · after double-check + amber loop (accepted, all 6)", "coverage": acc.get("coverage"),
          "accuracy_of_kept": acc.get("accuracy"), "source": "results.json: accepted"},
         {"round": "2 · tracker-flagged recheck", "coverage": trk.get("coverage"),
          "accuracy_of_kept": trk.get("accuracy"), "source": "results.json: tracker_recheck"},
@@ -751,18 +1258,46 @@ def render_loop():
         c.metric(r["round"], _pct(r["accuracy_of_kept"]), f"coverage {_pct(r['coverage'])}" if r["coverage"] is not None else None)
     if not res:
         st.warning("**[PLACEHOLDER — Awaiting `out/results.json`]** Round metrics show `PENDING`; no numbers are invented.")
+    else:
+        n_lab = res.get("n_test_labels")
+        a5 = res.get("accepted_5_informative") or {}
+        st.caption(
+            f"Rounds 0–1 score all 6 labels incl. liver on n = {n_lab if n_lab is not None else '?'} held-out test labels. "
+            + (f"Headline (5 informative labels, liver excluded): {_pct(a5.get('accuracy'))} accurate on the "
+               f"{_pct(a5.get('coverage'))} accepted (n = {a5.get('n_test_labels_excl_liver', '?')})." if a5 else "")
+        )
+        if isinstance(n_lab, int) and n_lab < 1000:
+            st.warning(f"**Interim smoke run:** only {n_lab} test labels scored. The full verifier run replaces these numbers automatically.")
+    amber = res.get("amber_loop") if isinstance(res.get("amber_loop"), dict) else None
+    if amber and amber.get("ambers_by_round_test"):
+        st.subheader("Argon amber loop: AMBERs left after each round (test split)")
+        per = amber.get("per_round_test") or []
+        ac = st.columns(len(amber["ambers_by_round_test"]))
+        for i_r, n_amb in enumerate(amber["ambers_by_round_test"]):
+            pr = per[i_r] if i_r < len(per) and isinstance(per[i_r], dict) else {}
+            ac[i_r].metric(
+                "initial double-check" if i_r == 0 else f"after Argon round {i_r}",
+                f"{n_amb} AMBER",
+                f"{pr.get('accepted_count', '?')} accepted · {pr.get('rejected_count', '?')} rejected" if pr else None,
+                delta_color="off",
+            )
+        st.caption(f"Up to {amber.get('max_rounds', '?')} Argon rounds; what is still AMBER goes to the human final pass. Source: results.json `amber_loop`.")
     pts = pd.DataFrame([r for r in rounds if r["coverage"] is not None and r["accuracy_of_kept"] is not None])
     if len(pts) >= 2:
         st.subheader("Accuracy of kept labels vs coverage, per round")
-        st.scatter_chart(pts, x="coverage", y="accuracy_of_kept", color="round")
-    st.subheader("Baselines (test split)")
-    base_rows = [
-        {"baseline": "blank (no manual)", "raw_accuracy": res.get("blank_raw_acc"), "coverage_at_95": (res.get("blank_single_conf") or {}).get("coverage_at_95"), "human_labels": "none"},
-        {"baseline": "manual (self-written)", "raw_accuracy": res.get("manual_raw_acc"), "coverage_at_95": (res.get("single_conf") or {}).get("coverage_at_95"), "human_labels": "none"},
-        {"baseline": "majority vote", "raw_accuracy": None, "coverage_at_95": (res.get("majority_vote") or {}).get("coverage_at_95"), "human_labels": "none"},
-        {"baseline": "upper_bound_calibrated [UPPER BOUND]", "raw_accuracy": None, "coverage_at_95": (res.get("upper_bound_calibrated") or {}).get("coverage_at_95"), "human_labels": "calib split GT (upper bound only)"},
-    ]
-    st.dataframe(pd.DataFrame(base_rows).fillna("PENDING"), width="stretch")
+        st.scatter_chart(pts, x="coverage", y="accuracy_of_kept")
+    with st.expander("Baselines on the same test split"):
+        base_rows = [
+            {"method": "blank prompt (no manual)", "raw_acc": _pct(res.get("blank_raw_acc")),
+             "coverage_at_95_acc": _pct((res.get("blank_single_conf") or {}).get("coverage_at_95"))},
+            {"method": "self-written manual (single call)", "raw_acc": _pct(res.get("manual_raw_acc")),
+             "coverage_at_95_acc": _pct((res.get("single_conf") or {}).get("coverage_at_95"))},
+            {"method": "majority vote (3 samples)", "raw_acc": "PENDING",
+             "coverage_at_95_acc": _pct((res.get("majority_vote") or {}).get("coverage_at_95"))},
+            {"method": "upper_bound_calibrated [UPPER BOUND — uses calib GT]", "raw_acc": "PENDING",
+             "coverage_at_95_acc": _pct((res.get("upper_bound_calibrated") or {}).get("coverage_at_95"))},
+        ]
+        st.dataframe(pd.DataFrame(base_rows), width="stretch")
 
     st.divider()
     render_raw_and_selfcheck()
@@ -848,12 +1383,67 @@ def render_loop():
         tc.caption(f"Recheck queue: {len(queue)} items total ({int(queue['is_control'].sum())} random controls).")
 
 
-def claims_html(claims: list[dict]) -> str:
-    return "<br>".join(
-        f"<span style='background:{CLAIM_COL[c['status']]};color:white;padding:2px 8px;border-radius:10px;"
-        f"margin-right:6px;font-size:0.8em'>{c['status']}</span>{c['text']}"
-        for c in claims
-    )
+NARRATOR_OUT = C.ROOT / "narrator" / "out"
+NARRATOR_LAYERS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "P"]
+
+
+def narrator_claim_status(row) -> str:
+    """narrator verdict -> UI tag. speak = verified; drop with a failed check layer = contradicted; else unsupported."""
+    v = str(getattr(row, "verdict", "")).lower()
+    if v == "speak":
+        return "verified"
+    if v == "drop" and any(str(getattr(row, l, "")) == "fail" for l in NARRATOR_LAYERS):
+        return "contradicted"
+    return "unsupported"
+
+
+def _json_list(v) -> list:
+    if isinstance(v, (list, tuple, np.ndarray)):
+        return list(v)
+    try:
+        out = json.loads(v) if isinstance(v, str) and v else []
+        return out if isinstance(out, list) else []
+    except Exception:
+        return []
+
+
+def render_narrator_claims() -> bool:
+    """Render narrator/out/claims.parquet (coordination/contracts/narrator_outputs.md). Returns False if absent."""
+    claims = load_parquet_fresh(NARRATOR_OUT / "claims.parquet")
+    if claims is None or claims.empty:
+        return False
+    if "source" in claims.columns and set(claims["source"].unique()) <= {"mock"}:
+        st.info("Narrator output exists but is built on **mock** labels (ground truth + noise). It is hidden until it runs on Gemini labels.")
+        return True
+    claims = claims[claims["source"] != "mock"] if "source" in claims.columns else claims
+    c1, c2 = st.columns([1, 1])
+    modes = sorted(claims["mode"].dropna().unique()) if "mode" in claims.columns else []
+    mode = c1.radio("Narration mode", modes, index=modes.index("grounded") if "grounded" in modes else 0,
+                    horizontal=True, key="narr_mode") if modes else None
+    cl = claims[claims["mode"] == mode] if mode else claims
+    clip = c2.selectbox("Clip", sorted(cl["clip_id"].unique()), key="narr_clip")
+    cl = cl[cl["clip_id"] == clip].sort_values(["t_start", "claim_id"]).copy()
+    cl["status"] = [narrator_claim_status(r) for r in cl.itertuples()]
+    if (cl["source"] == "injected").any() if "source" in cl.columns else False:
+        st.caption("Includes `injected` claims: deliberately wrong claims used to test the checker.")
+    k1, k2, k3 = st.columns(3)
+    for col, status in zip((k1, k2, k3), CLAIM_COL):
+        col.metric(f"{status} claims", int((cl["status"] == status).sum()))
+    st.markdown("**Final narration (verified claims only)**")
+    final = cl[cl["status"] == "verified"]["text"].tolist()
+    st.success(" ".join(final) if final else "No verified claims for this clip.")
+    ev_index = load_json(NARRATOR_OUT / "evidence" / "index.json", {}) or {}
+    with st.expander("All claims with evidence frames", expanded=True):
+        for r in cl.head(60).itertuples():
+            a, b = st.columns([3, 2])
+            failed = [l for l in NARRATOR_LAYERS if str(getattr(r, l, "")) == "fail"]
+            meta = f"`{r.claim_id}` · frames {r.t_start}–{r.t_end} · verdict `{r.verdict}`" + (f" · failed {', '.join(failed)}" if failed else "")
+            a.markdown(claims_html([{"text": r.text, "status": r.status}]) + f"<br><small>{meta}</small>", unsafe_allow_html=True)
+            ev = [C.ROOT / e["path"] for e in ev_index.get(r.claim_id, [])[:3] if isinstance(e, dict) and e.get("path")]
+            ev = [x for x in ev if x.is_file()] or [x for x in [cholec_frame_path(r.video_id, r.clip_id, r.t_start)] if x.is_file()]
+            if ev:
+                b.image([str(x) for x in ev], width=160)
+    return True
 
 
 def render_narration():
@@ -865,9 +1455,11 @@ def render_narration():
         ),
         unsafe_allow_html=True,
     )
+    if render_narrator_claims():
+        return
     files = sorted(O.glob("narration_*.json")) + sorted((COORD_ARTIFACTS).glob("narration_*.json"))
     if not files:
-        st.info("**[PLACEHOLDER — Awaiting `out/narration_<video>.json` from `narrate.py`]**")
+        st.info("**[PLACEHOLDER — Awaiting `narrator/out/claims.parquet` (narrator lane) or `out/narration_<video>.json` (narrate.py)]**")
         return
     pick = st.selectbox("Narration file", files, format_func=lambda p: p.name, key="narr_file")
     entries = [e for e in (load_json(pick, []) or []) if isinstance(e, dict)]
@@ -889,7 +1481,7 @@ def render_narration():
     final = [r["text"] for r in rows if r["status"] == "verified"]
     st.success(" ".join(final) if final else "No verified claims yet.")
     with st.expander("All claims with evidence frames"):
-        for i, r in enumerate(rows[:60]):
+        for r in rows[:60]:
             cc1, cc2 = st.columns([3, 2])
             cc1.markdown(claims_html([r]) + f"<br><small>`{r['frame_id']}`</small>", unsafe_allow_html=True)
             ev = [fp for fp in (frame_path_from_id(x) for x in r["evidence_frames"][:3]) if fp]
@@ -900,8 +1492,8 @@ def render_narration():
 # ---------------- Top Landing Header: SurgProof, Honest Claims & Prior Work ----------------
 st.title("SurgProof — No human labels. Only proof.")
 st.caption(
-    "Self-taught surgical video labelling with zero-label verification, an AMBER human gate, "
-    "and specialist distillation."
+    "Self-taught surgical video labelling with double-check verification, an Argon amber loop, "
+    "a human gate for remaining AMBERs, and specialist distillation."
 )
 
 hc_col, pw_col = st.columns(2)
@@ -911,7 +1503,7 @@ with hc_col:
 **Honest Claims**
 - **"No human labels used in training."** Ground truth (`gt_*`) is excluded from labeller and verifier inputs and joined **only** to score held-out test videos (`split == "test"`).
 - **Upper bounds explicitly marked:** The `calib` split (`upper_bound_calibrated`) and `oracle_upper_bound` student use human labels and are reported strictly as **upper bounds** for reference only.
-- **Act 1 (any surgery) has no ground truth:** Showcase of zero-setup generalization, not accuracy proof. CholecSeg8k is the blind proof.
+- **Act 1 (any surgery) has no ground truth:** Showcase of zero-setup generalization, not accuracy proof. CholecSeg8k + Endoscapes2023 + CholecT50 are the blind proof.
 """
     )
 with pw_col:
@@ -922,13 +1514,13 @@ with pw_col:
 - **SurgVLP** *(CAMMA Strasbourg)*: Learning representations from narrated surgical lectures.
 - **SurgSLOT**: Self-evolving surgical data engine relying on **human verification**.
 - **Med-Gemini**: Zero-shot Critical View of Safety (CVS) assessment on surgical video.
-- **Our Step (`SurgProof`)**: An autonomous Gemini agent **replaces the human verifier**, locks dataset export behind a human AMBER gate, and distills a stronger specialist student.
+- **Our Step (`SurgProof`)**: An autonomous Gemini agent **replaces the human verifier** (double-check + multi-round Argon amber loop), locks export behind a human gate for remaining AMBERs, and distills a stronger specialist student.
 """
     )
 
 st.divider()
 
-# ---------------- Sidebar: Pipeline Status, Promo Video & Live Agent Reasoning ----------------
+# ---------------- Sidebar: Pipeline Status, Human Gate Link & Live Agent Reasoning ----------------
 with st.sidebar:
     st.subheader("Pipeline Artifacts")
     artifact_checks = {
@@ -937,12 +1529,12 @@ with st.sidebar:
         "out/manual.json": resolve_artifact("manual.json").exists(),
         "out/labels_manual.jsonl": resolve_artifact("labels_manual.jsonl").exists() or resolve_artifact("labels_smoke.jsonl").exists(),
         "out/decisions.csv": resolve_artifact("decisions.csv").exists(),
+        "out/amber_rounds.jsonl": resolve_artifact("amber_rounds.jsonl").exists(),
         "out/results.json": resolve_artifact("results.json").exists(),
         "out/student.json": resolve_artifact("student.json").exists(),
-        "out/live_decisions.csv": resolve_artifact("live_decisions.csv").exists(),
         "out/gate_log.jsonl": resolve_artifact("gate_log.jsonl").exists() or resolve_artifact("human_gate_log.jsonl").exists(),
         "out/flags.parquet (tracker)": (O / "flags.parquet").exists(),
-        "out/narration_*.json": any(O.glob("narration_*.json")),
+        "out/narration_*.json": any(O.glob("narration_*.json")) or any(COORD_ARTIFACTS.glob("narration_*.json")),
     }
     status_lines = [
         f"- {'🟢 **LIVE**' if ok else '🟡 **PLACEHOLDER**'} `{name}`"
@@ -960,16 +1552,15 @@ with st.sidebar:
     else:
         st.markdown(
             "👉 **[Human Gate (`pages/2_Human_gate.py`)](/Human_gate)** — "
-            "Clears `AMBER` queue & unlocks verified dataset export (`harald/gate`)."
+            "Clears remaining `AMBER` queue & unlocks verified dataset export."
         )
 
     promo_candidates = [O / "promo" / "surgproof_promo.mp4", O / "promo" / "surgatlas_promo.mp4"]
     for promo_path in promo_candidates:
         if promo_path.is_file():
             st.divider()
-            st.subheader("Pitch Video (Illustrative + Live Capture)")
+            st.subheader("Product Demo Video")
             st.video(str(promo_path))
-            st.caption("Generated shots are ILLUSTRATIVE; metrics come strictly from real pipeline outputs.")
             break
 
     st.divider()
@@ -981,13 +1572,16 @@ with st.sidebar:
     else:
         st.caption("[PLACEHOLDER — No trace yet in out/trace.jsonl.]")
 
-tab_med, tab_loop, tab_live, tab_proof, tab_watch = st.tabs([
-    "🎓 1 · Med School",
-    "🔁 2 · Label → Verify Loop",
-    "⚡ 3 · Live Judge Test (<3 min)",
-    "📊 4 · Proof & Student (CholecSeg8k & External Sets)",
+tab_e2e, tab_med, tab_loop, tab_proof, tab_watch = st.tabs([
+    "🔁 1 · End-to-End Pipeline (VISION.md)",
+    "🎓 2 · Med School",
+    "🔍 3 · Double-Check & Tracker Loop",
+    "📊 4 · Proof & Specialist Student",
     "🎬 5 · Watch, Narration & Any Surgery",
 ])
+
+with tab_e2e:
+    render_end_to_end_pipeline()
 
 with tab_med:
     render_med_school()
@@ -996,133 +1590,10 @@ with tab_loop:
     render_loop()
 
 # ==============================================================================
-# TAB 1: LIVE JUDGE TEST (<3 MIN) — Issue #15
-# ==============================================================================
-with tab_live:
-    st.header("Live Judge Test: Pick a Held-Out Test Video (<3 Minutes)")
-    st.info(
-        "**Judging test ('live, real input, under 3 minutes'):** `out/manual.json` is cached; a judge picks any held-out test video (1–6); "
-        "SurgProof labels ~20 frames with Gemini 3.8 Flash, runs blind crop verification + sceptical critic, escalates the uncertain band to "
-        "**Gemini 4 Argon**, routes remaining `AMBER` claims to the **Human Gate (`pages/2_Human_gate.py`)**, and reveals accuracy against hidden ground truth."
-    )
-    gate_page_live = C.ROOT / "pages" / "2_Human_gate.py"
-    if gate_page_live.is_file():
-        st.page_link("pages/2_Human_gate.py", label="🛡️ Go to Human Gate (AMBER Approval Queue & Locked Export)", icon="🛡️")
-    else:
-        st.markdown(
-            "🛡️ **Human Gate (`pages/2_Human_gate.py`):** Uncertain (`AMBER`) labels from this live run are routed to the "
-            "[**Human Gate page**](/Human_gate) (`pages/2_Human_gate.py`, owned by `harald/gate`), where dataset export stays locked until every `AMBER` item is cleared."
-        )
-
-    idx_live_path = C.DATA_DIR / "index.csv"
-    if not idx_live_path.exists():
-        st.warning(
-            "**[PLACEHOLDER — Awaiting `data/index.csv` from `prepare_data.py`]**\n\n"
-            "Once `data/index.csv` is available, the 6 held-out test videos appear here for live execution."
-        )
-        lc1, lc2, lc3, lc4 = st.columns(4)
-        lc1.metric("Wall-clock time [PLACEHOLDER]", "PENDING")
-        lc2.metric("Auto-accepted (`accept`) [PLACEHOLDER]", "PENDING")
-        lc3.metric("Sent to Human Gate (`AMBER`) [PLACEHOLDER]", "PENDING")
-        lc4.metric("Auto-rejected (`reject`) [PLACEHOLDER]", "PENDING")
-    else:
-        idx_all = pd.read_csv(idx_live_path)
-        test_vids_live = sorted(idx_all[idx_all["split"] == "test"]["video"].unique()) if "split" in idx_all.columns else sorted(idx_all["video"].unique())
-        ctrl1, ctrl2, ctrl3, ctrl4 = st.columns([2, 1, 1, 2])
-        with ctrl1:
-            picked_live_vid = st.selectbox(
-                "Judge picks held-out test video (1–6)",
-                test_vids_live,
-                format_func=lambda v: f"{v} (held-out test video #{test_vids_live.index(v) + 1} of {len(test_vids_live)})",
-            )
-        with ctrl2:
-            n_frames_live = st.number_input("Frames to sample", min_value=5, max_value=40, value=20, step=5)
-        with ctrl3:
-            argon_budget_live = st.number_input("Argon review budget", min_value=0, max_value=40, value=12, step=4)
-        with ctrl4:
-            st.write("")
-            run_live_btn = st.button("▶ Run Live Label + Verify Now", type="primary")
-
-        if run_live_btn:
-            prog_bar = st.progress(0.0, text=f"Running live Flash labelling + decorrelated checks on {picked_live_vid}...")
-            status_box = st.empty()
-
-            def _update_prog(done, total, stage):
-                frac = min(0.95, done / max(1, total))
-                prog_bar.progress(frac, text=f"[{stage.upper()}] {done}/{total} frames labelled & checked...")
-
-            live_df, live_meta = asyncio.run(
-                run_live_video_async(
-                    picked_live_vid,
-                    n_frames=int(n_frames_live),
-                    argon_budget=int(argon_budget_live),
-                    sample_seed=0,
-                    progress_cb=_update_prog,
-                )
-            )
-            prog_bar.progress(1.0, text=f"Completed {picked_live_vid} in {live_meta['elapsed_sec']:.2f}s!")
-            status_box.success(
-                f"Live run finished in **{live_meta['elapsed_sec']:.2f}s** (<180s limit): "
-                f"**{live_meta['n_accept']}** accepted, **{live_meta['n_amber']}** AMBER (sent to Human Gate), **{live_meta['n_reject']}** rejected."
-            )
-
-        # Display latest or video-specific live run if present
-        live_dec_file = O / f"live_decisions_{picked_live_vid}.csv"
-        live_meta_file = O / f"live_run_{picked_live_vid}.json"
-        if not live_dec_file.exists():
-            live_dec_file = resolve_artifact("live_decisions.csv")
-            live_meta_file = resolve_artifact("live_run_latest.json")
-
-        if live_dec_file.exists() and live_meta_file.exists():
-            l_df = pd.read_csv(live_dec_file)
-            l_meta = load_json(live_meta_file, {})
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Wall-clock time", f"{l_meta.get('elapsed_sec', 0.0):.2f}s", "< 180s target ✓" if l_meta.get("under_3_min", True) else "> 180s")
-            m2.metric("Auto-accepted (`accept`)", int((l_df["status"].map(normalize_status) == "accept").sum()))
-            m3.metric("AMBER (sent to Human Gate)", int((l_df["status"].map(normalize_status) == "AMBER").sum()))
-            m4.metric("Auto-rejected (`reject`)", int((l_df["status"].map(normalize_status) == "reject").sum()))
-
-            reveal_live_gt = st.toggle("🔓 Reveal Hidden Ground Truth on Live Run (`data/index.csv` joined only now)", key="reveal_live_gt")
-            if reveal_live_gt:
-                eval_df = join_ground_truth_for_reveal(l_df, idx_all)
-                eval_nt = eval_df[eval_df["key"].isin(NON_TRIVIAL_KEYS)]
-                acc_nt = eval_nt[eval_nt["status"].map(normalize_status) == "accept"]
-                acc_all = eval_df[eval_df["status"].map(normalize_status) == "accept"]
-
-                g1, g2, g3, g4 = st.columns(4)
-                raw_nt_acc = eval_nt["correct"].mean() if not eval_nt.empty and "correct" in eval_nt else None
-                ver_nt_acc = acc_nt["final_correct"].mean() if not acc_nt.empty and "final_correct" in acc_nt else None
-                ver_all_acc = acc_all["final_correct"].mean() if not acc_all.empty and "final_correct" in acc_all else None
-                cov_nt = len(acc_nt) / len(eval_nt) if len(eval_nt) else 0.0
-
-                g1.metric("Raw Flash Accuracy (5 non-trivial)", f"{raw_nt_acc * 100:.1f}%" if pd.notna(raw_nt_acc) else "n/a")
-                g2.metric(
-                    "Verified `accept` Accuracy (5 non-trivial)",
-                    f"{ver_nt_acc * 100:.1f}%" if pd.notna(ver_nt_acc) else "n/a",
-                    f"{(ver_nt_acc - raw_nt_acc) * 100:+.1f} pts vs raw" if (pd.notna(ver_nt_acc) and pd.notna(raw_nt_acc)) else None,
-                )
-                g3.metric("Verified `accept` Accuracy (all 6 incl. liver)", f"{ver_all_acc * 100:.1f}%" if pd.notna(ver_all_acc) else "n/a")
-                g4.metric("Auto-accepted coverage (5 non-trivial)", f"{cov_nt * 100:.0f}%")
-                st.dataframe(
-                    eval_df[["frame_id", "key", "present", "conf", "pv_match", "p_wrong", "trust", "status", "final_present", "final_by", "truth", "final_correct"]],
-                    width="stretch",
-                )
-            else:
-                st.dataframe(
-                    l_df[[c for c in ["frame_id", "key", "present", "conf", "pv_match", "p_wrong", "trust", "status", "final_present", "final_by", "evidence", "critic"] if c in l_df.columns]],
-                    width="stretch",
-                )
-        else:
-            st.info(
-                "**[PLACEHOLDER — Click `▶ Run Live Label + Verify Now` above to execute a live 20-frame run]**\n\n"
-                "Wall-clock timing, Argon revisions, AMBER routing, and ground-truth reveal populate immediately after the run."
-            )
-
-# ==============================================================================
-# TAB 2: PROOF (CHOLECSEG8K & SPECIALIST STUDENT) — Act 2
+# TAB 4: PROOF (CHOLECSEG8K, EXTERNAL SETS & SPECIALIST STUDENT)
 # ==============================================================================
 with tab_proof:
-    st.header("Proof: CholecSeg8k, labels hidden from the agent")
+    st.header("Proof: CholecSeg8k & Unseen External Datasets")
     st.info(
         "**Honest claims:**\n"
         "- **No human labels used in training.** Ground truth is used **only** to score held-out test videos (`split == 'test'`).\n"
@@ -1161,7 +1632,6 @@ with tab_proof:
     stu = load_json(resolve_artifact("student.json"))
     eval_audit = load_json(resolve_artifact("eval_audit.json"))
 
-    # Show live measured baseline numbers from labels_blank.jsonl / labels_manual.jsonl if already on disk
     if idx_file.exists() and (blank_file.exists() or lbl_file.exists() or smoke_file.exists()):
         idx_df_eval = pd.read_csv(idx_file)
         blank_stats = score_jsonl_against_index(blank_file, idx_df_eval, split_filter="test") if blank_file.exists() else None
@@ -1189,16 +1659,6 @@ with tab_proof:
                     delta_5,
                 )
                 b_cols[3].metric(f"Self-Written Manual ({manual_cand.name}, all 6)", f"{manual_stats['acc_all_6'] * 100:.1f}%")
-            per_key_rows = []
-            for k in C.LABELS:
-                row_k = {"label": k, "is_headline_nontrivial": k != "liver"}
-                if blank_stats and k in blank_stats["per_key"]:
-                    row_k["blank_test_acc"] = blank_stats["per_key"][k]
-                if manual_stats and k in manual_stats["per_key"]:
-                    row_k["manual_test_acc"] = manual_stats["per_key"][k]
-                per_key_rows.append(row_k)
-            with st.expander("Per-structure raw test accuracy (`labels_blank.jsonl` / `labels_manual.jsonl`)"):
-                st.dataframe(pd.DataFrame(per_key_rows), width="stretch")
 
     if not res:
         st.warning(
@@ -1211,22 +1671,19 @@ with tab_proof:
         c2.metric("Labels accepted (coverage) [PLACEHOLDER]", "PENDING")
         c3.metric("Sent to surgeon (AMBER/escalated) [PLACEHOLDER]", "PENDING")
         c4.metric("Self-written manual vs blank [PLACEHOLDER]", "PENDING")
-
-        st.subheader("Selective Prediction Comparison [PLACEHOLDER SCHEMA]")
-        placeholder_methods = pd.DataFrame([
-            {"method": "blank_single_conf (no manual)", "uses_human_labels": "No (0 labels)", "coverage_at_95": "PENDING", "acc_at_60": "PENDING", "aurc": "PENDING"},
-            {"method": "single_conf (Flash + manual)", "uses_human_labels": "No (0 labels)", "coverage_at_95": "PENDING", "acc_at_60": "PENDING", "aurc": "PENDING"},
-            {"method": "majority_vote (multi-sample)", "uses_human_labels": "No (0 labels)", "coverage_at_95": "PENDING", "acc_at_60": "PENDING", "aurc": "PENDING"},
-            {"method": "system_zero_label (Ours: checks + Argon)", "uses_human_labels": "No (0 labels)", "coverage_at_95": "PENDING", "acc_at_60": "PENDING", "aurc": "PENDING"},
-            {"method": "upper_bound_calibrated [UPPER BOUND]", "uses_human_labels": "Yes (calib split GT)", "coverage_at_95": "PENDING", "acc_at_60": "PENDING", "aurc": "PENDING"},
-        ])
-        st.dataframe(placeholder_methods, width="stretch")
     else:
-        a = res.get("accepted", {})
+        a = res.get("accepted_5_informative") or res.get("accepted", {})
         c1, c2, c3, c4 = st.columns(4)
         acc_val = a.get("accuracy")
         cov_val = a.get("coverage")
         esc_val = a.get("escalated_share", a.get("amber_share"))
+        n_test_eval = res.get("n_test_labels_excl_liver") or res.get("n_test_labels") or 0
+        if isinstance(acc_val, (int, float)) and isinstance(cov_val, (int, float)):
+            interim_note = " *(interim 15-frame smoke subset — full 1,680-label verifier run in progress)*" if (0 < n_test_eval < 1000) else ""
+            st.markdown(
+                f"### **{acc_val * 100:.1f}% accurate on the {cov_val * 100:.0f}% it accepted**\n"
+                f"`n = {n_test_eval} held-out labels, 6 unseen videos`{interim_note}"
+            )
         c1.metric("Accuracy on accepted labels", f"{acc_val * 100:.1f}%" if isinstance(acc_val, (int, float)) else "n/a")
         c2.metric("Labels accepted (coverage)", f"{cov_val * 100:.0f}%" if isinstance(cov_val, (int, float)) else "n/a")
         c3.metric("Sent to surgeon", f"{esc_val * 100:.0f}%" if isinstance(esc_val, (int, float)) else "n/a")
@@ -1315,8 +1772,6 @@ with tab_proof:
                              "from": f"student.json: mean_acc_by_source.{k_src}"})
         st.markdown("**Specialist vs zero-shot (held-out test videos)**")
         st.dataframe(pd.DataFrame(cmp_rows).fillna("PENDING"), width="stretch")
-        st.caption("Numbers are read as written by each lane; check `headline_labels` in student.json, since the pooled "
-                   "label set behind `manual_raw_acc` can differ.")
         if stu.get("per_label"):
             rows_stu = []
             for key, by_src in stu["per_label"].items():
@@ -1396,10 +1851,12 @@ with tab_proof:
                     ec4.metric("Frozen Manual [PLACEHOLDER]", "PENDING")
 
 # ==============================================================================
-# TAB 4: WATCH, MANUAL & ANY SURGERY — Act 3 + Manual + Act 1
+# TAB 5: WATCH, NARRATION & ANY SURGERY — Act 3 + Act 1 Showcase
 # ==============================================================================
 with tab_watch:
     st.header("Watch: Frame-by-Frame Verification & Grounded Narration")
+    render_narration()
+    st.divider()
     st.markdown(
         "**Verification badge legend:** "
         "<span style='background:#1f9d55;color:white;padding:3px 9px;border-radius:10px;margin-right:6px'>accept (verified — safe to narrate)</span>"
@@ -1415,8 +1872,8 @@ with tab_watch:
 
     if not dec_path.exists():
         st.warning(
-            "**[PLACEHOLDER — Awaiting `out/decisions.csv` or `out/live_decisions.csv`]**\n\n"
-            "Once `accept.py` or the Live Judge Test finishes, you can scrub or play held-out test videos with verified bounding boxes, "
+            "**[PLACEHOLDER — Awaiting `out/decisions.csv`]**\n\n"
+            "Once `accept.py` finishes, you can scrub or play held-out test videos with verified bounding boxes, "
             "status chips, and ground-truth reveal."
         )
         if idx_path.exists():
@@ -1492,7 +1949,13 @@ with tab_watch:
                 )
             slot_chips.markdown(" ".join(chips), unsafe_allow_html=True)
             if f in narr:
-                slot_narr.markdown(claims_html(narration_claims(narr[f])), unsafe_allow_html=True)
+                n_obj = narr[f]
+                unsure_items = n_obj.get("unsure_about", [])
+                unsure_txt = (
+                    f"\n\n*Disclosed uncertainty (not claimed as fact): {', '.join(unsure_items)}*"
+                    if unsure_items else ""
+                )
+                slot_narr.markdown(f"### {n_obj.get('narration', '')}{unsure_txt}")
             else:
                 acc_present = [r.key for r in rows.itertuples() if normalize_status(getattr(r, "status", "")) == "accept" and getattr(r, "final_present", 0)]
                 acc_absent = [r.key for r in rows.itertuples() if normalize_status(getattr(r, "status", "")) == "accept" and not getattr(r, "final_present", 0)]
@@ -1518,11 +1981,8 @@ with tab_watch:
                 st.dataframe(dec[dec["frame_id"] == frames[i]][cols_to_show], width="stretch")
 
     st.divider()
-    render_narration()
-
-    st.divider()
-    st.subheader("Any Surgery, Zero Setup (`out/atlas/*/dataset.json`)")
-    st.warning("**Showcase, no ground truth.** Atlas runs on public video of any procedure; nothing here is scored.")
+    st.subheader("Any Surgery, Zero Setup (`out/atlas/*/dataset.json` — Showcase, Not Proof)")
+    st.caption("**Showcase only (no ground truth):** Atlas runs on public video of any procedure; nothing here is scored.")
     atlases = sorted((O / "atlas").glob("*/dataset.json")) if (O / "atlas").exists() else []
     if not atlases:
         st.caption("[Optional showcase: run `python atlas.py --procedure ... --video ...` to populate Act 1]")

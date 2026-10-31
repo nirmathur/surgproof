@@ -198,10 +198,17 @@ def audit_prevalence_and_liver(idx: pd.DataFrame | None, dec: pd.DataFrame | Non
 
 
 def audit_gt_separation_in_label_files(out_dir: Path, coord_dir: Path) -> dict:
-    """Validation Audit 12:42 check: labels_*.jsonl must NOT contain `truth` or `gt_*`."""
+    """Validation Audit 12:42 check: labels_*.jsonl and amber_rounds.jsonl must NOT contain `truth` or `gt_*`."""
     checked = {}
     leaked_files = []
-    for p in sorted(set(list(out_dir.glob("labels_*.jsonl")) + list(coord_dir.glob("labels_*.jsonl")))):
+    candidates = (
+        list(out_dir.glob("labels_*.jsonl"))
+        + list(coord_dir.glob("labels_*.jsonl"))
+        + list(out_dir.glob("amber_rounds*.jsonl"))
+        + list(out_dir.glob("annotations*.jsonl"))
+        + list(out_dir.glob("localize_rounds*.jsonl"))
+    )
+    for p in sorted(set(candidates)):
         if not p.exists() or p.stat().st_size == 0:
             continue
         df = pd.read_json(p, lines=True)
@@ -335,6 +342,9 @@ def evaluate_raw_labels_jsonl(path: Path | None, idx: pd.DataFrame | None) -> di
     if test.empty or "correct" not in test.columns:
         return None
 
+    from eval.score_decisions import _initial_trust
+
+    test["zero_label_trust"] = [_initial_trust(r) for r in test.itertuples()]
     test_5 = test[test.key.isin(HEADLINE_LABELS)]
     test_3 = test[test.key.isin(CORE_BALANCED_LABELS)]
     conf_col = "conf" if "conf" in test.columns else "confidence"
@@ -344,13 +354,32 @@ def evaluate_raw_labels_jsonl(path: Path | None, idx: pd.DataFrame | None) -> di
         sub = test[test.key == k]
         if sub.empty:
             continue
+        pos_sub = sub[sub.present == 1]
+        pv_pos_sub = (
+            pos_sub[pos_sub.pv_match.apply(lambda x: bool(pd.notna(x) and x))]
+            if "pv_match" in pos_sub.columns
+            else pd.DataFrame()
+        )
+        ver_sub = sub[sub["zero_label_trust"] >= 0.70]
         per_label[k] = {
             "informative": k not in UNINFORMATIVE_LABELS,
             "n_frames": int(len(sub)),
             "n_pos_gt": int(sub.truth.sum()),
             "pred_pos_rate": round(float(sub.present.mean()), 4),
+            "positive_claim_precision": round(float((pos_sub.truth == 1).mean()), 4) if len(pos_sub) else None,
+            "double_checked_pos_precision": round(float((pv_pos_sub.truth == 1).mean()), 4) if len(pv_pos_sub) else None,
+            "verified_trust_70_acc": round(float(ver_sub.correct.mean()), 4) if len(ver_sub) else None,
+            "verified_trust_70_coverage": round(float(len(ver_sub) / len(sub)), 4) if len(sub) else 0.0,
             "acc": video_cluster_bootstrap_ci(sub, lambda d: float(d.correct.mean())),
         }
+
+    pos_5 = test_5[test_5.present == 1]
+    pv_pos_5 = (
+        pos_5[pos_5.pv_match.apply(lambda x: bool(pd.notna(x) and x))]
+        if "pv_match" in pos_5.columns and not pos_5.empty
+        else pd.DataFrame()
+    )
+    ver_5 = test_5[test_5["zero_label_trust"] >= 0.70]
 
     scorable_keys = sorted(per_label.keys())
     return {
@@ -361,6 +390,10 @@ def evaluate_raw_labels_jsonl(path: Path | None, idx: pd.DataFrame | None) -> di
         "headline_5_labels_acc": video_cluster_bootstrap_ci(test_5, lambda d: float(d.correct.mean())) if not test_5.empty else None,
         "core_3_balanced_labels_acc": video_cluster_bootstrap_ci(test_3, lambda d: float(d.correct.mean())) if not test_3.empty else None,
         "all_6_labels_non_headline_acc": video_cluster_bootstrap_ci(test, lambda d: float(d.correct.mean())),
+        "headline_5_positive_claim_precision": round(float((pos_5.truth == 1).mean()), 4) if len(pos_5) else None,
+        "headline_5_double_checked_pos_precision": round(float((pv_pos_5.truth == 1).mean()), 4) if len(pv_pos_5) else None,
+        "headline_5_verified_trust_70_acc": video_cluster_bootstrap_ci(ver_5, lambda d: float(d.correct.mean())) if not ver_5.empty else None,
+        "headline_5_verified_trust_70_coverage": round(float(len(ver_5) / len(test_5)), 4) if len(test_5) else 0.0,
         "headline_5_risk_coverage": risk_coverage_metrics(test_5.correct.values, test_5[conf_col].values) if not test_5.empty else None,
         "per_label": per_label,
     }
@@ -384,12 +417,20 @@ def evaluate_external_datasets(data_dir: Path, out_dir: Path) -> dict:
             "n_videos": int(ext_idx.video.nunique()) if "video" in ext_idx.columns else None,
             "scorable_labels": scorable,
             "pos_counts": {k: int((ext_idx[f"gt_{k}"] == 1).sum()) for k in scorable},
+            "label_files_eval": {},
         }
         # Match any labels_*<ds_name>*.jsonl or decisions_*<ds_name>*.csv in out_dir
         lbl_candidates = sorted(out_dir.glob(f"*{ds_name}*.jsonl"))
         dec_candidates = sorted(out_dir.glob(f"*decisions*{ds_name}*.csv"))
-        if lbl_candidates:
-            ds_info["raw_labels_eval"] = evaluate_raw_labels_jsonl(lbl_candidates[-1], ext_idx)
+        for lbl_p in lbl_candidates:
+            ev = evaluate_raw_labels_jsonl(lbl_p, ext_idx)
+            if ev is not None:
+                ds_info["label_files_eval"][lbl_p.name] = ev
+        if ds_info["label_files_eval"]:
+            # Prefer manual run as primary `raw_labels_eval` if present
+            manual_keys = [k for k in ds_info["label_files_eval"] if "manual" in k]
+            primary_key = manual_keys[-1] if manual_keys else list(ds_info["label_files_eval"].keys())[-1]
+            ds_info["raw_labels_eval"] = ds_info["label_files_eval"][primary_key]
         if dec_candidates:
             ext_dec = pd.read_csv(dec_candidates[-1])
             ds_info["verifier_eval"] = compute_verifier_test_metrics(ext_dec, ext_idx)
@@ -397,7 +438,11 @@ def evaluate_external_datasets(data_dir: Path, out_dir: Path) -> dict:
     return out_ext
 
 
-def compute_verifier_test_metrics(dec: pd.DataFrame | None, idx: pd.DataFrame | None = None) -> dict:
+def compute_verifier_test_metrics(
+    dec: pd.DataFrame | None,
+    idx: pd.DataFrame | None = None,
+    out_dir: Path | None = None,
+) -> dict:
     """Compute independent video-level cluster bootstrap CIs on TEST split for verifier claims."""
     if dec is None:
         return {}
@@ -443,6 +488,10 @@ def compute_verifier_test_metrics(dec: pd.DataFrame | None, idx: pd.DataFrame | 
             "accepted_coverage": video_cluster_bootstrap_ci(sub_k, _acc_cov),
         }
 
+    from eval.score_decisions import score_amber_rounds
+
+    amber_rounds = score_amber_rounds(test_5 if not test_5.empty else test, out_dir or C.OUT_DIR)
+
     return {
         "headline_5_labels": {
             "labels": HEADLINE_LABELS,
@@ -451,6 +500,7 @@ def compute_verifier_test_metrics(dec: pd.DataFrame | None, idx: pd.DataFrame | 
             "accepted_coverage": video_cluster_bootstrap_ci(test_5, _acc_cov),
             "accepted_minus_raw_acc_delta": video_cluster_bootstrap_ci(test_5, _delta_acc),
         },
+        "amber_loop_by_round": amber_rounds,
         "core_3_balanced_labels": {
             "labels": CORE_BALANCED_LABELS,
             "single_raw_acc": video_cluster_bootstrap_ci(test_3, _raw_acc),
@@ -626,7 +676,7 @@ def run_audit(
         "manual_provenance": audit_manual_provenance(out_dir, coord_dir),
         "blank_baseline_test_evaluation": evaluate_raw_labels_jsonl(blank_p, idx),
         "manual_raw_test_evaluation": evaluate_raw_labels_jsonl(manual_lbl_p, idx),
-        "verifier_test_evaluation": compute_verifier_test_metrics(dec, idx),
+        "verifier_test_evaluation": compute_verifier_test_metrics(dec, idx, out_dir),
         "student_test_evaluation": compute_student_test_metrics(idx, probs, stu_json),
         "external_validation": evaluate_external_datasets(data_dir, out_dir),
     }
@@ -687,6 +737,18 @@ def format_markdown_report(res: dict) -> str:
             m = v5.get(k)
             if m:
                 lines.append(f"- **{k}**: `{m['point']:.4f}` (95% video CI: `{m['ci95']}`, n_videos={m['n_videos']})")
+        ar = res.get("verifier_test_evaluation", {}).get("amber_loop_by_round", [])
+        if ar:
+            lines.append("- **Amber Loop Per-Round Resolution on TEST (5 Informative Labels)**:")
+            for r_info in ar:
+                lines.append(
+                    f"  - Round `{r_info['round']}` (`{r_info['stage']}`): "
+                    f"ambers_remaining = `{r_info['ambers_remaining']}`, "
+                    f"resolved_in_round = `{r_info['resolved_in_round']}` "
+                    f"(resolved_precision = `{r_info['resolved_in_round_precision']}`), "
+                    f"cumulative_accepted = `{r_info['accepted_count']}` "
+                    f"(precision = `{r_info['cumulative_accepted_precision']}`)"
+                )
     else:
         lines.append("- *Waiting on `decisions.csv` for live test verifier CIs.*")
 
@@ -720,20 +782,46 @@ def format_markdown_report(res: dict) -> str:
                 f"- **{ds_name}** ({ds_info.get('n_frames')} frames, {ds_info.get('n_videos')} videos; "
                 f"scorable: `{ds_info.get('scorable_labels')}`, pos_counts: `{ds_info.get('pos_counts')}`)"
             )
-            raw_ev = ds_info.get("raw_labels_eval")
-            if raw_ev and raw_ev.get("headline_5_labels_acc"):
-                h = raw_ev["headline_5_labels_acc"]
-                rc = raw_ev.get("headline_5_risk_coverage") or {}
+            for fn_key, raw_ev in ds_info.get("label_files_eval", {}).items():
+                if raw_ev and raw_ev.get("headline_5_labels_acc"):
+                    h = raw_ev["headline_5_labels_acc"]
+                    v70 = raw_ev.get("headline_5_verified_trust_70_acc")
+                    v70_str = (
+                        f", zero-label verified (trust>=0.70) acc = `{v70['point']:.4f}` (cov=`{raw_ev.get('headline_5_verified_trust_70_coverage')}`)"
+                        if v70
+                        else ""
+                    )
+                    lines.append(
+                        f"  - `{fn_key}` ({raw_ev['n_test_rows']} test rows, {raw_ev['n_test_videos']} videos): "
+                        f"raw acc = `{h['point']:.4f}` (95% video CI `{h['ci95']}`), "
+                        f"pos claim precision = `{raw_ev.get('headline_5_positive_claim_precision')}`, "
+                        f"double-checked pos precision = `{raw_ev.get('headline_5_double_checked_pos_precision')}`"
+                        f"{v70_str}"
+                    )
+                    per_l = ", ".join(
+                        f"{k}: acc={v['acc']['point']:.3f} {v['acc']['ci95']}, pos_prec={v.get('positive_claim_precision')}, ver_acc={v.get('verified_trust_70_acc')} (pos_gt={v['n_pos_gt']}/{v['n_frames']})"
+                        for k, v in raw_ev.get("per_label", {}).items()
+                    )
+                    lines.append(f"    - Per-label: {per_l}")
+            ver_ev = ds_info.get("verifier_eval", {})
+            vh5 = ver_ev.get("headline_5_labels", {})
+            if vh5 and vh5.get("accepted_acc"):
+                aa = vh5["accepted_acc"]
+                ac = vh5["accepted_coverage"]
+                ad = vh5.get("accepted_minus_raw_acc_delta")
+                ar = ver_ev.get("amber_loop_by_round", [])
+                ar_str = (
+                    " -> ".join(f"R{r['round']}:{r['ambers_remaining']}" for r in ar)
+                    if ar
+                    else "n/a"
+                )
                 lines.append(
-                    f"  - Raw (`{raw_ev['file']}`, {raw_ev['n_test_rows']} test rows, {raw_ev['n_test_videos']} videos): "
-                    f"scorable acc = `{h['point']:.4f}` (95% video CI `{h['ci95']}`), "
-                    f"coverage@95% = `{rc.get('coverage_at_95')}`, AURC = `{rc.get('aurc')}`"
+                    f"  - **3-Round Argon Verifier (`decisions_{ds_name}.csv`)**: "
+                    f"accepted_acc = `{aa['point']:.4f}` (95% video CI `{aa['ci95']}`), "
+                    f"coverage = `{ac['point']:.4f}` (`{ac['ci95']}`), "
+                    f"delta vs raw = `{ad['point']:+.4f}` (`{ad['ci95']}`), "
+                    f"Amber loop shrinkage = `[{ar_str}]`"
                 )
-                per_l = ", ".join(
-                    f"{k}={v['acc']['point']:.3f} {v['acc']['ci95']} (pos={v['n_pos_gt']}/{v['n_frames']})"
-                    for k, v in raw_ev.get("per_label", {}).items()
-                )
-                lines.append(f"  - Per-label: {per_l}")
     else:
         lines.append("- *No external datasets found.*")
 
