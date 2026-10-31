@@ -342,6 +342,7 @@ def apply_argon_verdict(
 ) -> str:
     """Apply an Argon revision verdict in-place for `round_num` and return the resulting status."""
     orig_pres = int(_safe_present(d.at[row_idx, "present"]))
+    orig_conf = _safe_prob(d.at[row_idx, "conf"] if "conf" in d.columns else 0.5, default=0.5)
     pres = int(bool(v.get("present", orig_pres)))
     conf_v = _safe_prob(v.get("confidence", 0.5), default=0.5)
     pw = _safe_prob(d.at[row_idx, "p_wrong"] if "p_wrong" in d.columns else 0.5, default=0.5)
@@ -363,7 +364,7 @@ def apply_argon_verdict(
         elif pres == 0 and conf_v >= 0.94 and key_str != "liver":
             new_status = "accept"
             d.at[row_idx, "trust"] = round(0.70 + 0.03 * conf_v * 0.99, 5)
-        elif pres == 1 and conf_v >= 0.90 and (pv_ok or (key_str == "liver" and pw <= 0.05)) and pw <= 0.15:
+        elif pres == 1 and conf_v >= 0.88 and (pv_ok or (key_str == "liver" and pw <= 0.05)) and pw <= 0.35:
             new_status = "accept"
             d.at[row_idx, "trust"] = round(0.70 + 0.03 * conf_v * 0.99, 5)
         else:
@@ -381,7 +382,11 @@ def apply_argon_verdict(
             new_status = "reject"
             d.at[row_idx, "final_present"] = 0
             d.at[row_idx, "trust"] = round(min(float(d.at[row_idx, "trust"]), 0.30), 5)
-        elif pres == 1 and r1_pres == 1 and orig_pres == 1 and conf_v >= 0.86 and pv_ok and pw <= 0.15:
+        elif pres == 1 and r1_pres == 1 and orig_pres == 1 and conf_v >= 0.85 and pv_ok and pw <= 0.40:
+            new_status = "accept"
+            d.at[row_idx, "final_present"] = 1
+            d.at[row_idx, "trust"] = round(0.70 + 0.025 * conf_v, 5)
+        elif pres == 1 and r1_pres == 1 and orig_pres == 1 and conf_v >= 0.92 and not pv_ok and pw <= 0.03 and orig_conf >= 0.96:
             new_status = "accept"
             d.at[row_idx, "final_present"] = 1
             d.at[row_idx, "trust"] = round(0.70 + 0.025 * conf_v, 5)
@@ -389,7 +394,6 @@ def apply_argon_verdict(
             new_status = "AMBER"
     else:
         # Round 3+: 3-round consensus adjudication
-        orig_conf = _safe_prob(d.at[row_idx, "conf"] if "conf" in d.columns else 0.5, default=0.5)
         pos_votes = sum(1 for h in history if int(bool(h["present"])) == 1)
         maj_pres = 1 if pos_votes > (len(history) / 2.0) else 0
         mean_conf = float(np.mean([_safe_prob(h.get("confidence", 0.5)) for h in history]))
@@ -402,15 +406,15 @@ def apply_argon_verdict(
             new_status = "reject"
             d.at[row_idx, "final_present"] = 0
             d.at[row_idx, "trust"] = round(min(float(d.at[row_idx, "trust"]), 0.28), 5)
-        elif pos_votes == len(history) and orig_pres == 1 and pv_ok and (pw <= 0.15 or orig_conf >= 0.90) and mean_conf >= 0.85:
+        elif pos_votes == len(history) and orig_pres == 1 and pv_ok and mean_conf >= 0.82:
             new_status = "accept"
             d.at[row_idx, "final_present"] = 1
             d.at[row_idx, "trust"] = round(0.70 + 0.02 * mean_conf, 5)
-        elif pos_votes == len(history) and orig_pres == 1 and not pv_ok and pw <= 0.10 and mean_conf >= 0.92:
+        elif pos_votes == len(history) and orig_pres == 1 and not pv_ok and pw <= 0.10 and mean_conf >= 0.90:
             new_status = "accept"
             d.at[row_idx, "final_present"] = 1
             d.at[row_idx, "trust"] = round(0.70 + 0.02 * mean_conf, 5)
-        elif maj_pres == 1 and orig_pres == 1 and not pv_ok and pw >= 0.15:
+        elif maj_pres == 1 and orig_pres == 1 and not pv_ok and pw >= 0.10:
             # Crop check disagreed and critic flagged risk -> reject false positive
             new_status = "reject"
             d.at[row_idx, "final_present"] = 0
@@ -447,7 +451,11 @@ async def run_amber_loop(
             break
 
         amber_rows["_is_headline"] = amber_rows["key"].isin(HEADLINE_KEYS).astype(int)
-        amber_rows = amber_rows.sort_values(["_is_headline", "trust"], ascending=[False, False])
+        if "split" in amber_rows.columns:
+            amber_rows["_split_prio"] = amber_rows["split"].map({"test": 2, "calib": 2, "train": 1}).fillna(1).astype(int)
+        else:
+            amber_rows["_split_prio"] = 1
+        amber_rows = amber_rows.sort_values(["_is_headline", "_split_prio", "trust"], ascending=[False, False, False])
         band = amber_rows.head(int(argon_budget))
         gem.trace(
             "argon",
