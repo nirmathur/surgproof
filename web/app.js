@@ -285,6 +285,9 @@
           pass2: null,
           box_iou: null,
           mask_url: null,
+          mask_r0_url: null,
+          mask_r1_url: null,
+          mask_r2_url: null,
           mask_b64: null,
           mask_iou: null,
           mask_source: null,
@@ -293,10 +296,12 @@
           loc_round: null,
           loc_status: null,
           maskCandidates: [
+            `data/masks_r1/${frameId}_${k}.png`,
             `data/masks/${frameId}_${k}.png`,
+            `/web/data/masks_r1/${frameId}_${k}.png`,
             `/web/data/masks/${frameId}_${k}.png`,
+            `/out/masks_r1/${frameId}_${k}.png`,
             `/out/masks/${frameId}_${k}.png`,
-            `../out/masks/${frameId}_${k}.png`,
           ],
           hasNewLivePulse: false,
         };
@@ -304,6 +309,31 @@
       state.frameById[frameId] = rec;
     }
     return state.frameById[frameId];
+  }
+
+  function buildMaskCandidatesForRound(frameId, k, lbl, roundIdx) {
+    const r = Number(roundIdx);
+    const r0 = [
+      lbl && lbl.mask_r0_url ? lbl.mask_r0_url : `data/masks/${frameId}_${k}.png`,
+      `/web/data/masks/${frameId}_${k}.png`,
+      `/out/masks/${frameId}_${k}.png`,
+      `../out/masks/${frameId}_${k}.png`,
+    ];
+    const r1 = [
+      lbl && lbl.mask_r1_url ? lbl.mask_r1_url : `data/masks_r1/${frameId}_${k}.png`,
+      `/web/data/masks_r1/${frameId}_${k}.png`,
+      `/out/masks_r1/${frameId}_${k}.png`,
+      `../out/masks_r1/${frameId}_${k}.png`,
+    ];
+    const r2 = [
+      lbl && lbl.mask_r2_url ? lbl.mask_r2_url : `data/masks_r2/${frameId}_${k}.png`,
+      `/web/data/masks_r2/${frameId}_${k}.png`,
+      `/out/masks_r2/${frameId}_${k}.png`,
+      `../out/masks_r2/${frameId}_${k}.png`,
+    ];
+    if (r === 0) return r0;
+    if (r === 2) return [...r2, ...r1, ...r0];
+    return [...r1, ...r0];
   }
 
   function mergeAnnotationRow(ann, markPulse = false) {
@@ -482,23 +512,30 @@
             if (v.mask_source) t.mask_source = String(v.mask_source);
             if (v.loc_round !== undefined) t.loc_round = Number(v.loc_round);
             if (v.loc_status || v.spatial_status) t.loc_status = normStatus(v.loc_status || v.spatial_status);
+            if (v.mask_r0_url) t.mask_r0_url = String(v.mask_r0_url);
+            if (v.mask_r1_url) t.mask_r1_url = String(v.mask_r1_url);
+            if (v.mask_r2_url) t.mask_r2_url = String(v.mask_r2_url);
             if (v.mask_url || v.ai_mask_url || v.mask_path) {
               const mu = String(v.mask_url || v.ai_mask_url || v.mask_path);
               t.mask_url = mu;
-              t.maskCandidates = [mu, "/" + mu.replace(/^\/+/, ""), ...t.maskCandidates];
+              t.maskCandidates = buildMaskCandidatesForRound(fr.frame_id, k, t, state.maskRound !== undefined ? state.maskRound : 1);
             }
             if (v.mask_b64) t.mask_b64 = v.mask_b64;
           }
         }
       }
+      if (exported.mask_results) state.maskResults = exported.mask_results;
+      if (exported.mask_refine_results) state.maskRefineResults = exported.mask_refine_results;
     }
 
     // 2. Supplement from raw /out/* files so the UI works even before web/export.py runs
-    const [resJson, locResJson, stuJson, manJson, narrJson, decText, annText, polyText] = await Promise.all([
+    const [resJson, locResJson, stuJson, manJson, maskResJson, maskRefJson, narrJson, decText, annText, polyText] = await Promise.all([
       state.results ? Promise.resolve(state.results) : fetchJsonSafe(["/out/results.json", "../out/results.json", "data/results.json"]),
       state.localizeResults ? Promise.resolve(state.localizeResults) : fetchJsonSafe(["/out/localize_results.json", "../out/localize_results.json", "data/localize_results.json"]),
       state.student ? Promise.resolve(state.student) : fetchJsonSafe(["/out/student.json", "../out/student.json", "data/student.json"]),
       state.manual ? Promise.resolve(state.manual) : fetchJsonSafe(["/out/manual.json", "../out/manual.json", "data/manual.json"]),
+      state.maskResults ? Promise.resolve(state.maskResults) : fetchJsonSafe(["/out/mask_results.json", "../out/mask_results.json", "data/mask_results.json"]),
+      state.maskRefineResults ? Promise.resolve(state.maskRefineResults) : fetchJsonSafe(["/out/mask_refine_results.json", "../out/mask_refine_results.json", "data/mask_refine_results.json"]),
       fetchJsonSafe([`/out/narration_${vid}.json`, `../out/narration_${vid}.json`, `data/narration_${vid}.json`]),
       Object.keys(state.frameById).length > 0 ? Promise.resolve(null) : fetchTextSafe(["/out/decisions.csv", "../out/decisions.csv"]),
       fetchTextSafe(["/out/annotations.jsonl", "../out/annotations.jsonl", "/out/annotations_live.jsonl", "../out/annotations_live.jsonl"]),
@@ -509,6 +546,8 @@
     if (locResJson) state.localizeResults = locResJson;
     if (stuJson) state.student = stuJson;
     if (manJson) state.manual = manJson;
+    if (maskResJson) state.maskResults = maskResJson;
+    if (maskRefJson) state.maskRefineResults = maskRefJson;
 
     if (narrJson) {
       const sents = Array.isArray(narrJson) ? narrJson : (narrJson.sentences || []);
@@ -604,7 +643,7 @@
     renderTopHeadlines();
     renderAmberFunnel();
     renderTimeline();
-    selectFrame(state.currentFrameIdx);
+    setMaskRound(state.maskRound !== undefined ? state.maskRound : 1);
     renderManualRule(state.selectedKey);
     renderGateDrawer();
   }
@@ -1276,7 +1315,7 @@
       for (const k of LABEL_KEYS) {
         const lbl = fr.labels[k];
         if (!lbl || !getEffectivePresent(fr.frame_id, k, lbl)) continue;
-        const mKey = `${fr.frame_id}__${k}__mask`;
+        const mKey = `${fr.frame_id}__${k}__${lbl.mask_url || state.maskRound || 0}`;
         const cands = lbl.mask_b64
           ? [`data:image/png;base64,${lbl.mask_b64.replace(/^data:image\/\w+;base64,/, "")}`, ...lbl.maskCandidates]
           : lbl.maskCandidates;
@@ -1730,6 +1769,66 @@
     }
   }
 
+  // Self-Correction Mask Round Slider (r0 -> r1 -> r2)
+  function getRefineRoundStatText(roundIdx) {
+    const r = Number(roundIdx);
+    const ref = state.maskRefineResults || (state.maskResults && state.maskResults.self_correction) || null;
+    if (ref) {
+      const rObj = ref[`round_${r}`] || (ref.rounds && ref.rounds[r]) || null;
+      const nVal = ref.n_masks || ref.n || (rObj && rObj.n) || null;
+      if (rObj && typeof rObj.mean_iou === "number") {
+        return `r${r} IoU ${rObj.mean_iou.toFixed(2)}` + (nVal ? ` (n=${nVal})` : "");
+      }
+    }
+    const mr = state.maskResults && state.maskResults.per_round_improvement && state.maskResults.per_round_improvement.accepted_test_masks;
+    if (mr) {
+      const keyMap = { 0: "round_0_two_pass", 1: "round_1_crop_loop", 2: "round_2_crop_loop" };
+      const entry = mr[keyMap[r]];
+      if (entry && typeof entry.mean_iou === "number") {
+        return `r${r} IoU ${entry.mean_iou.toFixed(2)} (n=${mr.n || "pending"})`;
+      }
+    }
+    return `r${r}`;
+  }
+
+  function setMaskRound(roundIdx) {
+    const r = Math.max(0, Math.min(2, Number(roundIdx) || 0));
+    state.maskRound = r;
+    const rng = document.getElementById("rng-mask-round");
+    if (rng && Number(rng.value) !== r) rng.value = String(r);
+
+    document.querySelectorAll(".mask-round-btn").forEach((btn) => {
+      if (Number(btn.dataset.round) === r) {
+        btn.classList.add("btn-accept");
+      } else {
+        btn.classList.remove("btn-accept");
+      }
+    });
+
+    const statEl = document.getElementById("mask-round-stat");
+    if (statEl) {
+      statEl.textContent = getRefineRoundStatText(r);
+    }
+
+    for (const fr of state.frames) {
+      for (const k of LABEL_KEYS) {
+        const lbl = fr.labels[k];
+        if (!lbl) continue;
+        const cands = buildMaskCandidatesForRound(fr.frame_id, k, lbl, r);
+        lbl.maskCandidates = cands;
+        lbl.mask_url = cands[0];
+      }
+    }
+
+    const extViewer = getExternalViewer();
+    if (state.externalViewerMounted && extViewer && typeof extViewer.update === "function") {
+      extViewer.update(buildNormalizedBundle());
+    }
+    if (state.frames[state.currentFrameIdx]) {
+      selectFrame(state.currentFrameIdx);
+    }
+  }
+
   // 7-Beat Guided Pipeline Walkthrough Mode (Promo North Star)
   function applyLayerToggles(cfg) {
     const map = {
@@ -1763,9 +1862,15 @@
     }
   }
 
+  const GUIDED_BEATS = [1, 2, 3, 4, 5, 5.5, 6, 7];
+
   function setGuidedBeat(beatNum) {
-    const b = Math.max(1, Math.min(7, Number(beatNum) || 1));
+    const b = GUIDED_BEATS.includes(Number(beatNum)) ? Number(beatNum) : 1;
     state.guidedBeat = b;
+    if (state.morphTimer) {
+      clearInterval(state.morphTimer);
+      state.morphTimer = null;
+    }
     const banner = document.getElementById("guided-beat-banner");
     if (banner) banner.style.display = "flex";
 
@@ -1821,11 +1926,24 @@
       applyLayerToggles({ masks: false, polygons: false, boxes: true, dualPass: true, tips: false, hud: true, gt: false });
       selectFrame(targetIdx);
     } else if (b === 5) {
-      if (titleEl) titleEl.textContent = "Beat 5 · AI draws segmentation masks, polygon outlines, boxes & tool tips.";
+      if (titleEl) titleEl.textContent = "Beat 5 · The AI draws the masks, polygons, boxes & tool tips.";
       if (descEl) descEl.textContent = "Two-pass polygon segmentation (IoU >= 0.50 consensus) + bounding boxes + instrument tip crosshairs + surgical phase.";
       if (metaEl) metaEl.textContent = `out/masks/ + out/polygons/${state.video}.jsonl`;
+      setMaskRound(0);
       applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: true, gt: false });
       selectFrame(targetIdx);
+    } else if (b === 5.5) {
+      const r0Txt = getRefineRoundStatText(0);
+      const r1Txt = getRefineRoundStatText(1);
+      if (titleEl) titleEl.textContent = "Beat 5b · Then corrects itself (Round 0 → Round 1 Mask Refinement).";
+      if (descEl) descEl.textContent = `Self-critique & refinement morphs Round 0 mask (out/masks/) to Round 1 (out/masks_r1/): ${r0Txt} → ${r1Txt}.`;
+      if (metaEl) metaEl.textContent = "Use Round Slider r0 / r1 / r2 to inspect";
+      applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: true, gt: false });
+      setMaskRound(0);
+      selectFrame(targetIdx);
+      state.morphTimer = setTimeout(() => {
+        setMaskRound(1);
+      }, 1100);
     } else if (b === 6) {
       const ambersLeft = getResidualAmbers().length;
       if (titleEl) titleEl.textContent = "Beat 6 · Final Pass (Human Gate) · People stay in control.";
@@ -1838,7 +1956,8 @@
       const nTxt = document.getElementById("headline-n")?.textContent || "pending";
       if (titleEl) titleEl.textContent = `Beat 7 · Held-Out Proof: ${accTxt}`;
       if (descEl) descEl.textContent = `${nTxt} · Ground truth touched once at the end to score the held-out test split.`;
-      if (metaEl) metaEl.textContent = "Source: out/results.json · out/student.json · out/localize_results.json";
+      if (metaEl) metaEl.textContent = "Source: out/results.json · out/student.json · out/mask_results.json";
+      setMaskRound(1);
       applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: true, gt: false });
       selectFrame(targetIdx);
     }
@@ -1872,8 +1991,9 @@
     }
     if (autoBtn) autoBtn.textContent = "⏸ Pause Beats";
     state.guidedTimer = setInterval(() => {
-      const nextB = ((state.guidedBeat || 1) % 7) + 1;
-      setGuidedBeat(nextB);
+      const idx = GUIDED_BEATS.indexOf(state.guidedBeat || 1);
+      const nextIdx = idx < 0 || idx >= GUIDED_BEATS.length - 1 ? 0 : idx + 1;
+      setGuidedBeat(GUIDED_BEATS[nextIdx]);
     }, 3800);
   }
 
@@ -1919,15 +2039,26 @@
     });
 
     on("btn-beat-prev", "click", () => {
-      const cur = state.guidedBeat || 1;
-      setGuidedBeat(cur <= 1 ? 7 : cur - 1);
+      const idx = GUIDED_BEATS.indexOf(state.guidedBeat || 1);
+      const prevIdx = idx <= 0 ? GUIDED_BEATS.length - 1 : idx - 1;
+      setGuidedBeat(GUIDED_BEATS[prevIdx]);
     });
     on("btn-beat-next", "click", () => {
-      const cur = state.guidedBeat || 1;
-      setGuidedBeat(cur >= 7 ? 1 : cur + 1);
+      const idx = GUIDED_BEATS.indexOf(state.guidedBeat || 1);
+      const nextIdx = idx < 0 || idx >= GUIDED_BEATS.length - 1 ? 0 : idx + 1;
+      setGuidedBeat(GUIDED_BEATS[nextIdx]);
     });
     on("btn-beat-autoplay", "click", toggleGuidedAutoplay);
     on("btn-beat-close", "click", stopGuidedWalkthrough);
+
+    on("rng-mask-round", "input", (e) => {
+      setMaskRound(Number(e.target.value));
+    });
+    document.querySelectorAll(".mask-round-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setMaskRound(Number(btn.dataset.round));
+      });
+    });
 
     on("btn-first", "click", () => selectFrame(0));
     on("btn-prev", "click", () => selectFrame(state.currentFrameIdx - 1));

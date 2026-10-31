@@ -137,13 +137,16 @@ def load_safe_index_map(index_csv_path: Path = DEFAULT_INDEX_CSV) -> dict[str, d
                 if k in row and not _is_forbidden_col(k):
                     safe_row[k] = str(row.get(k) or "")
             raw_path = safe_row.get("path") or safe_row.get("img_path") or ""
+            if "/raw/" in raw_path:
+                raw_rel = "raw/" + raw_path.split("/raw/", 1)[1].lstrip("/")
+            else:
+                raw_rel = raw_path.lstrip("/")
             safe_row["path"] = raw_path
             web_frame = WEB_DIR / "data" / "frames" / f"{fid}.png"
             if web_frame.exists():
                 safe_row["img_url"] = f"/data/frames/{fid}.png"
-            elif raw_path:
-                rel = raw_path.lstrip("/")
-                safe_row["img_url"] = f"/{rel}"
+            elif raw_rel:
+                safe_row["img_url"] = f"/{raw_rel}"
             else:
                 safe_row["img_url"] = ""
             out[fid] = safe_row
@@ -908,6 +911,12 @@ class SurgProofRequestHandler(SimpleHTTPRequestHandler):
                 cand_repo = (REPO_ROOT / clean_rel).resolve()
                 if cand_repo.exists():
                     return str(cand_repo)
+            marker = "/" + allowed_prefix
+            if marker in ("/" + clean_rel):
+                tail = ("/" + clean_rel).split(marker, 1)[1].lstrip("/")
+                cand_tail = (REPO_ROOT / allowed_prefix / tail).resolve()
+                if cand_tail.exists():
+                    return str(cand_tail)
 
         return str(cand_web)
 

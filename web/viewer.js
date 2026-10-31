@@ -766,8 +766,9 @@
       } else {
         dst.mask_url = s;
         const clean = s.replace(/^\/+/, "");
+        const baseCands = Array.isArray(src.maskCandidates) && src.maskCandidates.length > 0 ? src.maskCandidates : dst.maskCandidates;
         const cands = [s, "/" + clean, "../" + clean];
-        for (const c of dst.maskCandidates) {
+        for (const c of baseCands) {
           if (!cands.includes(c)) cands.push(c);
         }
         dst.maskCandidates = cands;
@@ -1222,7 +1223,7 @@
 
         // 3a. PNG / base64 mask image
         if (lbl.maskCandidates && lbl.maskCandidates.length > 0 && (lbl.mask_url || effPres === 1)) {
-          const mCacheKey = `${fr.frame_id}__${k}__mask`;
+          const mCacheKey = `${fr.frame_id}__${k}__${lbl.mask_url || "mask"}`;
           const rawMaskImg = loadImageCandidates(lbl.maskCandidates, state.maskRawCache, mCacheKey, () => {
             renderCurrentFrameSync();
           });

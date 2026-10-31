@@ -202,9 +202,13 @@ def export_video_bundle(
     frames_out_dir = web_data_dir / "frames"
     gt_masks_out_dir = web_data_dir / "gt_masks"
     masks_out_dir = web_data_dir / "masks"
+    masks_r1_out_dir = web_data_dir / "masks_r1"
+    masks_r2_out_dir = web_data_dir / "masks_r2"
     frames_out_dir.mkdir(parents=True, exist_ok=True)
     gt_masks_out_dir.mkdir(parents=True, exist_ok=True)
     masks_out_dir.mkdir(parents=True, exist_ok=True)
+    masks_r1_out_dir.mkdir(parents=True, exist_ok=True)
+    masks_r2_out_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Load frame index for target video
     index_csv = data_dir / "index.csv"
@@ -243,6 +247,8 @@ def export_video_bundle(
     results_json = _read_json(out_dir / "results.json")
     student_json = _read_json(out_dir / "student.json")
     localize_json = _read_json(out_dir / "localize_results.json")
+    mask_results_json = _read_json(out_dir / "mask_results.json")
+    mask_refine_json = _read_json(out_dir / "mask_refine_results.json")
     manual_json = _read_json(out_dir / "manual.json")
     audit_json = _read_json(out_dir / "eval_audit.json")
 
@@ -292,16 +298,43 @@ def export_video_bundle(
             a = ann_by_frame_label.get((fid, lbl), {})
 
             mask_url = None
+            mask_r0_url = None
+            mask_r1_url = None
+            mask_r2_url = None
+
+            r0_src = out_dir / "masks" / f"{fid}_{lbl}.png"
+            if r0_src.is_file():
+                dst_m0 = masks_out_dir / f"{fid}_{lbl}.png"
+                if not dst_m0.exists() or dst_m0.stat().st_size != r0_src.stat().st_size:
+                    shutil.copy2(r0_src, dst_m0)
+                mask_r0_url = f"data/masks/{fid}_{lbl}.png"
+
+            r1_src = out_dir / "masks_r1" / f"{fid}_{lbl}.png"
+            if r1_src.is_file():
+                dst_m1 = masks_r1_out_dir / f"{fid}_{lbl}.png"
+                if not dst_m1.exists() or dst_m1.stat().st_size != r1_src.stat().st_size:
+                    shutil.copy2(r1_src, dst_m1)
+                mask_r1_url = f"data/masks_r1/{fid}_{lbl}.png"
+
+            r2_src = out_dir / "masks_r2" / f"{fid}_{lbl}.png"
+            if r2_src.is_file():
+                dst_m2 = masks_r2_out_dir / f"{fid}_{lbl}.png"
+                if not dst_m2.exists() or dst_m2.stat().st_size != r2_src.stat().st_size:
+                    shutil.copy2(r2_src, dst_m2)
+                mask_r2_url = f"data/masks_r2/{fid}_{lbl}.png"
+
             cand_mask_paths = []
             if a.get("mask_path"):
                 cand_mask_paths.append(Path(str(a["mask_path"])))
-            cand_mask_paths.append(out_dir / "masks" / f"{fid}_{lbl}.png")
+            cand_mask_paths.append(r0_src)
             for mp in cand_mask_paths:
                 if mp and mp.is_file():
                     dst_m = masks_out_dir / f"{fid}_{lbl}.png"
                     if not dst_m.exists() or dst_m.stat().st_size != mp.stat().st_size:
                         shutil.copy2(mp, dst_m)
-                    mask_url = f"data/masks/{fid}_{lbl}.png"
+                    mask_url = mask_r1_url or f"data/masks/{fid}_{lbl}.png"
+                    if not mask_r0_url:
+                        mask_r0_url = f"data/masks/{fid}_{lbl}.png"
                     break
 
             round_history = []
@@ -338,6 +371,9 @@ def export_video_bundle(
                 "pass2": a.get("pass2") if isinstance(a.get("pass2"), dict) else None,
                 "box_iou": _to_float_or_none((a.get("pass2") or {}).get("iou") if isinstance(a.get("pass2"), dict) else a.get("iou")),
                 "mask_url": mask_url,
+                "mask_r0_url": mask_r0_url,
+                "mask_r1_url": mask_r1_url,
+                "mask_r2_url": mask_r2_url,
                 "mask_b64": a.get("mask") if isinstance(a.get("mask"), str) else None,
                 "mask_iou": _to_float_or_none(a.get("mask_iou")),
                 "mask_source": a.get("mask_source") or None,
@@ -400,6 +436,8 @@ def export_video_bundle(
         "results": results_json,
         "student": student_json,
         "localize_results": localize_json,
+        "mask_results": mask_results_json,
+        "mask_refine_results": mask_refine_json,
         "eval_audit": audit_json,
         "manual": manual_json,
         "frames": frames_bundle,
