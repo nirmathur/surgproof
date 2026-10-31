@@ -114,3 +114,76 @@ def test_student_main_strict_splits_and_upper_bound_marking(tmp_path, monkeypatc
     probs = pd.read_csv(out_dir / "student_probs.csv")
     test_fids = set(idx[idx.split == "test"].frame_id)
     assert set(probs.frame_id) == test_fids
+
+
+def test_student_leak_free_decisions_with_amber_and_external_eval(tmp_path, monkeypatch):
+    """Verify student.py runs when decisions.csv has NO truth/gt_* columns, uses accept/AMBER/reject, and scores external sets."""
+    data_dir = tmp_path / "data"
+    out_dir = tmp_path / "out"
+    ext_dir = data_dir / "external" / "endoscapes2023"
+    data_dir.mkdir()
+    out_dir.mkdir()
+    ext_dir.mkdir(parents=True)
+    monkeypatch.setattr(C, "DATA_DIR", data_dir)
+    monkeypatch.setattr(C, "OUT_DIR", out_dir)
+
+    rng = np.random.default_rng(11)
+    rows = []
+    for sp, vid, count in [("train", "video01", 16), ("calib", "video02", 6), ("test", "video03", 10)]:
+        for j in range(count):
+            fid = f"{vid}_00080_{j}"
+            r = {"frame_id": fid, "video": vid, "split": sp, "path": f"/tmp/{fid}.png"}
+            for k_idx, k in enumerate(C.LABELS):
+                r[f"gt_{k}"] = 1 if k == "liver" else int((j + k_idx) % 2 == 0)
+            rows.append(r)
+    idx = pd.DataFrame(rows)
+    idx.to_csv(data_dir / "index.csv", index=False)
+
+    X = rng.normal(0, 0.3, size=(len(idx), 64)).astype(np.float32)
+    for k_idx, k in enumerate(C.LABELS):
+        sign = idx[f"gt_{k}"].values * 2 - 1
+        X[:, k_idx * 8:(k_idx + 1) * 8] += sign[:, None] * 1.4
+    np.save(data_dir / "features.npy", X)
+
+    # Leak-free decisions.csv: ZERO truth or gt_* columns, uses accept / AMBER / reject
+    dec_rows = []
+    for i_r, r in enumerate(idx.itertuples()):
+        for k_idx, k in enumerate(C.LABELS):
+            truth = int(getattr(r, f"gt_{k}"))
+            status = ["accept", "AMBER", "reject"][(i_r + k_idx) % 3]
+            pred = truth if status == "accept" else (1 - truth)
+            dec_rows.append({
+                "frame_id": r.frame_id,
+                "video": r.video,
+                "split": r.split,
+                "key": k,
+                "present": pred,
+                "final_present": pred,
+                "status": status,
+                "trust": 0.85 if status == "accept" else (0.50 if status == "AMBER" else 0.15),
+            })
+    dec_df = pd.DataFrame(dec_rows)
+    assert "truth" not in dec_df.columns
+    dec_df.to_csv(out_dir / "decisions.csv", index=False)
+
+    # External Endoscapes2023 index + features (only gallbladder and cystic_duct scorable, others -1)
+    ext_rows = []
+    for j in range(8):
+        er = {"frame_id": f"endo_{j}", "video": f"ev{j // 4}", "split": "test"}
+        for k in C.LABELS:
+            er[f"gt_{k}"] = (j % 2) if k in ("gallbladder", "cystic_duct") else -1
+        ext_rows.append(er)
+    ext_idx = pd.DataFrame(ext_rows)
+    ext_idx.to_csv(ext_dir / "index.csv", index=False)
+    X_ext = rng.normal(0, 0.3, size=(len(ext_idx), 64)).astype(np.float32)
+    for k_idx, k in enumerate(C.LABELS):
+        if k in ("gallbladder", "cystic_duct"):
+            sign = ext_idx[f"gt_{k}"].values * 2 - 1
+            X_ext[:, k_idx * 8:(k_idx + 1) * 8] += sign[:, None] * 1.4
+    np.save(ext_dir / "features.npy", X_ext)
+
+    out = student.main()
+    assert "endoscapes2023" in out["external_test_evaluation"]
+    ext_ev = out["external_test_evaluation"]["endoscapes2023"]
+    assert ext_ev["scorable_labels"] == ["cystic_duct", "gallbladder"]
+    assert ext_ev["mean_acc_by_source"]["verified"] > ext_ev["mean_acc_by_source"]["single"]
