@@ -12,7 +12,10 @@ Checks per frame:
 """
 import argparse
 import asyncio
+import hashlib
 import json
+import math
+from pathlib import Path
 
 import pandas as pd
 from pydantic import BaseModel
@@ -50,6 +53,73 @@ class Critique(BaseModel):
 
 NAMES = {k: v[1] for k, v in C.LABELS.items()}
 
+KEY_ALIASES = {}
+for _k, _name in NAMES.items():
+    KEY_ALIASES[_k.lower()] = _k
+    KEY_ALIASES[_k.lower().replace("_", " ")] = _k
+    KEY_ALIASES[_k.lower().replace("_", "-")] = _k
+    KEY_ALIASES[_name.lower()] = _k
+    KEY_ALIASES[_name.lower().split(" (")[0].strip()] = _k
+
+
+def normalize_key(raw_key):
+    if not isinstance(raw_key, str):
+        return None
+    s = raw_key.strip().lower()
+    if s in KEY_ALIASES:
+        return KEY_ALIASES[s]
+    s_prefix = s.split(" (")[0].strip()
+    return KEY_ALIASES.get(s_prefix)
+
+
+def clamp_prob(val, default=0.5):
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return default
+    if math.isnan(f) or math.isinf(f):
+        return default
+    if 1.0 < f <= 100.0:
+        f = f / 100.0
+    return round(min(1.0, max(0.0, f)), 4)
+
+
+def sanitize_box(box, present):
+    if not present or not isinstance(box, (list, tuple)) or len(box) != 4:
+        return []
+    try:
+        coords = [int(round(float(v))) for v in box]
+    except (TypeError, ValueError):
+        return []
+    y0, x0, y1, x1 = [min(1000, max(0, c)) for c in coords]
+    y0, y1 = min(y0, y1), max(y0, y1)
+    x0, x1 = min(x0, x1), max(x0, x1)
+    if (y1 - y0) < 5 or (x1 - x0) < 5:
+        return []
+    return [y0, x0, y1, x1]
+
+
+def matches_crop_answer(answer, key):
+    if not isinstance(answer, str):
+        return False
+    ans = answer.strip().lower()
+    if not ans or "none" in ans or "unclear" in ans:
+        return False
+    norm = normalize_key(ans)
+    if norm == key:
+        return True
+    target_name = NAMES[key].lower()
+    short_name = target_name.split(" (")[0].strip()
+    if ans == target_name or short_name in ans or key.lower().replace("_", " ") in ans:
+        return True
+    if key == "l_hook" and ("l-hook" in ans or "l_hook" in ans or "hook" in ans):
+        return True
+    return False
+
+
+def prompt_hash(prompt_text):
+    return hashlib.sha256(prompt_text.encode("utf-8")).hexdigest()[:16]
+
 
 def label_prompt(manual):
     base = ("You are labelling a single frame from laparoscopic cholecystectomy video.\n"
@@ -69,7 +139,9 @@ async def verify_box(path, key, box):
         "This is a crop from a laparoscopic surgery frame. What is the main structure or instrument "
         f"in it? Answer with exactly one of: {json.dumps(options)}.",
         images=[part], schema=CropID, tag="verify")
-    return r["answer"].strip().lower() == NAMES[key].lower(), r["confidence"]
+    ans = r.get("answer", "") if isinstance(r, dict) else ""
+    conf = clamp_prob(r.get("confidence", 0.5) if isinstance(r, dict) else 0.5, default=0.5)
+    return matches_crop_answer(ans, key), conf
 
 
 async def critique(path, items):
@@ -79,39 +151,108 @@ async def critique(path, items):
         "case that it is WRONG, then give p_wrong (0-1) honestly; low if the claim is clearly right.\n"
         f"Claims: {json.dumps(claims)}",
         images=[gem.img_part(path)], schema=Critique, tag="critic")
-    return {x["key"]: x for x in r["rebuttals"]}
+    rebuttals = r.get("rebuttals", []) if isinstance(r, dict) else []
+    out = {}
+    for x in rebuttals:
+        if not isinstance(x, dict):
+            continue
+        k = normalize_key(x.get("key"))
+        if k:
+            out[k] = x
+    return out
 
 
 async def do_frame(row, mode, manual, sample, full_checks):
     temp = 0.0 if sample == 0 else 0.7
-    lab = await gem.call(label_prompt(manual if mode == "manual" else None),
+    p_text = label_prompt(manual if mode == "manual" else None)
+    p_hash = prompt_hash(p_text)
+    lab = await gem.call(p_text,
                          images=[gem.img_part(row.path)], schema=FrameLabels,
                          temperature=temp, sample=sample, tag=f"label-{mode}")
-    items = {i["key"]: i for i in lab["items"] if i["key"] in NAMES}
+    raw_items = lab.get("items", []) if isinstance(lab, dict) else []
+    items = {}
+    for i in raw_items:
+        if not isinstance(i, dict):
+            continue
+        k = normalize_key(i.get("key"))
+        if k and k not in items:
+            present = bool(i.get("present", False))
+            items[k] = {
+                "key": k,
+                "present": present,
+                "confidence": clamp_prob(i.get("confidence", 0.0), default=0.0),
+                "box_2d": sanitize_box(i.get("box_2d", []), present),
+                "evidence": str(i.get("evidence", "") or ""),
+            }
+    for k in NAMES:
+        if k not in items:
+            items[k] = {"key": k, "present": False, "confidence": 0.0, "box_2d": [], "evidence": "missing"}
+
+    ordered_items = [items[k] for k in NAMES]
+    pv_results = {}
+    if full_checks:
+        pv_keys = [k for k in NAMES if items[k]["present"] and len(items[k]["box_2d"]) == 4]
+        crit_coro = critique(row.path, ordered_items)
+        pv_coros = [verify_box(row.path, k, items[k]["box_2d"]) for k in pv_keys]
+        gathered = await asyncio.gather(crit_coro, *pv_coros)
+        crit = gathered[0]
+        for k, res in zip(pv_keys, gathered[1:]):
+            pv_results[k] = res
+    else:
+        crit = {}
+
     out = []
-    crit = await critique(row.path, list(items.values())) if full_checks else {}
+    video_str = str(row.video)
     for key in NAMES:
-        it = items.get(key, {"present": False, "confidence": 0.0, "box_2d": [], "evidence": "missing"})
-        rec = {"frame_id": row.frame_id, "video": row.video, "split": row.split, "key": key,
-               "mode": mode, "sample": sample, "present": int(it["present"]),
-               "conf": float(it["confidence"]), "box": it["box_2d"], "evidence": it["evidence"],
-               "truth": int(getattr(row, f"gt_{key}"))}
+        it = items[key]
+        conf_val = float(it["confidence"])
+        ev_val = it["evidence"]
+        rec = {
+            "frame_id": row.frame_id,
+            "video": video_str,
+            "video_id": video_str,
+            "split": row.split,
+            "key": key,
+            "mode": mode,
+            "sample": int(sample),
+            "model": C.FLASH,
+            "prompt_hash": p_hash,
+            "present": int(it["present"]),
+            "conf": conf_val,
+            "confidence": conf_val,
+            "box": it["box_2d"],
+            "evidence": ev_val,
+            "rationale": ev_val,
+            "truth": int(getattr(row, f"gt_{key}")),
+        }
         if full_checks:
-            if it["present"] and len(it["box_2d"]) == 4:
-                rec["pv_match"], rec["pv_conf"] = await verify_box(row.path, key, it["box_2d"])
+            if key in pv_results:
+                rec["pv_match"], rec["pv_conf"] = pv_results[key]
             else:
                 rec["pv_match"], rec["pv_conf"] = (None, None)
-            rec["p_wrong"] = float(crit.get(key, {}).get("p_wrong", 0.5))
-            rec["critic"] = crit.get(key, {}).get("argument", "")
+            c_entry = crit.get(key, {})
+            rec["p_wrong"] = clamp_prob(c_entry.get("p_wrong", 0.5), default=0.5)
+            rec["critic"] = str(c_entry.get("argument", "") or "")
+        else:
+            rec["pv_match"], rec["pv_conf"] = (None, None)
+            rec["p_wrong"] = 0.5
+            rec["critic"] = ""
         out.append(rec)
     return out
 
 
-async def run(mode, splits, votes, limit):
+def select_frames(df, splits, limit):
+    df = df[df.split.isin(splits)].copy()
+    if limit and limit < len(df):
+        df["_rk"] = df.groupby("video").cumcount()
+        df = df.sort_values(["_rk", "video", "frame_id"]).head(limit).drop(columns=["_rk"])
+        df = df.sort_values(["video", "frame_id"]).reset_index(drop=True)
+    return df
+
+
+async def run(mode, splits, votes, limit, out_path=None):
     df = pd.read_csv(C.DATA_DIR / "index.csv")
-    df = df[df.split.isin(splits)]
-    if limit:
-        df = df.groupby("video").head(max(1, limit // df.video.nunique()))
+    df = select_frames(df, splits, limit)
     manual = json.loads((C.OUT_DIR / "manual.json").read_text()) if mode == "manual" else None
     samples = range(1, votes + 1) if votes else [0]
     jobs = [do_frame(r, mode, manual, s, full_checks=(s == 0 and mode == "manual"))
@@ -120,17 +261,28 @@ async def run(mode, splits, votes, limit):
     recs = []
     for i, coro in enumerate(asyncio.as_completed(jobs), 1):
         recs += await coro
-        if i % 20 == 0:
-            print(f"{i}/{len(jobs)} frames done")
+        if i % 20 == 0 or i == len(jobs):
+            print(f"{i}/{len(jobs)} frames done", flush=True)
+    key_order = {k: idx for idx, k in enumerate(NAMES)}
+    recs.sort(key=lambda r: (r["frame_id"], key_order.get(r["key"], 99), r["sample"]))
     tag = f"{mode}_v{votes}" if votes else mode
-    path = C.OUT_DIR / f"labels_{tag}.jsonl"
+    path = Path(out_path) if out_path else (C.OUT_DIR / f"labels_{tag}.jsonl")
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         for r in recs:
             f.write(json.dumps(r) + "\n")
+    if limit and mode == "manual" and not votes:
+        smoke_path = C.ROOT / "coord" / "artifacts" / "labels_smoke.jsonl"
+        smoke_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(smoke_path, "w") as f:
+            for r in recs:
+                f.write(json.dumps(r) + "\n")
+        print(f"saved smoke artifact {smoke_path} ({len(recs)} rows)", flush=True)
     d = pd.DataFrame(recs)
     acc = (d.present == d.truth).mean()
-    print(f"saved {path}. raw accuracy vs hidden GT: {acc:.3f}")
-    print(d.assign(ok=d.present == d.truth).groupby("key").ok.mean().round(3).to_string())
+    print(f"saved {path} ({len(recs)} rows, {d.frame_id.nunique()} frames). raw accuracy vs hidden GT: {acc:.3f}", flush=True)
+    print(d.assign(ok=d.present == d.truth).groupby("key").ok.mean().round(3).to_string(), flush=True)
+    return d
 
 
 if __name__ == "__main__":
@@ -139,5 +291,6 @@ if __name__ == "__main__":
     ap.add_argument("--splits", default="train,calib,test")
     ap.add_argument("--votes", type=int, default=0, help="extra sampled runs for majority vote")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--out", default=None, help="optional explicit output jsonl path")
     a = ap.parse_args()
-    asyncio.run(run(a.mode, a.splits.split(","), a.votes, a.limit))
+    asyncio.run(run(a.mode, a.splits.split(","), a.votes, a.limit, a.out))
