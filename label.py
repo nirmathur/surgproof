@@ -229,7 +229,6 @@ async def do_frame(row, mode, manual, sample, full_checks):
             "box": it["box_2d"],
             "evidence": ev_val,
             "rationale": ev_val,
-            "truth": int(getattr(row, f"gt_{key}")),
         }
         if full_checks:
             if key in pv_results:
@@ -247,8 +246,10 @@ async def do_frame(row, mode, manual, sample, full_checks):
     return out
 
 
-def select_frames(df, splits, limit):
+def select_frames(df, splits, limit, videos=None):
     df = df[df.split.isin(splits)].copy()
+    if videos:
+        df = df[df.video.astype(str).isin(videos)].copy()
     if limit and limit < len(df):
         df["_rk"] = df.groupby("video").cumcount()
         df = df.sort_values(["_rk", "video", "frame_id"]).head(limit).drop(columns=["_rk"])
@@ -256,10 +257,34 @@ def select_frames(df, splits, limit):
     return df
 
 
-async def run(mode, splits, votes, limit, out_path=None):
-    df = pd.read_csv(C.DATA_DIR / "index.csv")
-    df = select_frames(df, splits, limit)
-    manual = json.loads((C.OUT_DIR / "manual.json").read_text()) if mode == "manual" else None
+def evaluate_against_index(d, idx_df):
+    """Join GT from index_df in-memory only for console summary (never written to labels JSONL)."""
+    gt_cols = {k: f"gt_{k}" for k in NAMES if f"gt_{k}" in idx_df.columns}
+    if not gt_cols or len(d) == 0:
+        return None
+    gt_long = idx_df[["frame_id"] + list(gt_cols.values())].melt(
+        id_vars=["frame_id"], var_name="gt_col", value_name="gt"
+    )
+    inv_map = {v: k for k, v in gt_cols.items()}
+    gt_long["key"] = gt_long["gt_col"].map(inv_map)
+    merged = d.merge(gt_long[["frame_id", "key", "gt"]], on=["frame_id", "key"], how="inner")
+    merged = merged[merged["gt"].notna() & (merged["gt"] >= 0)]
+    if len(merged) == 0:
+        return None
+    merged["ok"] = merged["present"] == merged["gt"].astype(int)
+    acc_all = float(merged["ok"].mean())
+    no_liver = merged[merged["key"] != "liver"]
+    acc_no_liver = float(no_liver["ok"].mean()) if len(no_liver) else acc_all
+    per_key = merged.groupby("key")["ok"].mean().round(3).to_dict()
+    return {"acc_excl_liver": round(acc_no_liver, 4), "acc_all": round(acc_all, 4), "per_key": per_key}
+
+
+async def run(mode, splits, votes, limit, out_path=None, index_path=None, videos=None, manual_path=None):
+    idx_file = Path(index_path) if index_path else (C.DATA_DIR / "index.csv")
+    df_full = pd.read_csv(idx_file)
+    df = select_frames(df_full, splits, limit, videos=videos)
+    m_file = Path(manual_path) if manual_path else (C.OUT_DIR / "manual.json")
+    manual = json.loads(m_file.read_text()) if mode == "manual" else None
     samples = range(1, votes + 1) if votes else [0]
     jobs = [do_frame(r, mode, manual, s, full_checks=(s == 0 and mode == "manual"))
             for r in df.itertuples() for s in samples]
@@ -276,24 +301,26 @@ async def run(mode, splits, votes, limit, out_path=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         for r in recs:
+            assert "truth" not in r and not any(k.startswith("gt_") for k in r), "Leakage guard: no GT in labels output"
             f.write(json.dumps(r) + "\n")
-    if limit and mode == "manual" and not votes:
+    if limit and mode == "manual" and not votes and not out_path:
         smoke_path = C.ROOT / "coord" / "artifacts" / "labels_smoke.jsonl"
         smoke_path.parent.mkdir(parents=True, exist_ok=True)
         with open(smoke_path, "w") as f:
             for r in recs:
                 f.write(json.dumps(r) + "\n")
-        print(f"saved smoke artifact {smoke_path} ({len(recs)} rows)", flush=True)
+        print(f"saved smoke artifact {smoke_path} ({len(recs)} rows, 0 GT fields)", flush=True)
     d = pd.DataFrame(recs)
-    acc_all = (d.present == d.truth).mean()
-    d_no_liver = d[d.key != "liver"]
-    acc_no_liver = (d_no_liver.present == d_no_liver.truth).mean() if len(d_no_liver) else acc_all
-    print(
-        f"saved {path} ({len(recs)} rows, {d.frame_id.nunique()} frames). "
-        f"headline accuracy (excl. liver): {acc_no_liver:.3f} | all-6 raw acc: {acc_all:.3f}",
-        flush=True,
-    )
-    print(d.assign(ok=d.present == d.truth).groupby("key").ok.mean().round(3).to_string(), flush=True)
+    metrics = evaluate_against_index(d, df)
+    if metrics:
+        print(
+            f"saved {path} ({len(recs)} rows, {d.frame_id.nunique()} frames, 0 GT fields in file). "
+            f"headline accuracy (excl. liver): {metrics['acc_excl_liver']:.3f} | all-6 raw acc: {metrics['acc_all']:.3f}",
+            flush=True,
+        )
+        print(pd.Series(metrics["per_key"], name="ok").to_string(), flush=True)
+    else:
+        print(f"saved {path} ({len(recs)} rows, {d.frame_id.nunique() if len(d) else 0} frames, 0 GT fields in file).", flush=True)
     return d
 
 
@@ -304,5 +331,9 @@ if __name__ == "__main__":
     ap.add_argument("--votes", type=int, default=0, help="extra sampled runs for majority vote")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--out", default=None, help="optional explicit output jsonl path")
+    ap.add_argument("--index", default=None, help="optional index csv path (e.g. external test set)")
+    ap.add_argument("--video", default=None, help="optional comma-separated video filter")
+    ap.add_argument("--manual", default=None, help="optional manual.json path")
     a = ap.parse_args()
-    asyncio.run(run(a.mode, a.splits.split(","), a.votes, a.limit, a.out))
+    vids = [v.strip() for v in a.video.split(",") if v.strip()] if a.video else None
+    asyncio.run(run(a.mode, a.splits.split(","), a.votes, a.limit, a.out, a.index, vids, a.manual))

@@ -31,7 +31,6 @@ REQUIRED_DESIGN_FIELDS = {
     "pv_conf",
     "p_wrong",
     "critic",
-    "truth",
 }
 
 
@@ -127,6 +126,8 @@ def test_do_frame_emits_design_contract(monkeypatch):
     by_key = {r["key"]: r for r in recs}
     for r in recs:
         assert REQUIRED_DESIGN_FIELDS.issubset(r.keys())
+        assert "truth" not in r, "Leakage guard: truth must never be emitted in labels JSONL"
+        assert not any(k.startswith("gt_") for k in r), "Leakage guard: gt_* must never be emitted in labels JSONL"
         assert r["video"] == "video01" and r["video_id"] == "video01"
         assert r["conf"] == r["confidence"]
         assert r["evidence"] == r["rationale"]
