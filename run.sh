@@ -57,10 +57,10 @@ fi
 
 # Free stale listener on target port if occupied so fresh-clone 'make demo' binds cleanly
 if command -v lsof >/dev/null 2>&1; then
-  STALE_PIDS="$(lsof -ti tcp:"$PORT" -sTCP:LISTEN 2>/dev/null || true)"
+  STALE_PIDS="$(lsof -nP -ti tcp:"$PORT" -sTCP:LISTEN 2>/dev/null || true)"
   if [ -n "$STALE_PIDS" ]; then
     kill $STALE_PIDS 2>/dev/null || true
-    sleep 0.3
+    sleep 0.2
   fi
 fi
 
