@@ -198,3 +198,35 @@ Load macOS system font `/System/Library/Fonts/SFNS.ttf` via Pillow `ImageFont.tr
    - Shot 5: `Human clears only amber cases.` (5 words)
    - Shot 6: `Result: pending` (2 words) — or `<N>%` + `Held-out test accuracy, zero labels.` (6 words)
    - Shot 7: `SurgProof. No human labels. Only proof.` (6 words)
+
+---
+
+## 5. Real Streamlit UI Capture Contract (`app.py` & `origin/harald/demo`)
+
+Per the 13:12 update: Shots 2–6 should showcase our **real product UI** (`app.py` and `pages/2_Human_gate.py`, swapping in Harald's tabs from `origin/harald/demo` as merged):
+- **Shot 2 (`0:07–0:15`)**: Can show the real `1 — Med School` tab from `app.py` (`origin/harald/demo`) alongside the 3 clean structure rules (`grasper`, `l_hook`, `cystic_duct`) from `out/manual.json`.
+- **Shot 3 (`0:15–0:23`) & Shot 4 (`0:23–0:32`)**: Show the real frame `video12_15750_15758` inside the clean UI container (`2 — Label -> Verify Loop` / `app.py`), first with neutral blue boxes (`#3B82F6`) in Shot 3, then transitioning to **Green (`#10B981`, accept)**, **Amber (`#F59E0B`, unsure)**, and **Red (`#EF4444`, reject)** in Shot 4.
+- **Shot 5 (`0:32–0:40`)**: Real capture/render of `pages/2_Human_gate.py` (the Human Gate page) clearing the single **Amber** item to **Green (`verified`)**.
+- **UI Hygiene Check**: Before capturing `app.py` from `origin/harald/demo`, ensure the top header (`👤 Built for a Real Person — Nir Mathur` and `🩺 Clinical Supervisor Quote Slot`) is stripped so zero personal names appear in the video.
+
+---
+
+## 6. Verbatim Veo 3.1 Prompts & Negative Prompt (`promo/prompts/`)
+
+Real CholecSeg8k frames and real UI screens are always preferred. If `nir-promo` uses Veo 3.1 (`veo-3.1-fast-generate-preview` for drafts, `veo-3.1-generate-preview` for final) for at most 1–2 quiet, natural establishing shots, it **must** use the exact prompts below (saved in `promo/prompts/`) and place a small, muted corner tag `AI-generated illustration` (`13px` SF Pro Regular `#8A909E`, top-right `(1184, 48)` — never an orange banner).
+
+### Shared `negativePrompt` (`promo/prompts/negative_prompt.txt`)
+```text
+text, captions, subtitles, numbers, digits, percentages, charts, graphs, gauges, UI widgets, HUD, reticles, crosshairs, hologram, wireframe, glow, bloom, neon, lens flare, particles, sparks, lasers, prism, lightning, portal, sci-fi, dramatic lighting, rim light, fast motion, camera shake, heart, cardiac anatomy, bowel loops, anatomy diagrams, watermark, logo, personal names
+```
+
+### Optional Establishing Clip 1 (`promo/prompts/shot_01_establishing.txt`, 151 words)
+```text
+Static, locked-off medium close-up shot on a 50mm prime lens at f/2.8 with shallow depth of field and zero camera drift. A medical grade surgical display monitor inside a quiet laparoscopic operating theatre shows a clear endoscopic view of a pear-shaped bluish-grey gallbladder tucked beneath the dark reddish-brown inferior edge of the liver while a brushed steel laparoscopic grasper gently holds the fundus stationary. In the softly defocused foreground, a gloved surgeon's hand rests calmly near a stainless steel instrument tray without sudden movement. Soft diffuse overhead clinical illumination at neutral 5600K white balance with gentle ambient fill and no harsh rim lighting or specular glare. Documentary realism, muted natural clinical palette of slate greys, desaturated blues, and warm tissue tones, clean minimalist composition inspired by Apple product cinematography, shot on 35mm film with fine natural grain. Audio: quiet room tone, faint steady ventilation hum, no music.
+```
+
+### Optional Establishing Clip 2 (`promo/prompts/shot_02_manual.txt`, 136 words)
+```text
+Static, locked-off over-the-shoulder medium shot on an 85mm prime lens at f/2.8 with shallow depth of field and zero camera movement. A matte dark-anodized workstation display on a clean surgical research desk shows a calm laparoscopic gallbladder surgery lecture frame on the left half of the screen while clean monospaced reference notes appear quietly on the right half; a researcher's hand rests still on the desk surface beside a dark trackpad. Quiet academic surgical research room with uncluttered matte charcoal desk surface and softly blurred background wall. Soft diffuse key light from the left at neutral 5200K white balance, low-contrast natural shadows, no neon accent lights or screen bloom. Documentary realism, calm minimalist product film aesthetic, muted neutral greys and off-whites, high optical clarity. Audio: quiet room tone, no music, no voiceover.
+```
+

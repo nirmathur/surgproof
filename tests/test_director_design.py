@@ -41,3 +41,26 @@ def test_design_md_enforces_restraint_and_real_data():
     assert "out/manual.json" in text
     assert "out/results.json" in text
     assert "45–60 seconds" in text or "45-60 seconds" in text
+
+
+def test_winning_demos_and_veo_prompts_exist():
+    winning = ROOT / "promo" / "WINNING_DEMOS.md"
+    assert winning.is_file(), "promo/WINNING_DEMOS.md must exist"
+    w_text = winning.read_text(encoding="utf-8")
+    assert "https://" in w_text
+    assert "Pattern 1" in w_text and "Pattern 6" in w_text
+
+    prompts_dir = ROOT / "promo" / "prompts"
+    s1 = prompts_dir / "shot_01_establishing.txt"
+    s2 = prompts_dir / "shot_02_manual.txt"
+    neg = prompts_dir / "negative_prompt.txt"
+    for p in (s1, s2, neg):
+        assert p.is_file(), f"Missing {p}"
+    for p in (s1, s2):
+        words = p.read_text(encoding="utf-8").split()
+        assert 100 <= len(words) <= 220, f"Prompt {p.name} should be ~100-200 words, got {len(words)}"
+        assert "Static, locked-off" in p.read_text(encoding="utf-8")
+    neg_text = neg.read_text(encoding="utf-8")
+    for forbidden in ("text", "numbers", "charts", "HUD", "glow", "lasers", "sci-fi", "heart"):
+        assert forbidden in neg_text
+
