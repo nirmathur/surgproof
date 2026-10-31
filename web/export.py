@@ -208,11 +208,22 @@ def export_video_bundle(
     masks_out_dir = web_data_dir / "masks"
     masks_r1_out_dir = web_data_dir / "masks_r1"
     masks_r2_out_dir = web_data_dir / "masks_r2"
+    masks_vote3_out_dir = web_data_dir / "masks_vote3"
     frames_out_dir.mkdir(parents=True, exist_ok=True)
     gt_masks_out_dir.mkdir(parents=True, exist_ok=True)
     masks_out_dir.mkdir(parents=True, exist_ok=True)
     masks_r1_out_dir.mkdir(parents=True, exist_ok=True)
     masks_r2_out_dir.mkdir(parents=True, exist_ok=True)
+    masks_vote3_out_dir.mkdir(parents=True, exist_ok=True)
+
+    coord_dir = ROOT / "coord" / "artifacts"
+
+    def _artifact_path(name: str) -> Path:
+        p = out_dir / name
+        if p.exists():
+            return p
+        cp = coord_dir / name
+        return cp if cp.exists() else p
 
     # 1. Load frame index for target video
     index_csv = data_dir / "index.csv"
@@ -222,11 +233,10 @@ def export_video_bundle(
             for r in csv.DictReader(fh):
                 if r.get("video") == video:
                     video_rows.append(r)
-    video_rows.sort(key=lambda r: (str(r.get("clip", "")), int(float(r.get("frame", 0) or 0)), str(r.get("frame_id", ""))))
 
-    # 2. Load decisions.csv for target video
+    # 2. Load decisions.csv for target video (with coord/artifacts fallback)
     dec_by_frame_label: dict[tuple[str, str], dict] = {}
-    dec_csv = out_dir / "decisions.csv"
+    dec_csv = _artifact_path("decisions.csv")
     if dec_csv.exists():
         with open(dec_csv) as fh:
             for r in csv.DictReader(fh):
@@ -235,12 +245,31 @@ def export_video_bundle(
                 if fid and lbl and (r.get("video") == video or str(fid).startswith(f"{video}_")):
                     dec_by_frame_label[(str(fid), str(lbl))] = r
 
+    if not video_rows and dec_by_frame_label:
+        seen_fids: set[str] = set()
+        for (fid, _), r in dec_by_frame_label.items():
+            if fid in seen_fids:
+                continue
+            seen_fids.add(fid)
+            parts = fid.split("_")
+            clip_id = f"{parts[0]}_{parts[1]}" if len(parts) >= 2 else video
+            frame_num = parts[-1] if parts[-1].isdigit() else "0"
+            video_rows.append({
+                "frame_id": fid,
+                "video": video,
+                "clip": clip_id,
+                "frame": frame_num,
+                "split": r.get("split") or "test",
+            })
+
+    video_rows.sort(key=lambda r: (str(r.get("clip", "")), int(float(r.get("frame", 0) or 0)), str(r.get("frame_id", ""))))
+
     # 3. Load and merge spatial annotations + masks
     ann_by_frame_label, phase_by_frame, live_rows = _merge_annotation_sources(out_dir)
 
     # 4. Load grounded narration for target video
     narration_by_frame: dict[str, dict] = {}
-    narr_obj = _read_json(out_dir / f"narration_{video}.json")
+    narr_obj = _read_json(_artifact_path(f"narration_{video}.json"))
     if narr_obj:
         sents = narr_obj.get("sentences", narr_obj if isinstance(narr_obj, list) else [])
         for s in sents:
@@ -248,13 +277,13 @@ def export_video_bundle(
                 narration_by_frame[str(s["frame_id"])] = s
 
     # 5. Load evaluation & manual artifacts
-    results_json = _read_json(out_dir / "results.json")
-    student_json = _read_json(out_dir / "student.json")
-    localize_json = _read_json(out_dir / "localize_results.json")
-    mask_results_json = _read_json(out_dir / "mask_results.json")
-    mask_refine_json = _read_json(out_dir / "mask_refine_results.json")
-    manual_json = _read_json(out_dir / "manual.json")
-    audit_json = _read_json(out_dir / "eval_audit.json")
+    results_json = _read_json(_artifact_path("results.json"))
+    student_json = _read_json(_artifact_path("student.json"))
+    localize_json = _read_json(_artifact_path("localize_results.json"))
+    mask_results_json = _read_json(_artifact_path("mask_results.json"))
+    mask_refine_json = _read_json(_artifact_path("mask_refine_results.json"))
+    manual_json = _read_json(_artifact_path("manual.json"))
+    audit_json = _read_json(_artifact_path("eval_audit.json"))
 
     headline = None
     if isinstance(results_json, dict):

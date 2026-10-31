@@ -54,7 +54,8 @@
   function formatPct(val) {
     if (typeof val !== "number" || !Number.isFinite(val)) return null;
     const pct = val <= 1.0 ? val * 100 : val;
-    return `${pct.toFixed(1)}%`;
+    const rounded = Math.round((pct + Number.EPSILON) * 10) / 10;
+    return `${rounded.toFixed(1)}%`;
   }
 
   function updateHeadlineChip(videoData) {

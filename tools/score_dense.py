@@ -12,7 +12,7 @@ for ann in glob.glob(f"{R}/out/dense/*/annotations.jsonl"):
     rows = [json.loads(l) for l in open(ann)]
     per = {l: [] for l in WV}; pres = {"tp": 0, "fp": 0, "fn": 0, "tn": 0}
     for r in rows:
-        g = np.array(Image.open(f"{R}/raw/CholecSeg8k/{video}/{clip}/{r['frame']}_watershed_mask.png")); g = g[..., 0] if g.ndim == 3 else g
+        g = np.array(Image.open(f"{R}/raw/CholecSeg8k/{video}/{clip}/{r['frame']}_endo_watershed_mask.png")); g = g[..., 0] if g.ndim == 3 else g
         gt = g == WV[r["label"]]; gt_present = gt.sum() > 0.002 * gt.size
         if r["present"] and gt_present: pres["tp"] += 1
         elif r["present"]: pres["fp"] += 1

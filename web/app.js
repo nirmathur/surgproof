@@ -21,6 +21,14 @@
     liver: "Liver",
     blood: "Free Blood / Clot",
   };
+  const PRESENT_SHORT_NAMES = {
+    grasper: "Grasper",
+    l_hook: "L-Hook",
+    gallbladder: "Gallbladder",
+    cystic_duct: "Cystic Duct",
+    liver: "Liver",
+    blood: "Blood",
+  };
 
   // Tokens from promo/DESIGN.md
   const STATUS_COL = {
@@ -77,6 +85,7 @@
     seenLiveSignatures: new Set(),
     imageCache: {},
     maskCache: {},
+    tintedMaskCache: {},
     gtCanvasCache: {},
     gateDecisions: {},
     auditSignedOff: false,
@@ -85,9 +94,35 @@
     externalTimelineMounted: false,
     externalGateMounted: false,
     canvasZoom: 1.0,
+    presentMode: false,
+    _renderSeq: 0,
   };
 
+  function isPresentModeUrl() {
+    if (typeof window === "undefined" || !window.location) return false;
+    const params = new URLSearchParams(window.location.search || "");
+    const p = String(params.get("present") || "").trim().toLowerCase();
+    return p === "1" || p === "true" || p === "yes";
+  }
+
+  function syncPresentBodyClass() {
+    const fromUrl = isPresentModeUrl();
+    if (fromUrl) {
+      state.presentMode = true;
+    }
+    if (typeof document !== "undefined" && document.body) {
+      if (fromUrl) {
+        document.body.classList.add("present");
+      }
+      state.presentMode = document.body.classList.contains("present");
+    }
+    return Boolean(state.presentMode);
+  }
+
+  syncPresentBodyClass();
+
   function getExternalViewer() {
+    if (syncPresentBodyClass()) return null;
     const v = window.Viewer || window.SurgProofViewer;
     return v && typeof v.mount === "function" ? v : null;
   }
@@ -112,7 +147,39 @@
 
   function fmtPct(val, digits = 1) {
     if (typeof val !== "number" || !Number.isFinite(val)) return "pending";
-    return (val * 100).toFixed(digits) + "%";
+    const factor = Math.pow(10, digits);
+    const rounded = Math.round((val * 100 + Number.EPSILON) * factor) / factor;
+    return rounded.toFixed(digits) + "%";
+  }
+
+  function computeBoxIou(b1, b2) {
+    if (!Array.isArray(b1) || b1.length !== 4 || !Array.isArray(b2) || b2.length !== 4) return null;
+    const [y1a, x1a, y2a, x2a] = b1.map(Number);
+    const [y1b, x1b, y2b, x2b] = b2.map(Number);
+    const iy1 = Math.max(y1a, y1b);
+    const ix1 = Math.max(x1a, x1b);
+    const iy2 = Math.min(y2a, y2b);
+    const ix2 = Math.min(x2a, x2b);
+    const iw = Math.max(0, ix2 - ix1);
+    const ih = Math.max(0, iy2 - iy1);
+    const inter = iw * ih;
+    const areaA = Math.max(0, x2a - x1a) * Math.max(0, y2a - y1a);
+    const areaB = Math.max(0, x2b - x1b) * Math.max(0, y2b - y1b);
+    const union = areaA + areaB - inter;
+    return union > 0 ? inter / union : null;
+  }
+
+  function getPassAgreement(lbl) {
+    if (!lbl) return null;
+    const mAgree = typeof lbl.mask_iou === "number" ? lbl.mask_iou : null;
+    const bAgree =
+      lbl.pass1 && Array.isArray(lbl.pass1.box) && lbl.pass2 && Array.isArray(lbl.pass2.box)
+        ? computeBoxIou(lbl.pass1.box, lbl.pass2.box)
+        : typeof lbl.box_iou === "number"
+          ? lbl.box_iou
+          : null;
+    if (mAgree !== null && bAgree !== null) return Math.max(mAgree, bAgree);
+    return mAgree !== null ? mAgree : bAgree;
   }
 
   async function fetchJsonSafe(urls) {
@@ -733,6 +800,7 @@
   function renderTopHeadlines() {
     const accEl = document.getElementById("headline-acc");
     const nEl = document.getElementById("headline-n");
+    const isPresent = syncPresentBodyClass();
 
     let acc = null;
     let cov = null;
@@ -751,8 +819,17 @@
 
     if (accEl && nEl) {
       if (typeof acc === "number" && typeof cov === "number") {
-        accEl.textContent = `${fmtPct(acc, 1)} accurate on the ${fmtPct(cov, 1)} it accepted`;
-        nEl.textContent = `n = ${nLabels !== null && nLabels !== undefined ? nLabels : "pending"} held-out labels, 6 unseen videos`;
+        const fmtN =
+          typeof nLabels === "number" && Number.isFinite(nLabels)
+            ? Number(nLabels).toLocaleString("en-US")
+            : "pending";
+        if (isPresent) {
+          accEl.textContent = `${fmtPct(acc, 1)} accurate on the ${fmtPct(cov, 1)} it accepted · n = ${fmtN}`;
+          nEl.textContent = `n = ${fmtN}`;
+        } else {
+          accEl.textContent = `${fmtPct(acc, 1)} accurate on the ${fmtPct(cov, 1)} it accepted`;
+          nEl.textContent = `n = ${fmtN} held-out labels, 6 unseen videos`;
+        }
       } else {
         accEl.textContent = "pending";
         nEl.textContent = "n = pending held-out labels";
@@ -766,28 +843,34 @@
         const meanIou = state.localizeResults.boxes.mean_iou;
         const tipRate = state.localizeResults.tips ? state.localizeResults.tips.within_tool_mask_rate : null;
         const nScored = state.localizeResults.boxes.n_scored || state.localizeResults.n_test_annotations || "pending";
-        locEl.textContent = `Box IoU ${fmtPct(meanIou, 1)} · Tip ${fmtPct(tipRate, 0)}`;
+        locEl.textContent = `Box IoU ${fmtPct(meanIou, 1)} · Tip ${fmtPct(tipRate, 0)} vs ground truth`;
         locSub.textContent = `n = ${nScored} test annotations`;
       } else {
         locEl.textContent = "pending";
-        locSub.textContent = "spatial localization";
+        locSub.textContent = "vs ground truth";
       }
     }
 
     const stuEl = document.getElementById("headline-student");
     const stuSub = document.getElementById("headline-student-sub");
     if (stuEl && stuSub) {
-      if (state.student && state.student.mean_acc_by_source) {
-        const m = state.student.mean_acc_by_source;
-        if (typeof m.verified === "number" && typeof m.single === "number") {
-          const diff = ((m.verified - m.single) * 100).toFixed(1);
-          const sign = m.verified >= m.single ? "+" : "";
-          stuEl.textContent = `Specialist ${fmtPct(m.verified, 1)} (${sign}${diff} pp vs single)`;
-          stuSub.textContent = `n = ${state.student.n_test_frames || "pending"} test frames`;
-        }
-      } else {
-        stuEl.textContent = "pending";
-        stuSub.textContent = "specialist student";
+      const ciObj =
+        (state.student &&
+          state.student.bootstrap_ci_by_source &&
+          state.student.bootstrap_ci_by_source.verified) ||
+        (state.student &&
+          state.student.video_bootstrap_ci &&
+          state.student.video_bootstrap_ci.verified) ||
+        null;
+      const ci95 = ciObj && Array.isArray(ciObj.ci_95) && ciObj.ci_95.length === 2 ? ciObj.ci_95 : null;
+      const m = state.student ? state.student.mean_acc_by_source : null;
+
+      if (m && typeof m.verified === "number" && ci95) {
+        if (stuEl.parentElement) stuEl.parentElement.style.display = "";
+        stuEl.textContent = `Specialist ${fmtPct(m.verified, 1)} (95% CI ${fmtPct(ci95[0], 1)}–${fmtPct(ci95[1], 1)})`;
+        stuSub.textContent = `n = ${state.student.n_test_frames || "pending"} test frames`;
+      } else if (stuEl.parentElement) {
+        stuEl.parentElement.style.display = "none";
       }
     }
   }
@@ -1001,6 +1084,19 @@
     }
 
     const narrEl = document.getElementById("narration-text");
+    const narrBanner = document.getElementById("narration-banner");
+    const narrTag = narrBanner ? narrBanner.querySelector(".tag") : null;
+    const isPresent = syncPresentBodyClass();
+
+    if (narrTag) {
+      if (isPresent) {
+        const cleanPhase = fr.phase ? String(fr.phase).replace(/^\d+\.\s*/, "") : "Held-Out Step";
+        narrTag.textContent = cleanPhase;
+      } else {
+        narrTag.textContent = "Verified Narration";
+      }
+    }
+
     if (narrEl) {
       if (fr.narration) {
         narrEl.textContent = fr.narration;
@@ -1009,7 +1105,7 @@
           (k) => getEffectiveStatus(fr.frame_id, k, fr.labels[k]) === "accept" && getEffectivePresent(fr.frame_id, k, fr.labels[k])
         );
         narrEl.textContent = acceptedKeys.length > 0
-          ? `Verified present structures on ${fr.frame_id}: ${acceptedKeys.join(", ")}.`
+          ? `Verified present structures on ${fr.frame_id}: ${acceptedKeys.map((k) => PRESENT_SHORT_NAMES[k] || k).join(", ")}.`
           : "pending";
       }
     }
@@ -1017,7 +1113,7 @@
     renderInspector(fr);
 
     const extViewer = getExternalViewer();
-    if (state.externalViewerMounted && extViewer && typeof extViewer.show === "function") {
+    if (!isPresent && state.externalViewerMounted && extViewer && typeof extViewer.show === "function") {
       extViewer.show(clamped);
     } else {
       renderCanvas(fr);
@@ -1028,6 +1124,7 @@
     const container = document.getElementById("objects") || document.getElementById("inspector-cards");
     if (!container) return;
     container.innerHTML = "";
+    const scoringMode = document.getElementById("chk-show-gt") ? document.getElementById("chk-show-gt").checked : false;
 
     LABEL_KEYS.forEach((k, kIdx) => {
       const lbl = fr.labels[k];
@@ -1041,6 +1138,7 @@
 
       const card = document.createElement("div");
       card.className = `label-card st-${effStatus}` + (state.selectedKey === k ? " selected" : "");
+      card.style.setProperty("--card-idx", String(kIdx));
       card.dataset.labelKey = k;
       card.addEventListener("click", () => {
         state.selectedKey = k;
@@ -1067,45 +1165,29 @@
       badge.className = `status-badge st-${effStatus}`;
       badge.textContent = effStatus === "pending"
         ? "pending"
-        : `${effPres ? "PRESENT" : "ABSENT"} · ${effStatus}`;
+        : `${effPres ? "present" : "absent"} · ${effStatus}`;
 
       top.appendChild(title);
       top.appendChild(badge);
       card.appendChild(top);
 
+      // Single calm AI signal line (AI's own signals only; zero GT IoU on AI view)
       const meta = document.createElement("div");
       meta.className = "label-meta";
-      const confStr = lbl && lbl.conf !== null ? lbl.conf.toFixed(2) : "pending";
-      const pvStr = lbl && lbl.pv_match !== null ? (lbl.pv_match ? "agree" : "disagree") : "pending";
-      const pwStr = lbl && lbl.p_wrong !== null ? lbl.p_wrong.toFixed(2) : "pending";
-      meta.innerHTML =
-        `<span>conf: ${confStr}</span>` +
-        `<span>crop check: ${pvStr}</span>` +
-        `<span>critic p_wrong: ${pwStr}</span>`;
-
-      if (lbl && Array.isArray(lbl.box)) {
-        const iouVal = typeof lbl.box_iou === "number" ? lbl.box_iou : (lbl.pass2 && typeof lbl.pass2.iou === "number" ? lbl.pass2.iou : null);
-        const iouStr = typeof iouVal === "number" ? ` · IoU ${iouVal.toFixed(2)}` : "";
-        meta.innerHTML += `<span style="color:var(--accent-blue);border-color:var(--accent-blue)">box [${lbl.box.join(",")}]${iouStr}</span>`;
-      } else if (effPres) {
-        meta.innerHTML += `<span>box: pending</span>`;
+      const sigParts = [];
+      if (lbl && lbl.conf !== null) sigParts.push(`conf ${lbl.conf.toFixed(2)}`);
+      const agreeVal = getPassAgreement(lbl);
+      if (typeof agreeVal === "number") sigParts.push(`agree ${agreeVal.toFixed(2)}`);
+      if (lbl && lbl.pv_match !== null) sigParts.push(`crop ${lbl.pv_match ? "agree" : "disagree"}`);
+      if (lbl && (lbl.mask_url || lbl.mask_b64)) sigParts.push("mask");
+      if (lbl && Array.isArray(lbl.tip)) sigParts.push("tip");
+      if (scoringMode && lbl && lbl.gt_present_scoring_only !== undefined && lbl.gt_present_scoring_only !== null) {
+        sigParts.push(`Scoring (ground truth): ${lbl.gt_present_scoring_only ? "present" : "absent"}`);
       }
-
-      if (lbl && (lbl.mask_url || lbl.mask_b64)) {
-        const mIouStr = typeof lbl.mask_iou === "number" ? ` (IoU ${lbl.mask_iou.toFixed(2)})` : "";
-        meta.innerHTML += `<span style="color:var(--verdict-accept);border-color:var(--verdict-accept)">mask: localized${mIouStr}</span>`;
-      } else if (effPres) {
-        meta.innerHTML += `<span>mask: pending</span>`;
-      }
-
-      if (lbl && Array.isArray(lbl.polygon_px) && lbl.polygon_px.length >= 3) {
-        const pIouStr = typeof lbl.mask_iou === "number" ? ` · IoU ${lbl.mask_iou.toFixed(2)}` : "";
-        meta.innerHTML += `<span style="color:var(--verdict-accept);border-color:var(--verdict-accept)">polygon: ${lbl.polygon_px.length} pts${pIouStr}</span>`;
-      }
-
-      if (lbl && Array.isArray(lbl.tip)) {
-        meta.innerHTML += `<span style="color:var(--accent-blue)">tip [y=${lbl.tip[0]}, x=${lbl.tip[1]}]</span>`;
-      }
+      const sigSpan = document.createElement("span");
+      sigSpan.className = "signal-line";
+      sigSpan.textContent = sigParts.length > 0 ? sigParts.join(" · ") : "signals: pending";
+      meta.appendChild(sigSpan);
       card.appendChild(meta);
 
       const ev = document.createElement("div");
@@ -1113,16 +1195,11 @@
       ev.textContent = lbl && lbl.evidence ? lbl.evidence : "Evidence: pending";
       card.appendChild(ev);
 
-      // Double-Check & Amber-Round History
+      // Concise Double-Check & Amber-Round History
       const rDiv = document.createElement("div");
       rDiv.className = "label-rounds";
       const roundsRow = document.createElement("div");
       roundsRow.className = "round-pills";
-
-      const rhLabel = document.createElement("span");
-      rhLabel.textContent = "Double-Check & Amber Loop:";
-      rhLabel.style.marginRight = "4px";
-      roundsRow.appendChild(rhLabel);
 
       const roundsList = [];
       for (let rIdx = 0; rIdx < 4; rIdx++) {
@@ -1130,7 +1207,14 @@
         if (st) roundsList.push({ round: rIdx, status: st });
       }
 
-      if (roundsList.length > 0) {
+      const uniqueStatuses = new Set(roundsList.map((r) => r.status));
+      if (roundsList.length > 0 && uniqueStatuses.size === 1) {
+        const onlySt = roundsList[0].status;
+        const pill = document.createElement("span");
+        pill.className = `round-pill rp-${onlySt}`;
+        pill.textContent = onlySt === "AMBER" ? `R0–R${roundsList.length - 1}: AMBER` : `Double-check: ${onlySt}`;
+        roundsRow.appendChild(pill);
+      } else if (roundsList.length > 0) {
         roundsList.forEach((item, idx) => {
           const pill = document.createElement("span");
           pill.className = `round-pill rp-${item.status}`;
@@ -1150,17 +1234,10 @@
       }
       rDiv.appendChild(roundsRow);
 
-      if (lbl && lbl.critic_reason) {
-        const cr = document.createElement("div");
-        cr.style.color = "var(--text-secondary)";
-        cr.textContent = `Pass-2 Critic: ${lbl.critic_reason}`;
-        rDiv.appendChild(cr);
-      }
-
       if (lbl && lbl.argon_reason) {
         const ar = document.createElement("div");
         ar.style.color = "var(--verdict-amber)";
-        ar.textContent = `Argon Amber Loop: ${lbl.argon_reason}`;
+        ar.textContent = `Argon loop: ${lbl.argon_reason}`;
         rDiv.appendChild(ar);
       }
 
@@ -1263,22 +1340,216 @@
     return off;
   }
 
+  function buildTintedMaskCanvas(maskImg, rgb, cacheKey) {
+    if (cacheKey && state.tintedMaskCache[cacheKey]) {
+      return state.tintedMaskCache[cacheKey];
+    }
+    const w = maskImg.naturalWidth || maskImg.width || 854;
+    const h = maskImg.naturalHeight || maskImg.height || 480;
+    const off = document.createElement("canvas");
+    off.width = w;
+    off.height = h;
+    const octx = off.getContext("2d");
+    octx.drawImage(maskImg, 0, 0, w, h);
+    const imgData = octx.getImageData(0, 0, w, h);
+    const d = imgData.data;
+
+    const fg = new Uint8Array(w * h);
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+      const lum = Math.max(d[i], d[i + 1], d[i + 2]);
+      const a = d[i + 3];
+      if (a > 64 && lum > 96) {
+        fg[p] = 1;
+      }
+    }
+
+    for (let y = 0; y < h; y++) {
+      const rowOff = y * w;
+      for (let x = 0; x < w; x++) {
+        const p = rowOff + x;
+        const idx = p * 4;
+        if (!fg[p]) {
+          d[idx + 3] = 0;
+          continue;
+        }
+        const isEdge =
+          x === 0 ||
+          x === w - 1 ||
+          y === 0 ||
+          y === h - 1 ||
+          !fg[p - 1] ||
+          !fg[p + 1] ||
+          !fg[p - w] ||
+          !fg[p + w];
+        d[idx] = rgb[0];
+        d[idx + 1] = rgb[1];
+        d[idx + 2] = rgb[2];
+        d[idx + 3] = isEdge ? 205 : 80;
+      }
+    }
+    octx.putImageData(imgData, 0, 0);
+    if (cacheKey) {
+      state.tintedMaskCache[cacheKey] = off;
+    }
+    return off;
+  }
+
+  function drawRoundedPillRect(ctx, x, y, w, h, r) {
+    const rad = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + rad, y);
+    ctx.lineTo(x + w - rad, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + rad);
+    ctx.lineTo(x + w, y + h - rad);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - rad, y + h);
+    ctx.lineTo(x + rad, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - rad);
+    ctx.lineTo(x, y + rad);
+    ctx.quadraticCurveTo(x, y, x + rad, y);
+    ctx.closePath();
+  }
+
+  function pillRectsOverlap(a, b, pad = 6) {
+    return (
+      a.x < b.x + b.w + pad &&
+      a.x + a.w + pad > b.x &&
+      a.y < b.y + b.h + pad &&
+      a.y + a.h + pad > b.y
+    );
+  }
+
+  function findNonOverlappingPillPosition(rx, ry, rw, rh, tw, th, k, placedPills, W, H, minTopY) {
+    const PILL_CORNERS = {
+      gallbladder: "tl",
+      l_hook: "tr",
+      liver: "br",
+      grasper: "bl",
+      cystic_duct: "tr",
+      blood: "br",
+    };
+    const pref = PILL_CORNERS[k] || "tl";
+    const corners = {
+      tl: [rx, ry - th - 5],
+      tr: [rx + rw - tw, ry - th - 5],
+      bl: [rx, ry + rh + 5],
+      br: [rx + rw - tw, ry + rh + 5],
+      inTl: [rx + 6, ry + 6],
+      inTr: [rx + rw - tw - 6, ry + 6],
+      inBl: [rx + 6, ry + rh - th - 6],
+      inBr: [rx + rw - tw - 6, ry + rh - th - 6],
+    };
+
+    const order = [pref, "tl", "tr", "bl", "br", "inTl", "inTr", "inBl", "inBr"];
+    const candidates = [];
+    for (const cKey of order) {
+      if (corners[cKey]) candidates.push(corners[cKey]);
+    }
+
+    const baseX = corners[pref][0];
+    const baseY = corners[pref][1];
+    for (const dy of [26, -26, 52, -52, 78, -78, 104, -104, 130, -130]) {
+      for (const dx of [0, 48, -48, 96, -96]) {
+        candidates.push([baseX + dx, baseY + dy]);
+      }
+    }
+
+    for (let gy = minTopY; gy <= H - th - 8; gy += 26) {
+      for (let gx = 8; gx <= W - tw - 8; gx += 40) {
+        candidates.push([gx, gy]);
+      }
+    }
+
+    for (const [cx, cy] of candidates) {
+      const px = Math.max(8, Math.min(W - tw - 8, Math.round(cx)));
+      const py = Math.max(minTopY, Math.min(H - th - 8, Math.round(cy)));
+      const rect = { x: px, y: py, w: tw, h: th };
+      if (!placedPills.some((p) => pillRectsOverlap(rect, p, 6))) {
+        return rect;
+      }
+    }
+
+    return {
+      x: Math.max(8, Math.min(W - tw - 8, Math.round(baseX))),
+      y: Math.max(minTopY, Math.min(H - th - 8, Math.round(baseY))),
+      w: tw,
+      h: th,
+    };
+  }
+
   async function renderCanvas(fr) {
     const canvas = document.getElementById("frame-canvas");
-    if (!canvas) return;
+    if (!canvas || !fr) return;
+    const isPresent = syncPresentBodyClass();
+    const renderSeq = ++state._renderSeq;
+
     const ctx = canvas.getContext("2d");
     const W = canvas.width;
     const H = canvas.height;
 
-    const showMasks = document.getElementById("chk-ai-masks") ? document.getElementById("chk-ai-masks").checked : true;
-    const showPolygons = document.getElementById("chk-ai-polygons") ? document.getElementById("chk-ai-polygons").checked : true;
-    const showBoxes = document.getElementById("chk-ai-boxes") ? document.getElementById("chk-ai-boxes").checked : true;
-    const showDualPass = document.getElementById("chk-dual-pass") ? document.getElementById("chk-dual-pass").checked : false;
-    const showTips = document.getElementById("chk-ai-tips") ? document.getElementById("chk-ai-tips").checked : true;
-    const showHud = document.getElementById("chk-hud-chips") ? document.getElementById("chk-hud-chips").checked : true;
-    const showGt = document.getElementById("chk-show-gt") ? document.getElementById("chk-show-gt").checked : false;
+    const showMasks = isPresent
+      ? true
+      : document.getElementById("chk-ai-masks")
+        ? document.getElementById("chk-ai-masks").checked
+        : true;
+    const showPolygons = isPresent
+      ? true
+      : document.getElementById("chk-ai-polygons")
+        ? document.getElementById("chk-ai-polygons").checked
+        : true;
+    const showBoxes = isPresent
+      ? true
+      : document.getElementById("chk-ai-boxes")
+        ? document.getElementById("chk-ai-boxes").checked
+        : true;
+    const showDualPass = isPresent
+      ? false
+      : document.getElementById("chk-dual-pass")
+        ? document.getElementById("chk-dual-pass").checked
+        : false;
+    const showTips = isPresent
+      ? true
+      : document.getElementById("chk-ai-tips")
+        ? document.getElementById("chk-ai-tips").checked
+        : true;
+    const showHud = isPresent
+      ? false
+      : document.getElementById("chk-hud-chips")
+        ? document.getElementById("chk-hud-chips").checked
+        : false;
+    const showGt = isPresent
+      ? false
+      : document.getElementById("chk-show-gt")
+        ? document.getElementById("chk-show-gt").checked
+        : false;
 
-    const baseImg = await loadImageWithFallback(fr.imgCandidates, state.imageCache, fr.frame_id);
+    // Preload base frame image, optional GT image, and all active mask images before drawing (no flash)
+    const baseImgPromise = loadImageWithFallback(fr.imgCandidates, state.imageCache, fr.frame_id);
+    const gtImgPromise = showGt
+      ? loadImageWithFallback(fr.gtCandidates, state.imageCache, fr.frame_id + "__gt")
+      : Promise.resolve(null);
+
+    const maskRequests = [];
+    if (showMasks) {
+      for (const k of LABEL_KEYS) {
+        const lbl = fr.labels[k];
+        if (!lbl || !getEffectivePresent(fr.frame_id, k, lbl)) continue;
+        const mKey = `${fr.frame_id}__${k}__${lbl.mask_url || state.maskRound || 0}`;
+        const cands = lbl.mask_b64
+          ? [`data:image/png;base64,${lbl.mask_b64.replace(/^data:image\/\w+;base64,/, "")}`, ...lbl.maskCandidates]
+          : lbl.maskCandidates;
+        maskRequests.push(
+          loadImageWithFallback(cands, state.maskCache, mKey).then((img) => ({ key: k, mKey, img }))
+        );
+      }
+    }
+
+    const [baseImg, gtImg, loadedMaskEntries] = await Promise.all([
+      baseImgPromise,
+      gtImgPromise,
+      Promise.all(maskRequests),
+    ]);
+
+    if (renderSeq !== state._renderSeq) return;
 
     ctx.clearRect(0, 0, W, H);
     if (baseImg) {
@@ -1287,13 +1558,12 @@
       ctx.fillStyle = "#12141C";
       ctx.fillRect(0, 0, W, H);
       ctx.fillStyle = "#8A909E";
-      ctx.font = "500 14px Inter, -apple-system, sans-serif";
+      ctx.font = '500 14px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText(`Surgical frame image pending: ${fr.frame_id}`, 28, H / 2);
     }
 
     // 1. Scoring-View-Only Ground-Truth Mask Overlay
     if (showGt) {
-      const gtImg = await loadImageWithFallback(fr.gtCandidates, state.imageCache, fr.frame_id + "__gt");
       if (gtImg) {
         if (!state.gtCanvasCache[fr.frame_id]) {
           state.gtCanvasCache[fr.frame_id] = buildGtOverlayCanvas(gtImg);
@@ -1305,28 +1575,18 @@
       ctx.strokeStyle = "#3B82F6";
       ctx.strokeRect(W - 340, 8, 332, 24);
       ctx.fillStyle = "#F4F5F8";
-      ctx.font = "600 11px ui-monospace, monospace";
+      ctx.font = '600 11px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText("SCORING VIEW ONLY: CHOLECSEG8K GT MASK", W - 328, 24);
     }
 
-    // 2. AI Segmentation Masks Overlay (out/masks/<frame_id>_<label>.png)
+    // 2. AI Segmentation Masks Overlay (softly tinted RGBA with transparent background)
     let loadedMasksCount = 0;
-    if (showMasks) {
-      for (const k of LABEL_KEYS) {
-        const lbl = fr.labels[k];
-        if (!lbl || !getEffectivePresent(fr.frame_id, k, lbl)) continue;
-        const mKey = `${fr.frame_id}__${k}__${lbl.mask_url || state.maskRound || 0}`;
-        const cands = lbl.mask_b64
-          ? [`data:image/png;base64,${lbl.mask_b64.replace(/^data:image\/\w+;base64,/, "")}`, ...lbl.maskCandidates]
-          : lbl.maskCandidates;
-        const maskImg = await loadImageWithFallback(cands, state.maskCache, mKey);
-        if (maskImg) {
-          loadedMasksCount++;
-          ctx.save();
-          ctx.globalAlpha = 0.36;
-          ctx.drawImage(maskImg, 0, 0, W, H);
-          ctx.restore();
-        }
+    for (const item of loadedMaskEntries) {
+      if (item && item.img) {
+        loadedMasksCount++;
+        const rgb = LABEL_RGB[item.key] || [59, 130, 246];
+        const tinted = buildTintedMaskCanvas(item.img, rgb, item.mKey);
+        ctx.drawImage(tinted, 0, 0, W, H);
       }
     }
     const maskStatusEl = document.getElementById("mask-status-label");
@@ -1352,10 +1612,10 @@
         else ctx.lineTo(px, py);
       });
       ctx.closePath();
-      ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.18)`;
+      ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.14)`;
       ctx.fill();
       ctx.strokeStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
-      ctx.lineWidth = state.selectedKey === k ? 2.8 : 2.0;
+      ctx.lineWidth = state.selectedKey === k ? 2.5 : 1.75;
       ctx.stroke();
       ctx.restore();
     }
@@ -1364,12 +1624,16 @@
       polyStatusEl.textContent = activePolygonsCount > 0 ? `${activePolygonsCount} active` : "pending";
     }
 
-    // 3. AI Bounding Boxes (and optional Pass-1 vs Pass-2 Dual Boxes)
+    // 3. AI Bounding Boxes & One Clean Inter Chip per Object (Zero Overlaps)
+    const placedPills = [];
+    const minTopY = isPresent ? 10 : 36;
+
     if (showBoxes) {
       for (const k of LABEL_KEYS) {
         const lbl = fr.labels[k];
         if (!lbl) continue;
         const effStatus = getEffectiveStatus(fr.frame_id, k, lbl);
+        const effPres = getEffectivePresent(fr.frame_id, k, lbl);
         const col = STATUS_COL[effStatus] || "#3B82F6";
         const fillCol = STATUS_FILL[effStatus] || "#12141C";
 
@@ -1392,33 +1656,115 @@
           ctx.restore();
         }
 
+        let anchorRect = null;
         if (Array.isArray(lbl.box) && lbl.box.length === 4) {
           const [y1, x1, y2, x2] = lbl.box;
           const rx = (x1 * W) / 1000;
           const ry = (y1 * H) / 1000;
           const rw = ((x2 - x1) * W) / 1000;
           const rh = ((y2 - y1) * H) / 1000;
+          anchorRect = [rx, ry, rw, rh];
 
+          ctx.save();
           ctx.strokeStyle = col;
-          ctx.lineWidth = state.selectedKey === k ? 3.0 : 2.0;
-          ctx.strokeRect(rx, ry, rw, rh);
+          ctx.lineWidth = state.selectedKey === k && !isPresent ? 2.8 : 2.0;
+          drawRoundedPillRect(ctx, rx, ry, rw, rh, 4);
+          ctx.stroke();
+          ctx.restore();
+        } else if (isPresent && effPres && Array.isArray(lbl.polygon_px) && lbl.polygon_px.length >= 3) {
+          let minX = W;
+          let minY = H;
+          let maxX = 0;
+          let maxY = 0;
+          for (const pt of lbl.polygon_px) {
+            if (Array.isArray(pt) && pt.length >= 2) {
+              minX = Math.min(minX, Number(pt[0]));
+              minY = Math.min(minY, Number(pt[1]));
+              maxX = Math.max(maxX, Number(pt[0]));
+              maxY = Math.max(maxY, Number(pt[1]));
+            }
+          }
+          if (maxX > minX && maxY > minY) {
+            anchorRect = [minX, minY, maxX - minX, maxY - minY];
+          }
+        }
 
-          const iouVal = typeof lbl.box_iou === "number" ? lbl.box_iou : (lbl.pass2 && typeof lbl.pass2.iou === "number" ? lbl.pass2.iou : null);
-          const iouTxt = typeof iouVal === "number" ? ` · IoU ${iouVal.toFixed(2)}` : "";
-          const tag = `${k} · ${effStatus}${iouTxt}`;
-          ctx.font = "600 11px ui-monospace, monospace";
-          const tw = ctx.measureText(tag).width + 14;
-          const ty = Math.max(34, ry - 22);
+        if (anchorRect) {
+          const [rx, ry, rw, rh] = anchorRect;
+          const shortName = PRESENT_SHORT_NAMES[k] || LABEL_NAMES[k] || k;
+          const statusWord = effStatus === "AMBER" ? "amber" : effStatus;
+          const agreeVal = getPassAgreement(lbl);
+          const agreeSuffix = !isPresent && typeof agreeVal === "number" ? ` · agree ${agreeVal.toFixed(2)}` : "";
+          const tag = isPresent
+            ? `${shortName} · ${statusWord}`
+            : `${shortName} · ${effStatus}${agreeSuffix}`;
+
+          ctx.font = '600 12px "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif';
+          const tw = Math.ceil(ctx.measureText(tag).width + 24);
+          const th = 22;
+
+          const pillRect = findNonOverlappingPillPosition(
+            rx,
+            ry,
+            rw,
+            rh,
+            tw,
+            th,
+            k,
+            placedPills,
+            W,
+            H,
+            minTopY
+          );
+          placedPills.push({
+            key: k,
+            label: tag,
+            x: pillRect.x,
+            y: pillRect.y,
+            w: pillRect.w,
+            h: pillRect.h,
+            box: [rx, ry, rw, rh],
+          });
+
+          // Draw subtle leader line if pill was shifted away from box
+          const nearX = Math.max(rx, Math.min(rx + rw, pillRect.x + pillRect.w / 2));
+          const nearY = Math.max(ry, Math.min(ry + rh, pillRect.y + pillRect.h / 2));
+          const dist = Math.hypot(nearX - (pillRect.x + pillRect.w / 2), nearY - (pillRect.y + pillRect.h / 2));
+          if (dist > Math.max(pillRect.w, pillRect.h) * 0.75) {
+            ctx.save();
+            ctx.strokeStyle = col;
+            ctx.globalAlpha = 0.55;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(pillRect.x + pillRect.w / 2, pillRect.y + pillRect.h / 2);
+            ctx.lineTo(nearX, nearY);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          ctx.save();
           ctx.fillStyle = fillCol;
-          ctx.fillRect(rx, ty, tw, 20);
+          drawRoundedPillRect(ctx, pillRect.x, pillRect.y, pillRect.w, pillRect.h, 6);
+          ctx.fill();
           ctx.strokeStyle = col;
-          ctx.lineWidth = 1;
-          ctx.strokeRect(rx, ty, tw, 20);
+          ctx.lineWidth = 1.25;
+          ctx.stroke();
+
+          // Verdict indicator dot
           ctx.fillStyle = col;
-          ctx.fillText(tag, rx + 7, ty + 14);
+          ctx.beginPath();
+          ctx.arc(pillRect.x + 10, pillRect.y + pillRect.h / 2, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = "#F4F5F8";
+          ctx.textBaseline = "middle";
+          ctx.fillText(tag, pillRect.x + 18, pillRect.y + pillRect.h / 2 + 0.5);
+          ctx.textBaseline = "alphabetic";
+          ctx.restore();
         }
       }
     }
+    canvas._placedPills = placedPills;
 
     // 4. Instrument Tip Points ([y, x] in 0..1000)
     if (showTips) {
@@ -1429,63 +1775,78 @@
         const tx = (lbl.tip[1] * W) / 1000;
 
         ctx.save();
-        ctx.strokeStyle = "#3B82F6";
+        ctx.strokeStyle = "rgba(10, 11, 14, 0.85)";
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.arc(tx, ty, 7.5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = "#38BDF8";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(tx, ty, 7, 0, Math.PI * 2);
+        ctx.arc(tx, ty, 7.5, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.beginPath();
         ctx.moveTo(tx - 12, ty);
+        ctx.lineTo(tx - 3.5, ty);
+        ctx.moveTo(tx + 3.5, ty);
         ctx.lineTo(tx + 12, ty);
         ctx.moveTo(tx, ty - 12);
+        ctx.lineTo(tx, ty - 3.5);
+        ctx.moveTo(tx, ty + 3.5);
         ctx.lineTo(tx, ty + 12);
         ctx.stroke();
 
-        ctx.fillStyle = "#12141C";
-        const tipTag = `tip: ${k}`;
-        ctx.font = "600 10.5px ui-monospace, monospace";
-        const tw = ctx.measureText(tipTag).width + 10;
-        ctx.fillRect(tx + 10, ty - 10, tw, 18);
-        ctx.strokeStyle = "#3B82F6";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(tx + 10, ty - 10, tw, 18);
-        ctx.fillStyle = "#F4F5F8";
-        ctx.fillText(tipTag, tx + 15, ty + 3);
+        // In Present mode: strictly one clean chip per object (no extra tip label chip)
+        if (!isPresent) {
+          ctx.fillStyle = "#12141C";
+          const tipTag = `tip: ${PRESENT_SHORT_NAMES[k] || k}`;
+          ctx.font = '600 11px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
+          const tw = ctx.measureText(tipTag).width + 12;
+          ctx.fillRect(tx + 10, ty - 10, tw, 18);
+          ctx.strokeStyle = "#3B82F6";
+          ctx.lineWidth = 1;
+          ctx.strokeRect(tx + 10, ty - 10, tw, 18);
+          ctx.fillStyle = "#F4F5F8";
+          ctx.fillText(tipTag, tx + 16, ty + 3);
+        }
         ctx.restore();
       }
     }
 
-    // 5. Top Surgical Phase Banner & Structure Verdict HUD Pills
-    ctx.fillStyle = "rgba(10, 11, 14, 0.86)";
-    ctx.fillRect(0, 0, W, 30);
-    ctx.fillStyle = "#F4F5F8";
-    ctx.font = "600 12px Inter, -apple-system, sans-serif";
-    const phaseTxt = fr.phase
-      ? `SURGICAL PHASE: ${fr.phase}` + (typeof fr.phase_conf === "number" ? ` (conf ${fr.phase_conf.toFixed(2)})` : "")
-      : "SURGICAL PHASE: pending";
-    ctx.fillText(phaseTxt, 12, 19);
+    // 5. Top Surgical Phase Banner & Structure Verdict HUD Pills (hidden in Present mode)
+    if (!isPresent) {
+      ctx.fillStyle = "rgba(10, 11, 14, 0.86)";
+      ctx.fillRect(0, 0, W, 30);
+      ctx.fillStyle = "#F4F5F8";
+      ctx.font = '600 12px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
+      const phaseTxt = fr.phase
+        ? `SURGICAL PHASE: ${fr.phase}` + (typeof fr.phase_conf === "number" ? ` (conf ${fr.phase_conf.toFixed(2)})` : "")
+        : "SURGICAL PHASE: pending";
+      ctx.fillText(phaseTxt, 12, 19);
 
-    if (showHud) {
-      let hudY = 38;
-      for (const k of LABEL_KEYS) {
-        const lbl = fr.labels[k];
-        const effStatus = getEffectiveStatus(fr.frame_id, k, lbl);
-        const effPres = getEffectivePresent(fr.frame_id, k, lbl);
-        const col = STATUS_COL[effStatus] || "#8A909E";
-        const fillCol = STATUS_FILL[effStatus] || "#12141C";
-        const chipTxt = `${k}: ${effStatus === "pending" ? "pending" : (effPres ? "present" : "absent") + " · " + effStatus}`;
+      if (showHud) {
+        let hudY = 38;
+        for (const k of LABEL_KEYS) {
+          const lbl = fr.labels[k];
+          const effStatus = getEffectiveStatus(fr.frame_id, k, lbl);
+          const effPres = getEffectivePresent(fr.frame_id, k, lbl);
+          const col = STATUS_COL[effStatus] || "#8A909E";
+          const fillCol = STATUS_FILL[effStatus] || "#12141C";
+          const chipTxt = `${PRESENT_SHORT_NAMES[k] || k}: ${effStatus === "pending" ? "pending" : (effPres ? "present" : "absent") + " · " + effStatus}`;
 
-        ctx.font = "500 11px ui-monospace, monospace";
-        const cw = ctx.measureText(chipTxt).width + 16;
-        ctx.fillStyle = fillCol;
-        ctx.fillRect(10, hudY, cw, 20);
-        ctx.strokeStyle = col;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(10, hudY, cw, 20);
-        ctx.fillStyle = "#F4F5F8";
-        ctx.fillText(chipTxt, 18, hudY + 14);
-        hudY += 24;
+          ctx.font = '500 11px "Inter", -apple-system, BlinkMacSystemFont, sans-serif';
+          const cw = ctx.measureText(chipTxt).width + 16;
+          ctx.fillStyle = fillCol;
+          ctx.fillRect(10, hudY, cw, 20);
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(10, hudY, cw, 20);
+          ctx.fillStyle = "#F4F5F8";
+          ctx.fillText(chipTxt, 18, hudY + 14);
+          hudY += 24;
+        }
       }
     }
   }
@@ -2305,6 +2666,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
+    syncPresentBodyClass();
     bindEvents();
     loadInitialData();
     setInterval(pollLiveAnnotations, 2000);
