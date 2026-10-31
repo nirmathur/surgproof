@@ -34,6 +34,8 @@ import gem
 # Reverse map: class_id -> watershed pixel value
 CLASS_TO_WATERSHED = {c: v for v, c in C.WATERSHED_VALUE_TO_CLASS.items()}
 LABEL_KEYS = list(C.LABELS.keys())
+_REAL_DATA_DIR = C.DATA_DIR.resolve()
+_REAL_OUT_DIR = C.OUT_DIR.resolve()
 
 # Lookup populated by prepare_mock_workspace so fake() can simulate realistic labeller/verifier correlation
 _FRAME_GT = {}
@@ -256,14 +258,15 @@ def mock_env(work_dir: Path, in_place: bool = False):
     mem_db = sqlite3.connect(":memory:", check_same_thread=False)
     mem_db.execute("create table if not exists cache (k text primary key, v text)")
     try:
-        if not in_place:
-            C.RAW_DIR = work_dir / "raw"
-            C.DATA_DIR = work_dir / "data"
-            C.OUT_DIR = work_dir / "out"
-            C.CACHE_DB = work_dir / "cache.sqlite"
-            C.DATA_DIR.mkdir(parents=True, exist_ok=True)
-            C.OUT_DIR.mkdir(parents=True, exist_ok=True)
-            gem.TRACE = C.OUT_DIR / "trace.jsonl"
+        C.RAW_DIR = work_dir / "raw"
+        C.DATA_DIR = work_dir / "data"
+        C.OUT_DIR = work_dir / "out"
+        C.CACHE_DB = work_dir / "cache.sqlite"
+        assert C.DATA_DIR.resolve() != _REAL_DATA_DIR, "Refusing to run mock_test in shared data/"
+        assert C.OUT_DIR.resolve() != _REAL_OUT_DIR, "Refusing to run mock_test in shared out/"
+        C.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        C.OUT_DIR.mkdir(parents=True, exist_ok=True)
+        gem.TRACE = C.OUT_DIR / "trace.jsonl"
         gem._db = mem_db
         gem.call = fake
         med_school.gem.call = fake
@@ -407,18 +410,17 @@ def main():
     import tempfile
 
     random.seed(0)
-    args = [a for a in sys.argv[1:] if a != "--in-place"]
-    in_place = ("--in-place" in sys.argv[1:]) or (os.environ.get("MOCK_IN_PLACE") == "1")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
     step = args[0] if args else "all"
     extra = args[1:]
     env_dir = os.environ.get("MOCK_WORK_DIR")
-    if env_dir or in_place:
-        work_dir = Path(env_dir) if env_dir else C.OUT_DIR.parent
-        with mock_env(work_dir, in_place=in_place):
+    if env_dir:
+        work_dir = Path(env_dir)
+        with mock_env(work_dir):
             run_step(step, extra)
     else:
         with tempfile.TemporaryDirectory(prefix="surgatlas_mock_") as td:
-            with mock_env(Path(td), in_place=False):
+            with mock_env(Path(td)):
                 run_step(step, extra)
 
 

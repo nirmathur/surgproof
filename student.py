@@ -4,6 +4,8 @@
   verified - only labels the system accepted (fewer, cleaner)
   oracle   - human ground truth (UPPER BOUND ONLY, not part of the claim)
 Evaluated on held-out test videos against hidden ground truth.
+Note: 'liver' is present in 100% of CholecSeg8k frames (zero information), so it is reported in
+per_label['liver'] but excluded from headline means (mean_acc_by_source, mean_f1_by_source, mean_auroc_by_source).
 
   python student.py            # writes out/student.json and out/student_probs.csv
 """
@@ -17,6 +19,8 @@ from sklearn.metrics import balanced_accuracy_score, f1_score, roc_auc_score
 import config as C
 
 UPPER_BOUND_SOURCES = {"oracle_upper_bound"}
+UNINFORMATIVE_LABELS = {"liver"}
+HEADLINE_LABELS = [k for k in C.LABELS if k not in UNINFORMATIVE_LABELS]
 SOURCE_ORDER = ["single", "vote", "verified", "oracle_upper_bound"]
 SOURCE_META = {
     "single": {
@@ -48,7 +52,7 @@ def _l2_normalize(X):
     return X / np.maximum(norms, 1e-8)
 
 
-def fit_eval(X, y, Xte, yte, *, is_upper_bound=False):
+def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True):
     y = np.asarray(y, dtype=int)
     yte = np.asarray(yte, dtype=int)
     if len(y) == 0:
@@ -70,10 +74,13 @@ def fit_eval(X, y, Xte, yte, *, is_upper_bound=False):
     out = {
         "n_train": int(len(y)),
         "pos_rate_train": round(float(y.mean()), 4),
+        "pos_rate_test_gt": round(float(yte.mean()), 4),
         "acc": round(float((preds == yte).mean()), 4),
         "balanced_acc": round(float(balanced_accuracy_score(yte, preds)), 4) if len(np.unique(yte)) == 2 else None,
         "f1": round(float(f1_score(yte, preds, zero_division=0)), 4),
         "is_upper_bound": bool(is_upper_bound),
+        "informative": bool(informative),
+        "excluded_from_headline": not bool(informative),
     }
     if single_class:
         out["single_class_fallback"] = True
@@ -134,6 +141,7 @@ def main():
     results, probs = {}, {"frame_id": te_idx.frame_id.values}
     for key in C.LABELS:
         yte = te_idx[f"gt_{key}"].values
+        is_informative = (key not in UNINFORMATIVE_LABELS) and (len(np.unique(yte)) == 2)
         t = tr[tr.key == key]
         acc_mask = t.status.astype(str).str.lower().isin(["accept", "accepted"])
         sources = {
@@ -154,17 +162,21 @@ def main():
                 Xte,
                 yte,
                 is_upper_bound=(name in UPPER_BOUND_SOURCES),
+                informative=is_informative,
             )
             results[key][name] = r
             if p is not None:
                 probs[f"{key}__{name}"] = p
 
+    # Headline means exclude uninformative 100%-prevalence labels (liver) per audit rule
     summary, summary_f1, summary_auroc, summary_n_train = {}, {}, {}, {}
+    summary_all6_non_headline = {}
     for name in SOURCE_ORDER:
-        accs = [results[k][name]["acc"] for k in C.LABELS if results[k].get(name) and results[k][name].get("acc") is not None]
-        f1s = [results[k][name]["f1"] for k in C.LABELS if results[k].get(name) and results[k][name].get("f1") is not None]
-        aucs = [results[k][name]["auroc"] for k in C.LABELS if results[k].get(name) and results[k][name].get("auroc") is not None]
-        ntr = [results[k][name]["n_train"] for k in C.LABELS if results[k].get(name) and results[k][name].get("n_train") is not None]
+        accs = [results[k][name]["acc"] for k in HEADLINE_LABELS if results.get(k, {}).get(name) and results[k][name].get("acc") is not None]
+        f1s = [results[k][name]["f1"] for k in HEADLINE_LABELS if results.get(k, {}).get(name) and results[k][name].get("f1") is not None]
+        aucs = [results[k][name]["auroc"] for k in HEADLINE_LABELS if results.get(k, {}).get(name) and results[k][name].get("auroc") is not None]
+        ntr = [results[k][name]["n_train"] for k in HEADLINE_LABELS if results.get(k, {}).get(name) and results[k][name].get("n_train") is not None]
+        accs_all6 = [results[k][name]["acc"] for k in C.LABELS if results.get(k, {}).get(name) and results[k][name].get("acc") is not None]
         if accs:
             summary[name] = round(float(np.mean(accs)), 4)
         if f1s:
@@ -173,12 +185,21 @@ def main():
             summary_auroc[name] = round(float(np.mean(aucs)), 4)
         if ntr:
             summary_n_train[name] = round(float(np.mean(ntr)), 1)
+        if accs_all6:
+            summary_all6_non_headline[name] = round(float(np.mean(accs_all6)), 4)
 
     out = {
         "mean_acc_by_source": summary,
         "mean_f1_by_source": summary_f1,
         "mean_auroc_by_source": summary_auroc,
         "mean_n_train_by_source": summary_n_train,
+        "headline_labels": HEADLINE_LABELS,
+        "excluded_uninformative_labels": sorted(UNINFORMATIVE_LABELS),
+        "excluded_label_note": (
+            "liver is present in 100% of CholecSeg8k frames (carries zero discriminative information). "
+            "It is reported in per_label['liver'] and excluded from headline mean_acc_by_source."
+        ),
+        "non_headline_all6_mean_acc_by_source": summary_all6_non_headline,
         "evaluation_split": "test",
         "n_test_frames": int(len(te_idx)),
         "n_test_videos": int(te_idx.video.nunique()) if "video" in te_idx.columns else None,
@@ -193,7 +214,7 @@ def main():
     (C.OUT_DIR / "student.json").write_text(json.dumps(out, indent=2))
     pd.DataFrame(probs).to_csv(C.OUT_DIR / "student_probs.csv", index=False)
 
-    print("=== Student Specialist Evaluation on Held-Out TEST Split ===")
+    print("=== Student Specialist Evaluation on Held-Out TEST Split (5 Informative Labels; liver excluded from headline) ===")
     for name in [s for s in SOURCE_ORDER if s in summary]:
         ub_tag = " [UPPER BOUND - human GT]" if name in UPPER_BOUND_SOURCES else " [zero human labels]"
         acc_v = summary.get(name, float("nan"))
@@ -201,6 +222,14 @@ def main():
         auc_v = summary_auroc.get(name, float("nan"))
         ntr_v = summary_n_train.get(name, float("nan"))
         print(f"  {name:20s}{ub_tag:28s} | mean_acc={acc_v:.4f}  mean_f1={f1_v:.4f}  mean_auroc={auc_v:.4f}  mean_n_train={ntr_v:.1f}")
+    print("\n--- Per-Label Test Accuracy (including uninformative liver reported separately) ---")
+    for k in C.LABELS:
+        tag = " [EXCLUDED FROM HEADLINE: 100% prevalence]" if k in UNINFORMATIVE_LABELS else ""
+        row_str = "  ".join(
+            f"{s}={results[k][s]['acc']:.4f} (n={results[k][s]['n_train']})"
+            for s in SOURCE_ORDER if results.get(k, {}).get(s)
+        )
+        print(f"  {k:14s}: {row_str}{tag}")
     print(json.dumps(summary, indent=2))
     print("headline: does 'verified' beat 'single' (and 'vote') with fewer labels? (oracle_upper_bound = UPPER BOUND ONLY)")
     return out
