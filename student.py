@@ -53,11 +53,13 @@ def _l2_normalize(X):
     return X / np.maximum(norms, 1e-8)
 
 
-def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True, return_model=False):
+def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True, return_model=False, sample_weight=None):
     y = np.asarray(y, dtype=int)
     yte = np.asarray(yte, dtype=int)
     valid_tr = np.isin(y, [0, 1])
     X, y = X[valid_tr], y[valid_tr]
+    if sample_weight is not None:
+        sample_weight = np.asarray(sample_weight, dtype=float)[valid_tr]
     if len(y) == 0:
         return (None, None, None) if return_model else (None, None)
     uniq = np.unique(y)
@@ -70,7 +72,9 @@ def fit_eval(X, y, Xte, yte, *, is_upper_bound=False, informative=True, return_m
     else:
         Xn = _l2_normalize(X)
         Xten = _l2_normalize(Xte)
-        m = LogisticRegression(max_iter=2000, class_weight=None, C=5.0, random_state=C.SEED).fit(Xn, y)
+        m = LogisticRegression(max_iter=2000, class_weight=None, C=5.0, random_state=C.SEED).fit(
+            Xn, y, sample_weight=sample_weight
+        )
         p = m.predict_proba(Xten)[:, 1]
         single_class = False
 
@@ -252,14 +256,25 @@ def main():
             s = sources[name]
             s = s[s.frame_id.isin(row_of)]
             rows = [row_of[f] for f in s.frame_id]
+            y_vals = s.present.values
+            sw = None
+            if name == "verified" and len(np.unique(y_vals)) == 2 and len(t) > 0:
+                # Horvitz-Thompson inverse-acceptance weighting: positive claims undergo the extra
+                # blind-crop gate (`verify_box`), so when positive acceptance rate >= 0.50 we weight by
+                # inverse class-conditional acceptance rate (using zero human labels).
+                r1 = (y_vals == 1).sum() / max(1, (t.present.values == 1).sum())
+                r0 = (y_vals == 0).sum() / max(1, (t.present.values == 0).sum())
+                if r1 >= 0.50 and r0 > 0:
+                    sw = np.where(y_vals == 1, 1.0 / max(0.25, r1), 1.0 / max(0.25, r0))
             r, p, m = fit_eval(
                 X[rows],
-                s.present.values,
+                y_vals,
                 Xte,
                 yte,
                 is_upper_bound=(name in UPPER_BOUND_SOURCES),
                 informative=is_informative,
                 return_model=True,
+                sample_weight=sw,
             )
             results[key][name] = r
             if r is not None:
