@@ -2,17 +2,21 @@
 
 @theme {
   --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
-  --color-drape: #0E3B3A;      /* OR drape teal: ink + monitor bezel */
-  --color-drape-2: #1B5A57;
-  --color-wash: #EEF3F1;       /* clinical white */
-  --color-steel: #C9D6D2;      /* hairlines, quiet fills */
-  --color-mute: #557370;       /* secondary text */
-  --color-accept: #2FA36B;
-  --color-amber: #E3A008;
-  --color-reject: #C8372D;
+  --color-ink: #06181A;
+  --color-panel: #0C2427;
+  --color-panel-2: #12323A;
+  --color-line: #1E4148;
+  --color-mute: #8AA9AC;
+  --color-text: #E6F1F0;
+  --color-accept: #22C55E;
+  --color-amber: #F59E0B;
+  --color-reject: #EF4444;
 }
 
-html { background: var(--color-wash); color: var(--color-drape); }
+html { background: var(--color-ink); color: var(--color-text); }
 body { font-feature-settings: "tnum" 1; }
 :focus-visible { outline: 3px solid var(--color-amber); outline-offset: 2px; border-radius: 4px; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
+.rise { animation: rise .35s ease-out both; }
+@keyframes pulse-ring { 0% { opacity: .9 } 100% { opacity: 0 } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

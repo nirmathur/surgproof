@@ -202,6 +202,141 @@ def frame(frame_id: str):
     return Response(_jpeg(str(p)), media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
 
 
+
+# ---------- Clip player + report (real inputs only: narrator/out/real + decisions.csv) ----------
+NARR_REAL = NARRATOR_OUT / "real"
+GT_PRESENCE = NARRATOR_OUT / "gt_presence.parquet"
+
+
+def _jl(v):
+    if isinstance(v, str) and v[:1] in "[{":
+        try:
+            return json.loads(v)
+        except Exception:
+            return v
+    return v
+
+
+def _real_claims() -> pd.DataFrame | None:
+    p = NARR_REAL / "claims.parquet"
+    return pd.read_parquet(p) if p.exists() else None
+
+
+def _clip_frames(clip_id: str) -> list[int]:
+    vid = clip_id.split("_")[0]
+    d = CHOLEC / vid / clip_id
+    if not d.is_dir():
+        return []
+    out = []
+    for f in d.glob("frame_*_endo.png"):
+        try:
+            out.append(int(f.name.split("_")[1]))
+        except ValueError:
+            pass
+    return sorted(out)
+
+
+@app.get("/api/clips")
+def clips():
+    d, _ = load_labels()
+    c = _real_claims()
+    ids = sorted(set(c["clip_id"])) if c is not None else []
+    out = []
+    for cid in ids:
+        fr = _clip_frames(cid)
+        if not fr:
+            continue
+        rows = d[d["frame_id"].str.startswith(cid + "_")] if d is not None else pd.DataFrame()
+        st = rows["status"].map(lambda s: str(s)) if "status" in rows else pd.Series(dtype=str)
+        cc = c[c["clip_id"] == cid]
+        out.append({
+            "clip_id": cid, "video": cid.split("_")[0], "split": "test" if cid.split("_")[0] in TEST_VIDEOS else "train",
+            "first_frame": fr[0], "last_frame": fr[-1], "n_frames": len(fr),
+            "n_labels": int(len(rows)), "n_accept": int((st == "accept").sum()),
+            "n_claims": int(len(cc)), "n_spoken": int(((cc["mode"] == "grounded") & (cc["verdict"] == "speak")).sum()),
+        })
+    return {"clips": out}
+
+
+@app.get("/api/clip/{clip_id}")
+def clip(clip_id: str):
+    fr = _clip_frames(clip_id)
+    if not fr:
+        raise HTTPException(404, f"No frames for {clip_id}")
+    d, src = load_labels()
+    labels = []
+    if d is not None:
+        rows = d[d["frame_id"].str.startswith(clip_id + "_")]
+        cols = [k for k in DECISION_COLS + ["trust", "amber_rounds_used"] if k in rows.columns]
+        for r in rows[cols].to_dict(orient="records"):
+            r = {k: clean(v) for k, v in r.items()}
+            r["box"] = parse_box(r.get("box"))
+            r["frame"] = int(str(r["frame_id"]).split("_")[-1])
+            labels.append(r)
+    gt = {}
+    if GT_PRESENCE.exists() and clip_id.split("_")[0] in TEST_VIDEOS:
+        g = pd.read_parquet(GT_PRESENCE, columns=["clip_id", "frame_idx", "label", "present"])
+        g = g[g["clip_id"] == clip_id]
+        for r in g.to_dict(orient="records"):
+            gt[f"{int(r['frame_idx'])}:{r['label']}"] = int(bool(r["present"]))
+    for r in labels:
+        k = f"{r['frame']}:{r['key']}"
+        fp = r.get("final_present") if r.get("final_present") is not None else r.get("present")
+        r["gt_present"] = gt.get(k)
+        r["gt_correct"] = None if k not in gt or fp is None else bool(int(fp) == gt[k])
+    events = []
+    ep = NARR_REAL / "events.jsonl"
+    if ep.exists():
+        for ln in ep.read_text().splitlines():
+            try:
+                e = json.loads(ln)
+            except Exception:
+                continue
+            if e.get("clip_id") == clip_id:
+                events.append({k: e.get(k) for k in ("event_id", "type", "label", "t_start", "t_end", "status", "frames", "source")})
+    claims_out = []
+    c = _real_claims()
+    if c is not None:
+        sc = NARR_REAL / "claims_scored.parquet"
+        gtc = {}
+        if sc.exists():
+            s = pd.read_parquet(sc, columns=["claim_id", "gt_correct"])
+            gtc = {r["claim_id"]: clean(r["gt_correct"]) for r in s.to_dict(orient="records")}
+        layers = [l for l in ["L1", "L2", "L3", "L4", "P", "L5", "L5c", "L6", "L7"] if l in c.columns]
+        for r in c[c["clip_id"] == clip_id].to_dict(orient="records"):
+            claims_out.append({
+                "claim_id": r["claim_id"], "mode": r.get("mode"), "type": r.get("type"), "text": r.get("text"),
+                "statement": r.get("statement"), "t_start": clean(r.get("t_start")), "t_end": clean(r.get("t_end")),
+                "confidence": clean(r.get("confidence")), "verdict": r.get("verdict"),
+                "decided_by": _jl(r.get("decided_by")), "reasons": _jl(r.get("reasons")),
+                "layers": {l: r.get(l) for l in layers}, "evidence_refs": _jl(r.get("evidence_refs")),
+                "gt_correct": gtc.get(r["claim_id"]) if isinstance(gtc.get(r["claim_id"]), bool) else None,
+            })
+    return {"clip_id": clip_id, "video": clip_id.split("_")[0], "frames": fr, "label_source": src,
+            "labels": labels, "events": events, "claims": claims_out}
+
+
+@lru_cache(maxsize=256)
+def _crop(path: str, box: tuple) -> bytes:
+    im = Image.open(path).convert("RGB")
+    W, H = im.size
+    y0, x0, y1, x1 = box
+    pad = 30
+    l, t = max(0, x0 * W / 1000 - pad), max(0, y0 * H / 1000 - pad)
+    r, b = min(W, x1 * W / 1000 + pad), min(H, y1 * H / 1000 + pad)
+    buf = io.BytesIO()
+    im.crop((int(l), int(t), int(r), int(b))).save(buf, "JPEG", quality=88)
+    return buf.getvalue()
+
+
+@app.get("/api/crop/{frame_id}/{y0}/{x0}/{y1}/{x1}.jpg")
+def crop(frame_id: str, y0: int, x0: int, y1: int, x1: int):
+    p = frame_png(frame_id)
+    if not p or not (0 <= y0 < y1 <= 1000 and 0 <= x0 < x1 <= 1000):
+        raise HTTPException(404, "bad crop")
+    return Response(_crop(str(p), (y0, x0, y1, x1)), media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
+
+
 if DIST.exists():
     app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
 
