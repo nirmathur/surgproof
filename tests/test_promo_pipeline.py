@@ -26,16 +26,11 @@ def test_storyboard_file_and_shot_specs():
     text = sb_path.read_text(encoding="utf-8")
     assert "ILLUSTRATIVE" in text
     assert "app.py" in text
-    assert "{{NAME}}" in text
-    # Verify old taken name is not in storyboard headings/captions/narrations
-    for line in text.splitlines():
-        if "out/promo/surgatlas_promo.mp4" not in line:
-            assert "surgatlas" not in line.lower(), f"Old name found in storyboard line: {line}"
+    assert "SurgProof" in text
+    assert "No human labels. Only proof." in text
 
     assert 4 <= len(SHOTS) <= 6
-    for s in SHOTS:
-        for field in (s.title, s.subtitle, s.narration, s.prompt):
-            assert "surgatlas" not in field.lower()
+    assert any("SurgProof" in s.narration for s in SHOTS)
     total_dur = total_storyboard_duration()
     assert 60.0 <= total_dur <= 90.0, f"Expected 60-90s total duration, got {total_dur}"
 

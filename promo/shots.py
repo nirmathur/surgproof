@@ -1,4 +1,4 @@
-"""Canonical 6-shot specification for the 75-second {{NAME}} pitch video."""
+"""Canonical 6-shot specification for the 75-second SurgProof pitch video."""
 from __future__ import annotations
 
 import os
@@ -6,13 +6,14 @@ from dataclasses import dataclass
 from typing import Sequence
 
 
-PROJECT_NAME = os.environ.get("PROJECT_NAME", "{{NAME}}")
+PROJECT_NAME = os.environ.get("PROJECT_NAME", "SurgProof")
+PROJECT_TAGLINE = "No human labels. Only proof."
 
 ILLUSTRATIVE_CAPTION = (
     "ILLUSTRATIVE — AI-GENERATED VISUALIZATION (NOT CLINICAL FOOTAGE OR REAL RESULTS)"
 )
 REAL_PROOF_CAPTION = (
-    "REAL PIPELINE TELEMETRY & LIVE APP.PY CAPTURE — NO HUMAN LABELS IN TRAINING"
+    "REAL PIPELINE TELEMETRY & LIVE APP.PY CAPTURE — NO HUMAN LABELS. ONLY PROOF."
 )
 
 
@@ -56,8 +57,8 @@ SHOTS: Sequence[ShotSpec] = (
         ),
         narration=(
             "Surgical AI usually requires thousands of hours of surgeon annotation. "
-            "{{NAME}} begins at Autonomous Medical School: Gemini 4 Argon watches public "
-            "surgical lectures and writes its own structured visual manual with zero human labels."
+            "SurgProof — No human labels. Only proof. — begins at Autonomous Medical School: "
+            "Gemini 4 Argon watches public surgical lectures and writes its own visual manual."
         ),
     ),
     ShotSpec(
@@ -88,7 +89,7 @@ SHOTS: Sequence[ShotSpec] = (
         index=3,
         filename="shot_03_verify.mp4",
         title="ACT 3 · AUTONOMOUS SELF-VERIFICATION LOOP",
-        subtitle="Agent checks its own labels: Accept (green) · Re-analyse crop (amber) · Escalate (red)",
+        subtitle="Agent replaces human verifier: Accept (green) · Re-analyse crop (amber) · Escalate (red)",
         pipeline_cmd="python accept.py",
         artifact_label="out/decisions.csv · replaces human verifier",
         duration_sec=12.0,
@@ -101,9 +102,9 @@ SHOTS: Sequence[ShotSpec] = (
             "photorealistic lighting, no text gibberish."
         ),
         narration=(
-            "Where prior systems like SurgSLOT needed human verifiers, {{NAME}} checks itself: "
-            "cropping uncertain regions for a second opinion, accepting verified labels, "
-            "and escalating ambiguous cases to a surgeon."
+            "Where prior systems like SurgSLOT needed human verifiers, SurgProof replaces the "
+            "human verifier: cropping uncertain regions for a second opinion, accepting verified "
+            "labels, and escalating ambiguous cases to a surgeon."
         ),
     ),
     ShotSpec(
@@ -141,7 +142,7 @@ SHOTS: Sequence[ShotSpec] = (
         is_proof_slot=True,
         prompt="",
         narration=(
-            "On held-out CholecSeg8k test videos, {{NAME}} reports real pipeline accuracy, "
+            "On held-out CholecSeg8k test videos, SurgProof reports real pipeline accuracy, "
             "coverage, and specialist student gains inside the live Streamlit interface, "
             "with calibration and oracle runs clearly marked as upper bounds."
         ),
@@ -151,9 +152,9 @@ SHOTS: Sequence[ShotSpec] = (
         index=6,
         filename="shot_06_narrate.mp4",
         title="ACT 6 · GROUNDED SURGICAL NARRATION",
-        subtitle="Narrates the operation using only verified anatomy & audited timeline events",
+        subtitle="SurgProof: No human labels. Only proof. Grounded narration from verified structures",
         pipeline_cmd="python narrate.py --video <test_video>",
-        artifact_label="out/narration_*.json · SurgVLP · SurgSLOT · Med-Gemini",
+        artifact_label="Prior art: SurgAtlas · SurgVLP · SurgSLOT · Med-Gemini",
         duration_sec=13.0,
         illustrative=True,
         prompt=(
@@ -163,9 +164,9 @@ SHOTS: Sequence[ShotSpec] = (
             "ambient blue lighting, slow camera push-in, cinematic finish, no readable text."
         ),
         narration=(
-            "Finally, {{NAME}} narrates the operation like Netflix for surgery, speaking "
-            "only from verified labels it can stand behind. Built on SurgVLP, SurgSLOT, "
-            "and Med-Gemini."
+            "Finally, SurgProof narrates the operation like Netflix for surgery, speaking "
+            "only from verified labels it can stand behind. Prior art: SurgAtlas, SurgVLP, "
+            "SurgSLOT, and Med-Gemini. Our step: the agent replaces the human verifier."
         ),
     ),
 )
