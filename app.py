@@ -496,6 +496,338 @@ def read_trace_lines(limit: int = 25) -> list[dict]:
     return list(reversed(out))
 
 
+# ---------------- UI lane (harald/demo): real CholecSeg8k frames, GT overlay, tracker loop, narration claims ----------------
+CHOLEC_ROOT = C.DATA_DIR / "cholecseg8k" / "CholecSeg8k"
+TEST_VIDEOS = ["video09", "video12", "video17", "video28", "video48", "video55"]  # fixed split, see README
+GT_IGNORE = 255
+GT_COLOURS = {  # one colour per config.LABELS key
+    "grasper": (66, 153, 225),
+    "l_hook": (159, 122, 234),
+    "liver": (160, 82, 45),
+    "gallbladder": (72, 187, 120),
+    "cystic_duct": (236, 201, 75),
+    "blood": (229, 62, 62),
+}
+CLAIM_COL = {"verified": "#1f9d55", "unsupported": "#d69e2e", "contradicted": "#e53e3e"}
+
+
+def cholec_frame_path(video_id: str, clip_id: str, frame_idx: int, kind: str = "endo") -> Path:
+    """data/cholecseg8k/CholecSeg8k/<video>/<clip>/frame_<N>_<kind>.png (kind: endo | endo_watershed_mask)."""
+    return CHOLEC_ROOT / str(video_id) / str(clip_id) / f"frame_{int(frame_idx)}_{kind}.png"
+
+
+def watershed_to_class_map(mask: np.ndarray) -> np.ndarray:
+    """Watershed mask channel 0 -> class-id map via config.WATERSHED_VALUE_TO_CLASS; 255 and unknown -> -1 (ignore)."""
+    ch0 = mask[..., 0] if mask.ndim == 3 else mask
+    lut = np.full(256, -1, dtype=np.int16)
+    for val, cls in C.WATERSHED_VALUE_TO_CLASS.items():
+        lut[int(val)] = int(cls)
+    lut[GT_IGNORE] = -1
+    return lut[ch0]
+
+
+def gt_overlay(img: Image.Image, mask_path: Path, keys: list[str] | None = None, alpha: float = 0.45) -> Image.Image:
+    """Blend ground-truth classes (config.LABELS keys) onto the frame. Evaluation display only (test videos)."""
+    if not Path(mask_path).is_file():
+        return img
+    cls_map = watershed_to_class_map(np.array(Image.open(mask_path)))
+    base = np.array(img.convert("RGB")).astype(np.float32)
+    if cls_map.shape != base.shape[:2]:
+        return img
+    for key in keys or list(C.LABELS):
+        sel = cls_map == C.LABELS[key][0]
+        if sel.any():
+            base[sel] = (1 - alpha) * base[sel] + alpha * np.array(GT_COLOURS[key], dtype=np.float32)
+    return Image.fromarray(base.clip(0, 255).astype(np.uint8))
+
+
+def draw_pixel_boxes(img: Image.Image, boxes: pd.DataFrame) -> Image.Image:
+    """Draw tracker boxes (pixel x1,y1,x2,y2 on 854x480). Red = flagged for targeted recheck, white = not flagged."""
+    im = img.copy()
+    d = ImageDraw.Draw(im)
+    for r in boxes.itertuples():
+        colour = "#e53e3e" if bool(getattr(r, "flagged", False)) else "#f7fafc"
+        d.rectangle([r.x1, r.y1, r.x2, r.y2], outline=colour, width=3)
+        d.text((r.x1 + 4, r.y1 + 4), str(r.label), fill=colour)
+    return im
+
+
+@st.cache_data(show_spinner=False)
+def load_parquet(path_str: str, mtime: float) -> pd.DataFrame | None:
+    try:
+        return pd.read_parquet(path_str)
+    except Exception:
+        return None
+
+
+def load_parquet_fresh(p: Path) -> pd.DataFrame | None:
+    return load_parquet(str(p), p.stat().st_mtime) if p.exists() else None
+
+
+def tracker_source_note(source: str) -> str:
+    if source == "gemini":
+        return "Tracker flags computed on **Gemini** boxes (real labeller output)."
+    return (
+        f"Tracker flags computed on `{source}` boxes: ground-truth masks **with synthetic injected errors**, "
+        "the tracker's development setting. Not a result on Gemini labels yet."
+    )
+
+
+def narration_claims(entry: dict) -> list[dict]:
+    """Normalise one narration entry to [{text, status, evidence_frames}].
+
+    Uses `claims` when narrate.py emits it. The legacy {narration, unsure_about} shape is
+    mapped to one claim per line with status `verified` only when nothing was unsure;
+    unsure items become `unsupported` claims (never shown as fact)."""
+    out = []
+    for c in entry.get("claims", []) or []:
+        if isinstance(c, dict) and c.get("text"):
+            status = str(c.get("status", "unsupported")).lower()
+            out.append({
+                "text": str(c["text"]),
+                "status": status if status in CLAIM_COL else "unsupported",
+                "evidence_frames": [str(x) for x in c.get("evidence_frames", []) or []],
+            })
+    if out:
+        return out
+    if entry.get("narration"):
+        out.append({
+            "text": str(entry["narration"]),
+            "status": "verified" if not entry.get("unsure_about") else "unsupported",
+            "evidence_frames": [str(entry.get("frame_id", ""))] if entry.get("frame_id") else [],
+        })
+    for u in entry.get("unsure_about", []) or []:
+        out.append({"text": f"{u} (withheld: not verified)", "status": "unsupported", "evidence_frames": []})
+    return out
+
+
+def frame_path_from_id(frame_id: str) -> Path | None:
+    """frame_id `<video>_<clipstart>_<N>` -> CholecSeg8k frame path, if it exists."""
+    parts = str(frame_id).split("_")
+    if len(parts) == 3 and parts[2].isdigit():
+        p = cholec_frame_path(parts[0], f"{parts[0]}_{parts[1]}", int(parts[2]))
+        return p if p.is_file() else None
+    return None
+
+
+def render_med_school():
+    st.header("Med School: what the agent taught itself")
+    man_path = resolve_artifact("manual.json")
+    man = load_json(man_path)
+    if not man:
+        st.info("**[PLACEHOLDER — Awaiting `out/manual.json` from `med_school.py`]**")
+        return
+    st.caption(f"Source: `{man_path.relative_to(C.ROOT) if man_path.is_relative_to(C.ROOT) else man_path}` (written by `med_school.py`, no human edits)")
+    st.markdown(f"**Procedure:** {man.get('procedure', 'n/a')}")
+    if man.get("sources"):
+        st.markdown("**Teaching sources (narrated video provenance):**")
+        for src in man["sources"]:
+            if isinstance(src, dict):
+                real = " · real intra-op footage" if src.get("is_real_intraop_footage") else ""
+                st.markdown(f"- [{src.get('title', src.get('url', 'source'))}]({src.get('url', '')}){real}")
+                for ts in src.get("timestamps", []) or []:
+                    st.markdown(f"    - {ts}")
+            else:
+                st.markdown(f"- {src}")
+    else:
+        st.caption("`sources` (video URL + timestamps) not present in manual.json yet.")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Phases learned", len(man.get("phases", [])))
+    m2.metric("Structures in visual vocabulary", len(man.get("structures", [])))
+    m3.metric("Critical events / cues", len(man.get("critical_events", [])))
+    pc, ec = st.columns(2)
+    with pc:
+        st.subheader("Phases")
+        for ph in man.get("phases", []):
+            st.markdown(f"- {ph}")
+    with ec:
+        st.subheader("Critical events (cues)")
+        for ev in man.get("critical_events", []):
+            st.markdown(f"- {ev}")
+        if man.get("general_rules"):
+            st.subheader("Labelling rules it set itself")
+            for g in man["general_rules"]:
+                st.markdown(f"- {g}")
+    st.subheader("Visual vocabulary")
+    for s in man.get("structures", []):
+        with st.expander(f"**{s.get('name', s.get('key', ''))}** (`{s.get('key', '')}`)"):
+            st.markdown(f"**Looks like:** {s.get('appearance', '')}")
+            st.markdown(f"**Where:** {s.get('where_found', '')}")
+            st.markdown(f"**When:** {s.get('when_visible', '')}")
+            confused = ", ".join(s.get("confused_with", [])) or "none listed"
+            st.markdown(f"**Confused with:** {confused}")
+            st.markdown(f"**How to tell apart:** {s.get('how_to_tell_apart', '')}")
+
+
+def _pct(v):
+    return f"{v * 100:.1f}%" if isinstance(v, (int, float)) else "PENDING"
+
+
+def render_loop():
+    st.header("The loop: raw labels → agent self-check → tracker-targeted recheck")
+    st.caption(
+        "Each round keeps fewer labels but more of them are right. Accuracy is scored on held-out test videos only "
+        f"({', '.join(TEST_VIDEOS)}); ground truth never feeds the labeller, the verifier or the tracker's input boxes for Gemini."
+    )
+    res = load_json(resolve_artifact("results.json")) or {}
+    acc = res.get("accepted", {}) if isinstance(res.get("accepted"), dict) else {}
+    trk = res.get("tracker_recheck", {}) if isinstance(res.get("tracker_recheck"), dict) else {}
+    rounds = [
+        {"round": "0 · raw VLM labels (Flash + manual)", "coverage": 1.0 if "manual_raw_acc" in res else None,
+         "accuracy_of_kept": res.get("manual_raw_acc"), "source": "results.json: manual_raw_acc"},
+        {"round": "1 · agent self-check (accept only)", "coverage": acc.get("coverage"),
+         "accuracy_of_kept": acc.get("accuracy"), "source": "results.json: accepted"},
+        {"round": "2 · tracker-flagged recheck", "coverage": trk.get("coverage"),
+         "accuracy_of_kept": trk.get("accuracy"), "source": "results.json: tracker_recheck"},
+    ]
+    cols = st.columns(3)
+    for c, r in zip(cols, rounds):
+        c.metric(r["round"], _pct(r["accuracy_of_kept"]), f"coverage {_pct(r['coverage'])}" if r["coverage"] is not None else None)
+    if not res:
+        st.warning("**[PLACEHOLDER — Awaiting `out/results.json`]** Round metrics show `PENDING`; no numbers are invented.")
+    pts = pd.DataFrame([r for r in rounds if r["coverage"] is not None and r["accuracy_of_kept"] is not None])
+    if len(pts) >= 2:
+        st.subheader("Accuracy of kept labels vs coverage, per round")
+        st.scatter_chart(pts, x="coverage", y="accuracy_of_kept", color="round")
+    st.subheader("Baselines (test split)")
+    base_rows = [
+        {"baseline": "blank (no manual)", "raw_accuracy": res.get("blank_raw_acc"), "coverage_at_95": (res.get("blank_single_conf") or {}).get("coverage_at_95"), "human_labels": "none"},
+        {"baseline": "manual (self-written)", "raw_accuracy": res.get("manual_raw_acc"), "coverage_at_95": (res.get("single_conf") or {}).get("coverage_at_95"), "human_labels": "none"},
+        {"baseline": "majority vote", "raw_accuracy": None, "coverage_at_95": (res.get("majority_vote") or {}).get("coverage_at_95"), "human_labels": "none"},
+        {"baseline": "upper_bound_calibrated [UPPER BOUND]", "raw_accuracy": None, "coverage_at_95": (res.get("upper_bound_calibrated") or {}).get("coverage_at_95"), "human_labels": "calib split GT (upper bound only)"},
+    ]
+    st.dataframe(pd.DataFrame(base_rows).fillna("PENDING"), width="stretch")
+
+    st.divider()
+    st.subheader("Round 2 · Tracking verifier: where to recheck (grasper, L-hook)")
+    flags = load_parquet_fresh(O / "flags.parquet")
+    summ = load_json(O / "eval" / "summary.json")
+    if flags is None or flags.empty:
+        st.info("**[PLACEHOLDER — Awaiting `out/flags.parquet` from the tracker lane]**")
+        return
+    source = str(flags["source"].iloc[0])
+    if source == "gemini":
+        st.success(tracker_source_note(source))
+    else:
+        st.warning(tracker_source_note(source))
+    if summ:
+        st.markdown("**Share of injected errors found within a recheck budget** (test videos, synthetic errors; `out/eval/summary.json`)")
+        t1, t2, t3 = st.columns(3)
+        for col, b in zip((t1, t2, t3), (5, 10, 20)):
+            col.metric(
+                f"{b}% budget: tracker-targeted",
+                _pct(summ.get(f"found_at_{b}pct_targeted")),
+                f"random {_pct(summ.get(f'found_at_{b}pct_random'))} · best single {_pct(summ.get(f'found_at_{b}pct_best'))}",
+                delta_color="off",
+            )
+        st.caption(
+            "Suspicion model is fit on tuning videos (ground-truth boxes with synthetic errors) and scored on test videos. "
+            "Real Gemini errors (whole missed tracks, consistent mislabelling) will be harder."
+        )
+    curve_p = O / "eval" / "budget_curve.csv"
+    if curve_p.exists():
+        bc = pd.read_csv(curve_p).set_index("budget")
+        cc, rc = st.columns([2, 1])
+        cc.line_chart(bc)
+        cc.caption("x = share of frame-labels rechecked, y = share of injected errors found")
+        if summ and summ.get("recall_by_type_at_10pct"):
+            rc.markdown("**Found at 10% budget, by error type**")
+            rc.dataframe(pd.Series(summ["recall_by_type_at_10pct"], name="found").to_frame(), width="stretch")
+
+    st.markdown("**Frame explorer** (real CholecSeg8k frames, held-out test videos)")
+    test_flags = flags[flags["video_id"].isin(TEST_VIDEOS)]
+    if test_flags.empty:
+        st.caption("No test-video rows in flags.parquet.")
+        return
+    e1, e2, e3 = st.columns([1, 1, 1])
+    vid = e1.selectbox("Test video", sorted(test_flags["video_id"].unique()), key="loop_vid")
+    vf = test_flags[test_flags["video_id"] == vid]
+    clip_rank = vf.groupby("clip_id")["flagged"].sum().sort_values(ascending=False)
+    clip = e2.selectbox("Clip (most flags first)", clip_rank.index.tolist(),
+                        format_func=lambda c: f"{c} ({int(clip_rank[c])} flagged)", key="loop_clip")
+    show_gt = e3.toggle("Overlay ground truth (evaluation only)", key="loop_gt")
+    cf = vf[vf["clip_id"] == clip]
+    frames_c = sorted(cf["frame_idx"].unique())
+    flagged_frames = sorted(cf[cf["flagged"]]["frame_idx"].unique())
+    jump = st.checkbox("Step through flagged frames only", value=bool(flagged_frames), key="loop_jump")
+    seq = flagged_frames if (jump and flagged_frames) else frames_c
+    n = st.select_slider("Frame", options=seq, key=f"loop_f_{clip}_{jump}") if len(seq) > 1 else seq[0]
+    img = resolve_frame_image(cholec_frame_path(vid, clip, n), frame_id=f"{clip}_{n}")
+    if show_gt:
+        img = gt_overlay(img, cholec_frame_path(vid, clip, n, "endo_watershed_mask"))
+    det = load_parquet_fresh(O / "tracker" / f"detections_{source}.parquet")
+    fr_flags = cf[cf["frame_idx"] == n]
+    if det is not None:
+        boxes = det[(det["clip_id"] == clip) & (det["frame_idx"] == n)]
+        boxes = boxes.merge(fr_flags[["label", "flagged"]], on="label", how="left")
+        img = draw_pixel_boxes(img, boxes)
+    ic, tc = st.columns([3, 2])
+    ic.image(img, caption=f"{clip} frame {n} · red box = flagged for recheck" + (" · GT overlay on" if show_gt else ""), width="stretch")
+    if show_gt:
+        ic.markdown(" ".join(
+            f"<span style='background:rgb{GT_COLOURS[k]};color:white;padding:2px 8px;border-radius:10px;margin:2px'>{k}</span>"
+            for k in C.LABELS), unsafe_allow_html=True)
+    tc.dataframe(
+        fr_flags[["label", "n_det", "suspicion", "flagged", "top_signal"]].set_index("label"),
+        width="stretch",
+    )
+    queue = load_parquet_fresh(O / "tracker" / f"recheck_queue_{source}.parquet")
+    if queue is not None and not queue.empty:
+        q = queue[(queue["clip_id"] == clip) & (queue["frame_idx"] == n)]
+        if not q.empty:
+            tc.markdown("**Recheck requested:** " + ", ".join(f"`{r.label}` → `{r.recheck_type}`" for r in q.itertuples()))
+        tc.caption(f"Recheck queue: {len(queue)} items total ({int(queue['is_control'].sum())} random controls).")
+
+
+def claims_html(claims: list[dict]) -> str:
+    return "<br>".join(
+        f"<span style='background:{CLAIM_COL[c['status']]};color:white;padding:2px 8px;border-radius:10px;"
+        f"margin-right:6px;font-size:0.8em'>{c['status']}</span>{c['text']}"
+        for c in claims
+    )
+
+
+def render_narration():
+    st.subheader("Grounded narration: every claim tagged")
+    st.markdown(
+        " ".join(
+            f"<span style='background:{col};color:white;padding:3px 9px;border-radius:10px;margin-right:6px'>{name}</span>"
+            for name, col in CLAIM_COL.items()
+        ),
+        unsafe_allow_html=True,
+    )
+    files = sorted(O.glob("narration_*.json")) + sorted((COORD_ARTIFACTS).glob("narration_*.json"))
+    if not files:
+        st.info("**[PLACEHOLDER — Awaiting `out/narration_<video>.json` from `narrate.py`]**")
+        return
+    pick = st.selectbox("Narration file", files, format_func=lambda p: p.name, key="narr_file")
+    entries = [e for e in (load_json(pick, []) or []) if isinstance(e, dict)]
+    rows = []
+    for e in entries:
+        for c in narration_claims(e):
+            rows.append({"frame_id": e.get("frame_id", ""), **c})
+    if not rows:
+        st.caption("File has no narration entries.")
+        return
+    cdf = pd.DataFrame(rows)
+    k1, k2, k3 = st.columns(3)
+    for col, status in zip((k1, k2, k3), CLAIM_COL):
+        col.metric(f"{status} claims", int((cdf["status"] == status).sum()))
+    if not any("claims" in e for e in entries):
+        st.caption("This file uses the legacy `{narration, unsure_about}` shape: a line counts as `verified` only "
+                   "if nothing was unsure; `contradicted` needs per-claim tags from `narrate.py`.")
+    st.markdown("**Final narration (verified claims only)**")
+    final = [r["text"] for r in rows if r["status"] == "verified"]
+    st.success(" ".join(final) if final else "No verified claims yet.")
+    with st.expander("All claims with evidence frames"):
+        for i, r in enumerate(rows[:60]):
+            cc1, cc2 = st.columns([3, 2])
+            cc1.markdown(claims_html([r]) + f"<br><small>`{r['frame_id']}`</small>", unsafe_allow_html=True)
+            ev = [fp for fp in (frame_path_from_id(x) for x in r["evidence_frames"][:3]) if fp]
+            if ev:
+                cc2.image([str(x) for x in ev], width=160)
+
+
 # ---------------- Top Landing Header: SurgProof, Real Person, Honest Claims & Prior Work ----------------
 st.title("SurgProof — No human labels. Only proof.")
 st.caption(
@@ -568,6 +900,8 @@ with st.sidebar:
         "out/student.json": resolve_artifact("student.json").exists(),
         "out/live_decisions.csv": resolve_artifact("live_decisions.csv").exists(),
         "out/human_gate_log.jsonl": resolve_artifact("human_gate_log.jsonl").exists(),
+        "out/flags.parquet (tracker)": (O / "flags.parquet").exists(),
+        "out/narration_*.json": any(O.glob("narration_*.json")),
     }
     status_lines = [
         f"- {'🟢 **LIVE**' if ok else '🟡 **PLACEHOLDER**'} `{name}`"
@@ -606,11 +940,19 @@ with st.sidebar:
     else:
         st.caption("[PLACEHOLDER — No trace yet in out/trace.jsonl.]")
 
-tab_live, tab_proof, tab_watch = st.tabs([
-    "⚡ 1 · Live Judge Test (<3 min)",
-    "📊 2 · Proof (CholecSeg8k & External Sets)",
-    "🎬 3 · Watch, Manual & Any Surgery",
+tab_med, tab_loop, tab_live, tab_proof, tab_watch = st.tabs([
+    "🎓 1 · Med School",
+    "🔁 2 · Label → Verify Loop",
+    "⚡ 3 · Live Judge Test (<3 min)",
+    "📊 4 · Proof & Student (CholecSeg8k & External Sets)",
+    "🎬 5 · Watch, Narration & Any Surgery",
 ])
+
+with tab_med:
+    render_med_school()
+
+with tab_loop:
+    render_loop()
 
 # ==============================================================================
 # TAB 1: LIVE JUDGE TEST (<3 MIN) — Issue #15
@@ -921,6 +1263,19 @@ with tab_proof:
                 sc_cols[idx_c].metric(lbl, f"{v * 100:.1f}%" if isinstance(v, (int, float)) else "n/a", delta=delta)
             st.bar_chart(pd.Series(display_series))
         st.caption("oracle_upper_bound uses human labels on the train split and is shown as an upper bound for reference only.")
+        zs = (res or {}).get("manual_raw_acc")
+        cmp_rows = [{"model": "zero-shot Gemini (raw labels, no student)", "test_acc": zs, "human_labels": "none",
+                     "from": "results.json: manual_raw_acc"}]
+        names = {"single": "student on raw labels", "vote": "student on vote labels",
+                 "verified": "student on verified labels (Ours)", "oracle_upper_bound": "oracle_upper_bound [UPPER BOUND]"}
+        for k_src, v_src in mean_acc.items():
+            cmp_rows.append({"model": names.get(k_src, k_src), "test_acc": v_src,
+                             "human_labels": "train GT (upper bound)" if k_src == "oracle_upper_bound" else "none",
+                             "from": f"student.json: mean_acc_by_source.{k_src}"})
+        st.markdown("**Specialist vs zero-shot (held-out test videos)**")
+        st.dataframe(pd.DataFrame(cmp_rows).fillna("PENDING"), width="stretch")
+        st.caption("Numbers are read as written by each lane; check `headline_labels` in student.json, since the pooled "
+                   "label set behind `manual_raw_acc` can differ.")
         if stu.get("per_label"):
             rows_stu = []
             for key, by_src in stu["per_label"].items():
@@ -1096,13 +1451,7 @@ with tab_watch:
                 )
             slot_chips.markdown(" ".join(chips), unsafe_allow_html=True)
             if f in narr:
-                n_obj = narr[f]
-                unsure_items = n_obj.get("unsure_about", [])
-                unsure_txt = (
-                    f"\n\n*Disclosed uncertainty (not claimed as fact): {', '.join(unsure_items)}*"
-                    if unsure_items else ""
-                )
-                slot_narr.markdown(f"### {n_obj.get('narration', '')}{unsure_txt}")
+                slot_narr.markdown(claims_html(narration_claims(narr[f])), unsafe_allow_html=True)
             else:
                 acc_present = [r.key for r in rows.itertuples() if normalize_status(getattr(r, "status", "")) == "accept" and getattr(r, "final_present", 0)]
                 acc_absent = [r.key for r in rows.itertuples() if normalize_status(getattr(r, "status", "")) == "accept" and not getattr(r, "final_present", 0)]
@@ -1128,44 +1477,11 @@ with tab_watch:
                 st.dataframe(dec[dec["frame_id"] == frames[i]][cols_to_show], width="stretch")
 
     st.divider()
-    st.subheader("Autonomous Medical School: Self-Written Manual (`out/manual.json`)")
-    chole_manual_path = resolve_artifact("manual.json")
-    chole_manual = load_json(chole_manual_path)
-    if chole_manual:
-        mc1, mc2 = st.columns([1, 2])
-        with mc1:
-            st.markdown(f"**Procedure:** {chole_manual.get('procedure', 'laparoscopic cholecystectomy')}")
-            if chole_manual.get("sources"):
-                st.markdown("**Teaching Sources & Video Provenance:**")
-                for src in chole_manual["sources"]:
-                    if isinstance(src, dict):
-                        st.markdown(f"- {src.get('title', src.get('url', 'Source'))}: `{src.get('url', '')}`")
-                    else:
-                        st.markdown(f"- {src}")
-            st.markdown("**Surgical Phases:**")
-            for ph in chole_manual.get("phases", []):
-                st.markdown(f"- {ph}")
-            st.markdown("**Critical Safety Events:**")
-            for ev in chole_manual.get("critical_events", []):
-                st.markdown(f"- {ev}")
-        with mc2:
-            struct_rows = []
-            for s in chole_manual.get("structures", []):
-                struct_rows.append({
-                    "key": s.get("key", ""),
-                    "name": s.get("name", ""),
-                    "appearance": s.get("appearance", ""),
-                    "where_found": s.get("where_found", ""),
-                    "when_visible": s.get("when_visible", ""),
-                    "confused_with": ", ".join(s.get("confused_with", [])),
-                    "how_to_tell_apart": s.get("how_to_tell_apart", ""),
-                })
-            st.dataframe(pd.DataFrame(struct_rows), width="stretch")
-    else:
-        st.info("**[PLACEHOLDER — Awaiting `out/manual.json` from `med_school.py`]**")
+    render_narration()
 
     st.divider()
     st.subheader("Any Surgery, Zero Setup (`out/atlas/*/dataset.json`)")
+    st.warning("**Showcase, no ground truth.** Atlas runs on public video of any procedure; nothing here is scored.")
     atlases = sorted((O / "atlas").glob("*/dataset.json")) if (O / "atlas").exists() else []
     if not atlases:
         st.caption("[Optional showcase: run `python atlas.py --procedure ... --video ...` to populate Act 1]")
