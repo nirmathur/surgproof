@@ -3,7 +3,7 @@
 Judging test: "People stay in control" — a visible human approval step that blocks
 dataset release until a human acts.
 
-Positioning (VISION.md):
+Positioning (VISION.md & docs/DESIGN.md 1D):
 SurgProof removes the human from seeding (manual learned from public video), labelling,
 correction (the multi-round Amber Loop), and review (independent double-check).
 The output is a verified dataset (out/verified_dataset.jsonl + per-label provenance).
@@ -31,6 +31,7 @@ import config as C
 
 # Allowlisted columns from docs/DESIGN.md 1B (never includes any reference/evaluation columns)
 SAFE_DECISION_COLS = [
+    "label_id",
     "frame_id",
     "video",
     "video_id",
@@ -50,12 +51,26 @@ SAFE_DECISION_COLS = [
     "pv_conf",
     "p_wrong",
     "critic",
+    "second_pass_present",
+    "second_pass_conf",
+    "second_pass_agree",
+    "pass2_present",
+    "pass2_conf",
+    "pass2_agree",
+    "initial_status",
+    "status_round_0",
+    "status_round_1",
+    "status_round_2",
+    "status_round_3",
+    "resolved_round",
+    "amber_rounds_used",
+    "argon_reason",
+    "argon_reasoning",
     "frame_path",
     "trust",
     "status",
     "final_present",
     "final_by",
-    "argon_reasoning",
     "amber_round",
 ]
 
@@ -177,6 +192,28 @@ def load_safe_index(data_dir: Path | None = None) -> pd.DataFrame:
         return pd.DataFrame(columns=["frame_id", "path", "video", "split"])
 
 
+def load_manual_sources(out_dir: Path | None = None, coord_dir: Path | None = None) -> list[str]:
+    """Extract source URLs/titles from out/manual.json for dataset provenance."""
+    o_dir = Path(out_dir) if out_dir is not None else C.OUT_DIR
+    c_dir = Path(coord_dir) if coord_dir is not None else (C.ROOT / "coord" / "artifacts")
+    for cand in (o_dir / "manual.json", c_dir / "manual.json"):
+        if cand.is_file():
+            try:
+                man = json.loads(cand.read_text(encoding="utf-8"))
+                srcs = man.get("sources", [])
+                out = []
+                for s in srcs:
+                    if isinstance(s, dict):
+                        out.append(str(s.get("url") or s.get("title") or "manual_source"))
+                    elif s:
+                        out.append(str(s))
+                if out:
+                    return out
+            except Exception:
+                pass
+    return ["out/manual.json"]
+
+
 def sanitize_decisions_df(raw_df: pd.DataFrame | None, idx_df: pd.DataFrame | None = None) -> pd.DataFrame:
     """Normalize a decisions or smoke-labels DataFrame into the strict leak-free DESIGN.md 1B schema."""
     if raw_df is None or raw_df.empty:
@@ -196,6 +233,10 @@ def sanitize_decisions_df(raw_df: pd.DataFrame | None, idx_df: pd.DataFrame | No
         df["video"] = df["video_id"]
     if "video_id" not in df.columns and "video" in df.columns:
         df["video_id"] = df["video"]
+    if "argon_reasoning" not in df.columns and "argon_reason" in df.columns:
+        df["argon_reasoning"] = df["argon_reason"]
+    if "argon_reason" not in df.columns and "argon_reasoning" in df.columns:
+        df["argon_reason"] = df["argon_reasoning"]
 
     if "sample" in df.columns:
         s_num = pd.to_numeric(df["sample"], errors="coerce").fillna(0).astype(int)
@@ -360,29 +401,35 @@ def compute_amber_funnel(
     if dec_df is None or dec_df.empty:
         return []
     df = sanitize_decisions_df(dec_df)
-    initial_trusts = [compute_zero_label_trust(r) for r in df.itertuples()]
-    initial_statuses = [map_trust_to_status(t) for t in initial_trusts]
-    r0_amber = sum(1 for s in initial_statuses if s == "AMBER")
     final_amber = int((df["status"].map(normalize_status) == "AMBER").sum())
-    n_argon_resolved = max(0, r0_amber - final_amber)
+
+    if "status_round_0" in df.columns and df["status_round_0"].notna().any():
+        r0_amber = int((df["status_round_0"].map(normalize_status) == "AMBER").sum())
+    else:
+        initial_trusts = [compute_zero_label_trust(r) for r in df.itertuples()]
+        initial_statuses = [map_trust_to_status(t) for t in initial_trusts]
+        r0_amber = sum(1 for s in initial_statuses if s == "AMBER")
+
+    rounds_list = amber_rounds or []
+    by_round: dict[int, list[dict]] = {}
+    for rec in rounds_list:
+        if isinstance(rec, dict):
+            r_num = int(rec.get("round", 1) or 1)
+            by_round.setdefault(r_num, []).append(rec)
+
+    if 1 in by_round:
+        r0_amber = max(r0_amber, len(by_round[1]))
 
     stages: list[dict] = [
         {
             "stage": "Round 0 · Independent Double-Check",
             "ambers_remaining": int(r0_amber),
             "resolved_in_step": 0,
-            "note": "Disagreement or low confidence routed to AMBER",
+            "note": f"n={len(df)} labels double-checked",
         }
     ]
 
-    rounds_list = amber_rounds or []
-    if rounds_list:
-        by_round: dict[int, list[dict]] = {}
-        for rec in rounds_list:
-            if not isinstance(rec, dict):
-                continue
-            r_num = int(rec.get("round", 1) or 1)
-            by_round.setdefault(r_num, []).append(rec)
+    if by_round:
         running_amber = r0_amber
         for r_num in sorted(by_round.keys()):
             evts = by_round[r_num]
@@ -391,24 +438,33 @@ def compute_amber_funnel(
                 for e in evts
                 if normalize_status(e.get("verdict", e.get("status", "AMBER"))) in ("accept", "reject")
             )
-            running_amber = max(final_amber, running_amber - resolved_here)
+            still_amber_here = sum(
+                1
+                for e in evts
+                if normalize_status(e.get("verdict", e.get("status", "AMBER"))) == "AMBER"
+            )
+            if still_amber_here + resolved_here == len(evts) and len(evts) == running_amber:
+                running_amber = still_amber_here
+            else:
+                running_amber = max(final_amber, running_amber - resolved_here)
             stages.append({
-                "stage": f"Amber Loop · Round {r_num} (Argon + Manual + Crop)",
+                "stage": f"Amber Loop · Round {r_num}",
                 "ambers_remaining": int(running_amber),
                 "resolved_in_step": int(resolved_here),
-                "note": f"Argon re-examined {len(evts)} AMBER(s), resolved {resolved_here}",
+                "note": f"Argon inspected {len(evts)}, resolved {resolved_here}",
             })
     else:
+        n_argon_resolved = max(0, r0_amber - final_amber)
         stages.append({
             "stage": "Amber Loop · Argon Re-Examination",
             "ambers_remaining": int(final_amber),
             "resolved_in_step": int(n_argon_resolved),
-            "note": f"Argon reviewed uncertain band -> {final_amber} residual AMBER(s) remain",
+            "note": f"Argon reviewed uncertain band -> {final_amber} residual AMBER(s)",
         })
 
     if n_amber_pending_after_human is not None:
         stages.append({
-            "stage": "Final Pass · Release Dataset Sign-Off",
+            "stage": "Final Pass · Release Dataset Gate",
             "ambers_remaining": int(n_amber_pending_after_human),
             "resolved_in_step": int(max(0, final_amber - n_amber_pending_after_human)),
             "note": "Human clears residual AMBERs & signs off release",
@@ -418,7 +474,7 @@ def compute_amber_funnel(
 
 def sample_accepted_for_audit(
     dec_df: pd.DataFrame | None,
-    n_sample: int = 6,
+    n_sample: int = 20,
     seed: int = 0,
 ) -> pd.DataFrame:
     """Deterministically sample auto-accepted labels (prioritizing positive claims with boxes) for human spot-check."""
@@ -503,6 +559,7 @@ def record_gate_decision(
     action: str,
     human_present: int | None,
     *,
+    item_type: str = "amber",
     video: str = "",
     split: str = "test",
     agent_status: str = "AMBER",
@@ -530,6 +587,7 @@ def record_gate_decision(
         "video": str(video),
         "split": str(split),
         "key": str(key),
+        "item_type": str(item_type),
         "action": act_clean,
         "human_action": act_clean,
         "agent_status": str(agent_status),
@@ -629,7 +687,7 @@ def compute_amber_queue(
             model_p = int(getattr(r, "final_present", getattr(r, "present", 0)))
             if h_p is not None and int(h_p) != model_p:
                 n_corrected += 1
-            elif "correct" in act.lower():
+            elif act.lower() in ("correct", "flip"):
                 n_corrected += 1
             else:
                 n_approved += 1
@@ -663,11 +721,19 @@ def build_verified_dataset_records(
     gate_log: list[dict],
     amber_rounds: list[dict] | None = None,
 ) -> list[dict]:
-    """Build the list of verified dataset rows (auto-accepted + human-cleared AMBERs) with full provenance."""
+    """Build the list of verified dataset rows (auto-accepted + human-cleared AMBERs) with full DESIGN.md 1D provenance."""
     if dec_df is None or dec_df.empty:
         return []
     df = sanitize_decisions_df(dec_df)
     latest_by_item = _latest_active_decisions_by_item(gate_log)
+    manual_srcs = load_manual_sources()
+    released_iso = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    default_signoff_reviewer = "Clinical Reviewer"
+    for entry in reversed(gate_log):
+        if isinstance(entry, dict) and entry.get("reviewer"):
+            default_signoff_reviewer = str(entry["reviewer"])
+            break
 
     rounds_by_item: dict[tuple[str, str], list[dict]] = {}
     for rm in amber_rounds or []:
@@ -709,7 +775,6 @@ def build_verified_dataset_records(
         }
 
         if ns == "accept":
-            # Check if human spot-checked or corrected this auto-accepted item during audit
             if (fid, key) in latest_by_item:
                 h = latest_by_item[(fid, key)]
                 act = str(h.get("action", h.get("human_action", h.get("what", "approve"))))
@@ -718,8 +783,8 @@ def build_verified_dataset_records(
                 h_pres = h.get("human_present")
                 final_p = int(_safe_present(h_pres)) if h_pres is not None else int(_safe_present(getattr(r, "final_present", getattr(r, "present", 0))))
                 final_by = "human" if h_pres is not None and int(h_pres) != int(_safe_present(getattr(r, "final_present", 0))) else str(getattr(r, "final_by", "flash") or "flash")
-                rev_name = str(h.get("reviewer", h.get("who", "Clinical Reviewer")))
-                app_at = str(h.get("timestamp", h.get("when", "")))
+                rev_name = str(h.get("reviewer", h.get("who", default_signoff_reviewer)))
+                app_at = str(h.get("timestamp", h.get("when", released_iso)))
                 v_src = "human_audit_verified"
             else:
                 final_p = int(_safe_present(getattr(r, "final_present", getattr(r, "present", 0))))
@@ -749,8 +814,12 @@ def build_verified_dataset_records(
                 "reviewer": rev_name,
                 "approved_at": app_at,
                 "human_action": act,
+                "manual_sources": manual_srcs,
+                "audit_signed_off_by": rev_name or default_signoff_reviewer,
+                "released_at": released_iso,
                 "provenance": {
                     "seeding": "self_written_manual (out/manual.json)",
+                    "manual_sources": manual_srcs,
                     "labeller_model": model_id,
                     "prompt_hash": p_hash,
                     "double_check": double_check_prov,
@@ -759,8 +828,10 @@ def build_verified_dataset_records(
                         "original_status": "accept",
                         "final_by": final_by,
                         "reviewer": rev_name,
+                        "audit_signed_off_by": rev_name or default_signoff_reviewer,
                         "human_action": act,
                         "approved_at": app_at,
+                        "released_at": released_iso,
                     },
                 },
             })
@@ -770,8 +841,8 @@ def build_verified_dataset_records(
             act = str(h.get("action", h.get("human_action", h.get("what", "approve"))))
             if h_pres is not None and act.lower() not in ("reject", "reject_exclude", "exclude"):
                 final_p = int(_safe_present(h_pres))
-                rev_name = str(h.get("reviewer", h.get("who", "Clinical Reviewer")))
-                app_at = str(h.get("timestamp", h.get("when", "")))
+                rev_name = str(h.get("reviewer", h.get("who", default_signoff_reviewer)))
+                app_at = str(h.get("timestamp", h.get("when", released_iso)))
                 records.append({
                     "frame_id": fid,
                     "video": vid,
@@ -792,8 +863,12 @@ def build_verified_dataset_records(
                     "reviewer": rev_name,
                     "approved_at": app_at,
                     "human_action": act,
+                    "manual_sources": manual_srcs,
+                    "audit_signed_off_by": rev_name,
+                    "released_at": released_iso,
                     "provenance": {
                         "seeding": "self_written_manual (out/manual.json)",
+                        "manual_sources": manual_srcs,
                         "labeller_model": model_id,
                         "prompt_hash": p_hash,
                         "double_check": double_check_prov,
@@ -802,8 +877,10 @@ def build_verified_dataset_records(
                             "original_status": "AMBER",
                             "final_by": "human",
                             "reviewer": rev_name,
+                            "audit_signed_off_by": rev_name,
                             "human_action": act,
                             "approved_at": app_at,
+                            "released_at": released_iso,
                         },
                     },
                 })
@@ -1044,11 +1121,9 @@ def render_human_gate_page() -> None:
     st.title("🛡️ Release Dataset Sign-Off — People Stay in Control")
     st.markdown(
         "<div class='pos-card'>"
-        "<b>Why this matters:</b> Existing surgical annotation suites (e.g. Supervisely / SAM / MixFormer / TAP-Net) require a human at every step: "
-        "drawing the first box, fixing tracking drift, tagging actions by hand, and reviewing every frame.<br>"
-        "<b>SurgProof removes the human from dataset creation:</b> autonomous seeding (<code>out/manual.json</code>), bulk labelling, "
-        "independent double-check on every label, and a multi-round <b>Amber Loop</b> that resolves uncertain claims. "
-        "<b>People stay in control at the final release gate:</b> review any residual <code>AMBER</code> items plus a spot-check sample of auto-accepted labels before releasing <code>out/verified_dataset.jsonl</code>."
+        "<b>Today (Supervisely / SAM / MixFormer / TAP-Net):</b> A human at every step — drawing the first box, fixing tracking drift, tagging actions by hand, and reviewing every frame.<br>"
+        "<b>SurgProof:</b> Removes the human from seeding (<code>out/manual.json</code>), bulk labelling, independent double-check, and the multi-round <b>Amber Loop</b> (<code>out/amber_rounds.jsonl</code>). "
+        "<b>People stay in control at the final pass:</b> clear any residual <code>AMBER</code> items and inspect the 20-item auto-accepted audit sample before releasing <code>out/verified_dataset.jsonl</code>."
         "</div>",
         unsafe_allow_html=True,
     )
@@ -1091,6 +1166,14 @@ def render_human_gate_page() -> None:
     dec_df = load_decisions_from_source(picked_source[1])
     pending_df, cleared_df, summary = compute_amber_queue(dec_df, gate_log)
 
+    rounds_by_item: dict[tuple[str, str], list[dict]] = {}
+    for rm in amber_rounds:
+        if isinstance(rm, dict):
+            rfid = str(rm.get("frame_id", "")).strip()
+            rkey = str(rm.get("key", "")).strip()
+            if rfid and rkey:
+                rounds_by_item.setdefault((rfid, rkey), []).append(rm)
+
     # Top-level metrics bar
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("Auto-Accepted (accept)", summary["n_accept"])
@@ -1109,7 +1192,7 @@ def render_human_gate_page() -> None:
         n_amber_pending_after_human=summary["n_amber_pending"],
     )
     if funnel_stages:
-        with st.expander("📉 Multi-Round Amber Loop Funnel (Double-Check → Argon Loop → Human Release Gate)", expanded=True):
+        with st.expander("📉 Multi-Round Amber Loop Funnel (Double-Check → Argon Loop Rounds → Human Release Gate)", expanded=True):
             f_cols = st.columns(len(funnel_stages))
             for idx_f, stg in enumerate(funnel_stages):
                 delta_str = (
@@ -1227,6 +1310,8 @@ def render_human_gate_page() -> None:
         pv_val = active_row.get("pv_match", None)
         p_wrong_val = float(_safe_prob(active_row.get("p_wrong", 0.5), default=0.5))
         final_by = str(active_row.get("final_by", "flash") or "flash")
+        argon_note = str(active_row.get("argon_reason") or active_row.get("argon_reasoning") or "")
+        item_rounds = rounds_by_item.get((fid, k), [])
 
         head_c1, head_c2 = st.columns([3, 2])
         with head_c1:
@@ -1286,6 +1371,14 @@ def render_human_gate_page() -> None:
 
                 st.markdown(f"**Model Rationale:** {rationale_txt}")
                 st.caption(f"**Sceptical Critic:** {critic_txt}")
+                if item_rounds:
+                    last_r = item_rounds[-1]
+                    st.caption(
+                        f"**Amber Loop ({len(item_rounds)} round(s) examined by Argon):** "
+                        f"{last_r.get('reason', argon_note)}"
+                    )
+                elif argon_note and argon_note.lower() != "nan":
+                    st.caption(f"**Argon Amber Loop Note:** {argon_note}")
 
                 st.markdown("#### Human Decision (1-Click or Keyboard `A` / `C`)")
                 act_c1, act_c2 = st.columns(2)
@@ -1302,6 +1395,7 @@ def render_human_gate_page() -> None:
                             key=k,
                             action="approve",
                             human_present=model_pres,
+                            item_type="amber",
                             video=vid,
                             split=split_val,
                             agent_status="AMBER",
@@ -1322,6 +1416,7 @@ def render_human_gate_page() -> None:
                             key=k,
                             action="correct",
                             human_present=flipped_pres,
+                            item_type="amber",
                             video=vid,
                             split=split_val,
                             agent_status="AMBER",
@@ -1348,6 +1443,7 @@ def render_human_gate_page() -> None:
                                     key=str(r_f.key),
                                     action="approve",
                                     human_present=m_p,
+                                    item_type="amber",
                                     video=str(getattr(r_f, "video", "")),
                                     split=str(getattr(r_f, "split", "test")),
                                     agent_status="AMBER",
@@ -1370,6 +1466,7 @@ def render_human_gate_page() -> None:
                                 key=str(r_all.key),
                                 action="approve",
                                 human_present=m_p,
+                                item_type="amber",
                                 video=str(getattr(r_all, "video", "")),
                                 split=str(getattr(r_all, "split", "test")),
                                 agent_status="AMBER",
@@ -1425,6 +1522,7 @@ def render_human_gate_page() -> None:
                             key=r_k,
                             action="approve",
                             human_present=r_pres,
+                            item_type="amber",
                             video=r_vid,
                             split=r_split,
                             agent_status="AMBER",
@@ -1444,6 +1542,7 @@ def render_human_gate_page() -> None:
                             key=r_k,
                             action="correct",
                             human_present=r_flip,
+                            item_type="amber",
                             video=r_vid,
                             split=r_split,
                             agent_status="AMBER",
@@ -1456,18 +1555,41 @@ def render_human_gate_page() -> None:
     # ==========================================================================
     # Part 2: Random Audit Sample of Auto-Accepted Labels (VISION.md Final Pass)
     # ==========================================================================
-    audit_sample_df = sample_accepted_for_audit(dec_df, n_sample=6, seed=0)
+    audit_sample_df = sample_accepted_for_audit(dec_df, n_sample=20, seed=0)
     if not audit_sample_df.empty:
         with st.expander(
             f"🔍 Final Pass Spot-Check: Random Audit Sample of Auto-Accepted Labels ({len(audit_sample_df)} of {summary['n_accept']} `accept` labels with evidence crops)",
             expanded=pending_df.empty,
         ):
             st.caption(
-                "Per VISION.md: Before releasing the dataset, the human reviewer can inspect a random sample of auto-accepted labels alongside their zoomed evidence crops."
+                "Per VISION.md & DESIGN.md 1D: Before releasing the dataset, the human reviewer inspects a 20-item random audit sample of auto-accepted labels alongside their zoomed evidence crops."
             )
-            audit_cols = st.columns(3)
+            if st.button(
+                f"✅ Sign Off {len(audit_sample_df)}-Item Auto-Accepted Audit Sample",
+                key="btn_signoff_audit_sample",
+                width="stretch",
+            ):
+                for a_r in audit_sample_df.itertuples():
+                    a_p = int(_safe_present(getattr(a_r, "final_present", getattr(a_r, "present", 0))))
+                    record_gate_decision(
+                        reviewer=reviewer_name,
+                        frame_id=str(a_r.frame_id),
+                        key=str(a_r.key),
+                        action="approve",
+                        human_present=a_p,
+                        item_type="audit_sample",
+                        video=str(getattr(a_r, "video", "")),
+                        split=str(getattr(a_r, "split", "test")),
+                        agent_status="accept",
+                        model_present=a_p,
+                        conf=float(_safe_prob(getattr(a_r, "conf", 0.0))),
+                        rationale=str(getattr(a_r, "rationale", getattr(a_r, "evidence", ""))),
+                    )
+                st.rerun()
+
+            audit_cols = st.columns(4)
             for a_idx, a_row in enumerate(audit_sample_df.itertuples()):
-                col_a = audit_cols[a_idx % 3]
+                col_a = audit_cols[a_idx % 4]
                 a_fid = str(a_row.frame_id)
                 a_k = str(a_row.key)
                 a_pres = int(_safe_present(getattr(a_row, "final_present", getattr(a_row, "present", 0))))
