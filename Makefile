@@ -11,10 +11,10 @@ setup:
 	@if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi
 
 demo:
-	./run.sh
+	PORT=$(PORT) ./run.sh
 
 run:
-	./run.sh
+	PORT=$(PORT) ./run.sh
 
 demo: run
 
