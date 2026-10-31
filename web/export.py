@@ -98,7 +98,11 @@ def _merge_annotation_sources(out_dir: Path) -> tuple[dict[tuple[str, str], dict
     mask_files = [Path(p) for p in sorted(glob.glob(str(out_dir / "annotations_masks*.jsonl")))]
     poly_dir = out_dir / "polygons"
     poly_files = (
-        [p for p in sorted(poly_dir.glob("*.jsonl")) if not p.name.startswith("raw_")]
+        [
+            p
+            for p in sorted(poly_dir.glob("*.jsonl"))
+            if not p.name.startswith("raw_") and not p.name.startswith("refine_raw_")
+        ]
         if poly_dir.exists()
         else []
     )
@@ -202,9 +206,13 @@ def export_video_bundle(
     frames_out_dir = web_data_dir / "frames"
     gt_masks_out_dir = web_data_dir / "gt_masks"
     masks_out_dir = web_data_dir / "masks"
+    masks_r1_out_dir = web_data_dir / "masks_r1"
+    masks_r2_out_dir = web_data_dir / "masks_r2"
     frames_out_dir.mkdir(parents=True, exist_ok=True)
     gt_masks_out_dir.mkdir(parents=True, exist_ok=True)
     masks_out_dir.mkdir(parents=True, exist_ok=True)
+    masks_r1_out_dir.mkdir(parents=True, exist_ok=True)
+    masks_r2_out_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Load frame index for target video
     index_csv = data_dir / "index.csv"
@@ -243,6 +251,8 @@ def export_video_bundle(
     results_json = _read_json(out_dir / "results.json")
     student_json = _read_json(out_dir / "student.json")
     localize_json = _read_json(out_dir / "localize_results.json")
+    mask_results_json = _read_json(out_dir / "mask_results.json")
+    mask_refine_json = _read_json(out_dir / "mask_refine_results.json")
     manual_json = _read_json(out_dir / "manual.json")
     audit_json = _read_json(out_dir / "eval_audit.json")
 
@@ -304,6 +314,22 @@ def export_video_bundle(
                     mask_url = f"data/masks/{fid}_{lbl}.png"
                     break
 
+            mask_r1_url = None
+            mp_r1 = out_dir / "masks_r1" / f"{fid}_{lbl}.png"
+            if mp_r1.is_file():
+                dst_r1 = masks_r1_out_dir / f"{fid}_{lbl}.png"
+                if not dst_r1.exists() or dst_r1.stat().st_size != mp_r1.stat().st_size:
+                    shutil.copy2(mp_r1, dst_r1)
+                mask_r1_url = f"data/masks_r1/{fid}_{lbl}.png"
+
+            mask_r2_url = None
+            mp_r2 = out_dir / "masks_r2" / f"{fid}_{lbl}.png"
+            if mp_r2.is_file():
+                dst_r2 = masks_r2_out_dir / f"{fid}_{lbl}.png"
+                if not dst_r2.exists() or dst_r2.stat().st_size != mp_r2.stat().st_size:
+                    shutil.copy2(mp_r2, dst_r2)
+                mask_r2_url = f"data/masks_r2/{fid}_{lbl}.png"
+
             round_history = []
             for r_idx in range(4):
                 rk = f"status_round_{r_idx}"
@@ -338,6 +364,9 @@ def export_video_bundle(
                 "pass2": a.get("pass2") if isinstance(a.get("pass2"), dict) else None,
                 "box_iou": _to_float_or_none((a.get("pass2") or {}).get("iou") if isinstance(a.get("pass2"), dict) else a.get("iou")),
                 "mask_url": mask_url,
+                "mask_r0_url": mask_url,
+                "mask_r1_url": mask_r1_url,
+                "mask_r2_url": mask_r2_url,
                 "mask_b64": a.get("mask") if isinstance(a.get("mask"), str) else None,
                 "mask_iou": _to_float_or_none(a.get("mask_iou")),
                 "mask_source": a.get("mask_source") or None,
@@ -400,6 +429,8 @@ def export_video_bundle(
         "results": results_json,
         "student": student_json,
         "localize_results": localize_json,
+        "mask_results": mask_results_json,
+        "mask_refine_results": mask_refine_json,
         "eval_audit": audit_json,
         "manual": manual_json,
         "frames": frames_bundle,
