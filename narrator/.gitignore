@@ -13,3 +13,8 @@ kb/raw_http/
 kb/passages.parquet
 .venv-clip/
 out/events.jsonl
+out/real/events.jsonl
+out/real/gt_presence.parquet
+out/real/mock_labels.parquet
+out/real/claims_scored.parquet
+out/real/evidence/
