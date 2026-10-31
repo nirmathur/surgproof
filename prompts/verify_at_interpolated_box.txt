@@ -1,0 +1,13 @@
+You are checking one label on a frame from a laparoscopic cholecystectomy video.
+
+Label under review: {label}   (grasper | l_hook = L-hook electrocautery)
+Frame: {frame_path}
+Box(es) currently labelled {label} in this frame: {boxes}
+Where a {label} is expected, interpolated from the neighbouring frames of its track: {interpolated}
+(boxes are [x1, y1, x2, y2] in pixels of the 854x480 frame)
+
+Motion tracking flagged this label: the tool either jumped, changed size abruptly, or briefly disappeared.
+
+Answer in JSON only:
+{"tool_at_expected_box": true|false, "tool_type_at_expected_box": "grasper"|"l_hook"|"other_instrument"|"none",
+ "current_boxes_correct": true|false, "corrected_box": [x1, y1, x2, y2] | null, "confidence": 0.0-1.0}

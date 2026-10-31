@@ -1,0 +1,109 @@
+# Tracking verifier config. Every threshold used by tracker/ lives here.
+seed: 0
+n_workers: 0            # 0 = all CPU cores
+
+paths:
+  data_root: data/cholecseg8k/CholecSeg8k
+  work: out/tracker      # cached intermediates (frames, detections, camera, tracks, signals)
+  eval: out/eval
+  render: out/render
+  checks: out/checks
+  prompts: prompts
+
+# Aligned with prepare_data.py (random.Random(0), 6 test videos). See README "Agent notes".
+split:
+  test:  [video09, video12, video17, video28, video48, video55]
+  tune:  [video01, video18, video20, video24, video25, video26, video27, video35, video37, video43, video52]
+
+# Watershed mask (channel 0) pixel value per class. 255 = 1-px frame border, ignored.
+classes:
+  background: 50
+  abdominal_wall: 11
+  liver: 21
+  gi_tract: 13
+  fat: 12
+  grasper: 31
+  connective_tissue: 23
+  blood: 24
+  cystic_duct: 25
+  l_hook: 32
+  gallbladder: 22
+  hepatic_vein: 33
+  liver_ligament: 5
+ignore_value: 255
+tool_labels: [grasper, l_hook]
+
+detect:
+  min_area_frac: 0.001   # drop connected components below 0.1% of the frame
+  connectivity: 8
+
+field:
+  n_sample_frames: 30    # frames per video for the median image
+  percentile: 90         # per-pixel percentile over sampled frames (50 = median; median cut into dark tissue)
+  dark_thresh: 15        # grey level below which the percentile image is "dark border"
+  convex_hull: true
+  morph_kernel: 15
+
+camera:
+  scale: 0.25            # downscale factor for Farneback
+  tool_dilate_px: 25     # dilation of tool boxes excluded from flow (full-res px)
+  min_valid_frac: 0.05   # below this fraction of valid pixels, camera motion = 0
+  farneback: {pyr_scale: 0.5, levels: 3, winsize: 15, iterations: 3, poly_n: 5, poly_sigma: 1.2}
+
+quality:
+  scale: 0.5
+  specular_v: 240
+  specular_s: 40
+
+track:
+  max_gap: 3             # frames a track may be missing and still be linked
+  gate_dist_diag: 3.0    # max camera-compensated centroid distance, in box diagonals
+  w_dist: 1.0
+  w_iou: 1.0
+
+signals:
+  edge_margin_px: 15     # "near the visible field edge"
+  occlusion_frac: 0.10   # fraction of a box covered by another tool box to count as occluded
+  swap_window: 2         # frames either side used for swap support
+  short_track_len: 5
+  max_tools: 3
+  z_thresh: 3.0          # flag threshold for z-scored signals
+  binary_thresh: 0.5     # flag threshold for 0..1 signals
+  # signals converted to robust z-scores (median/MAD) per video
+  zscore: [teleport, jerk, size_jump, aspect_jump, shaft_to_edge, blur, contrast, brightness, specular]
+  # raw-valued signals (already 0..1 or counts)
+  raw: [swap, flicker, exit_midframe, entry_midframe, short_track, tool_count]
+  # signals that are frame covariates, not error detectors (excluded from best-single-signal)
+  quality: [blur, contrast, brightness, specular]
+
+corrupt:
+  seed: 0
+  # rates are per gt detection; vanish is per track (only tracks with a mid-field box qualify)
+  rates: {drop: 0.02, jitter: 0.02, label_swap: 0.01, false_positive: 0.01, vanish: 1.0, size_error: 0.02}
+  drop_len: [1, 3]
+  jitter_k: [0.5, 2.0]   # shift in box diagonals
+  size_scale: [0.4, 2.5] # scale factor range (excluding 0.75..1.33)
+  fp_size_frac: [0.03, 0.12]  # fp box side as fraction of frame width
+
+eval:
+  budgets_max: 0.30
+  n_budget_points: 31
+  random_repeats: 20
+
+recheck:
+  budget: 0.10
+  control_frac: 0.20
+  flag_quantile: 0.90    # flags.parquet "flagged" = suspicion above this quantile of tuning rows (corrupted gt)
+  # top contributing signal -> recheck_type. Spec mapping, plus jerk/size_jump/aspect_jump (motion-consistency
+  # signals, verified the same way) and short_track (the false-positive proxy). Anything unlisted -> escalate.
+  type_map:
+    teleport: verify_at_interpolated_box
+    jerk: verify_at_interpolated_box
+    size_jump: verify_at_interpolated_box
+    aspect_jump: verify_at_interpolated_box
+    flicker: verify_at_interpolated_box
+    swap: disambiguate_pair
+    exit_midframe: frame_strip
+    entry_midframe: frame_strip
+    shaft_to_edge: crop_identify
+    short_track: crop_identify
