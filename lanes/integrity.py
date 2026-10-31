@@ -20,9 +20,9 @@ def fail(msg):
     fails.append(msg)
 
 
-DISPLAY = [f for f in ["app.py", "narrate.py"] + glob.glob("pages/*.py") + glob.glob("promo/*.py") if os.path.exists(f)]
+DISPLAY = [f for f in ["app.py", "narrate.py"] + glob.glob("pages/*.py") + glob.glob("promo/*.py") + glob.glob("web/*.js") + glob.glob("web/*.html") + glob.glob("web/*.py") if os.path.exists(f)]
 PATTERNS = [
-    (r'["\']box["\']\s*:\s*\[\s*\d', "literal bounding box"),
+    (r'["\']?box["\']?\s*:\s*\[\s*\d', "literal bounding box"),
     (r'["\']status["\']\s*:\s*["\'](accept|reject|AMBER|amber)["\']', "literal verdict"),
     (r'["\']\d{1,3}\.\d%["\']', "literal percentage string"),
     (r'0\.7\d?\s*\+\s*0\.\d+\s*\*', "synthetic score formula"),
