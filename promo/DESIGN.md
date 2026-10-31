@@ -64,13 +64,18 @@ Load macOS system font `/System/Library/Fonts/SFNS.ttf` via Pillow `ImageFont.tr
 
 ---
 
-## 3. Seven-Shot Storyboard (52.0 Seconds Total)
+## 3. Seven-Shot Storyboard (54.0 Seconds Total — Matched Beat-for-Beat to `VISION.md`)
 
-### Shot 1 — Raw Surgical Video (`0:00–0:07`, 7.0s)
+Every shot follows `VISION.md` (13:15–13:22 updates): positioning (`Today: a human at every step` vs `SurgProof: none`), public teaching video $\rightarrow$ self-written manual $\rightarrow$ real frames labelled $\rightarrow$ independent double-check (green/amber/red) + multi-round Amber loop shrinking uncertain cases $\rightarrow$ human final pass & `Release dataset` sign-off (`out/verified_dataset.jsonl`) $\rightarrow$ one real held-out number (`out/results.json`) $\rightarrow$ end card.
+
+### Shot 1 — Raw Surgical Video & Positioning (`0:00–0:07`, 7.0s)
 - **File**: `out/promo/shot_01_raw_frame.mp4`
-- **Real Source**: Real laparoscopic frames from `data/index.csv` — specifically the held-out test clip `video12_15750` (`frame_15750_endo.png` $\rightarrow$ `frame_15758_endo.png` $\rightarrow$ `frame_15766_endo.png` in `/Users/nirmathur/surgatlas-lanes/data/raw/CholecSeg8k/video12/video12_15750/`, or holding cleanly on `frame_15758_endo.png` after a gentle 3-frame step).
+- **Real Source**: Real laparoscopic frames from `data/index.csv` — specifically held-out test clip `video12_15750` (`frame_15758_endo.png` in `/Users/nirmathur/surgatlas-lanes/data/raw/CholecSeg8k/video12/video12_15750/`).
 - **Composition**:
-  - Frame displayed centered at `768×432` (`x = 256, y = 112`), framed by a `1px` `#232734` border (`8px` corner radius).
+  - Top positioning header (clean two-line contrast centered at `y = 68`, fading in gently):
+    - Line 1 (`18px` SF Pro Regular `#8A909E`): `Today: a human at every step.`
+    - Line 2 (`22px` SF Pro Semibold `#F4F5F8`): `SurgProof: none.`
+  - Real surgical frame displayed centered at `736×414` (`x = 272, y = 140`), framed by a `1px` `#232734` border (`8px` corner radius).
   - No bounding boxes, no sidebar, no badges.
 - **Caption (4 words)**:
   > `Surgical video. No labels.`
@@ -94,7 +99,7 @@ Load macOS system font `/System/Library/Fonts/SFNS.ttf` via Pillow `ImageFont.tr
 
 ---
 
-### Shot 3 — Zero-Shot Frame Labelling (`0:15–0:23`, 8.0s)
+### Shot 3 — Zero-Shot Frame Labelling (`0:15–0:22`, 7.0s)
 - **File**: `out/promo/shot_03_labels.mp4`
 - **Real Source**: Real frame `video12_15750_15758` (`frame_15758_endo.png`) and its real predictions from `out/labels_manual.jsonl`:
   - `grasper`: `box = [420, 140, 522, 380]`
@@ -104,49 +109,49 @@ Load macOS system font `/System/Library/Fonts/SFNS.ttf` via Pillow `ImageFont.tr
   - `cystic_duct`: `box = [445, 445, 748, 810]`
   *(Note: coordinates in `out/labels_manual.jsonl` are `[ymin, xmin, ymax, xmax]` normalized `0..1000` — scale accurately to the rendered frame rectangle).*
 - **Composition**:
-  - **Left (`x = 112, y = 112, w = 688, h = 387`)**: The real laparoscopic frame. One by one (`t = 0.6s, 1.3s, 2.0s, 2.7s, 3.4s`), clean `2px` `#3B82F6` boxes appear with a small `#3B82F6` pill tag at the top-left of each box (`grasper`, `l_hook`, `gallbladder`, `liver`, `cystic_duct`).
+  - **Left (`x = 112, y = 112, w = 688, h = 387`)**: The real laparoscopic frame. One by one (`t = 0.5s, 1.1s, 1.7s, 2.3s, 2.9s`), clean `2px` `#3B82F6` boxes appear with a small `#3B82F6` pill tag at the top-left of each box (`grasper`, `l_hook`, `gallbladder`, `liver`, `cystic_duct`).
   - **Right (`x = 832, y = 112, w = 336, h = 387`)**: Clean vertical list of the 5 labels appearing in sync with the boxes, each with a calm blue dot `#3B82F6` and structure name (`grasper`, `l_hook`, `gallbladder`, `liver`, `cystic_duct`).
 - **Caption (4 words)**:
   > `Labels a real frame.`
 
 ---
 
-### Shot 4 — Self-Verification: Green, Amber, Red (`0:23–0:32`, 9.0s)
+### Shot 4 — Independent Double-Check & Multi-Round Amber Loop (`0:22–0:32`, 10.0s — Hero Moment)
 - **File**: `out/promo/shot_04_verify.mp4`
-- **Real Source**: Same frame `video12_15750_15758` from `out/labels_manual.jsonl` scored by `accept.py` rules (zero GT access):
+- **Real Source**: Same frame `video12_15750_15758` from `out/labels_manual.jsonl` + `out/amber_rounds.jsonl` / `out/decisions.csv` scored by `accept.py` rules (zero GT access):
   - `grasper` (`trust = 0.98`, `pv_match = True`) $\rightarrow$ **Accept (Green `#10B981`)**
   - `l_hook` (`trust = 0.98`, `pv_match = True`) $\rightarrow$ **Accept (Green `#10B981`)**
   - `gallbladder` (`trust = 0.97`, `pv_match = True`) $\rightarrow$ **Accept (Green `#10B981`)**
   - `liver` (`trust = 0.49`, `pv_match = False`) $\rightarrow$ **Unsure (Amber `#F59E0B`)**
   - `cystic_duct` (`trust = 0.29`, `pv_match = False`, `p_wrong = 0.35`) $\rightarrow$ **Reject (Red `#EF4444`)**
-- **Composition**:
-  - Starts in the exact state Shot 3 ended (`#3B82F6` neutral labels).
-  - Between `t = 1.0s` and `t = 3.5s`, each bounding box and right-hand row smoothly transitions to its verdict colour:
-    - `grasper`, `l_hook`, `gallbladder` turn **Green (`#10B981`)** with status tag `accept`.
-    - `liver` turns **Amber (`#F59E0B`)** with status tag `unsure`.
-    - `cystic_duct` turns **Red (`#EF4444`)** with status tag `reject`, and its bounding box on the frame dims to `25%` opacity so only trusted/amber boxes remain prominent.
+- **Composition (Two-Beat Hero Sequence)**:
+  - **Beat 4A (`t = 0.0s–4.5s`, Double-Check)**: Each bounding box and right-hand row smoothly transitions from neutral blue `#3B82F6` to its double-check verdict colour:
+    - `grasper`, `l_hook`, `gallbladder` turn **Green (`#10B981`)** (`accept`).
+    - `liver` turns **Amber (`#F59E0B`)** (`amber`).
+    - `cystic_duct` turns **Red (`#EF4444`)** (`reject`, box dims to `25%` opacity).
+  - **Beat 4B (`t = 4.5s–10.0s`, Shrinking Amber Loop)**: Below the verdict list on the right card, display the real **Amber Loop** progress read from `out/amber_rounds.jsonl` (or `out/decisions.csv` if `amber_rounds.jsonl` is still pending, showing `Round 0 -> Round 1 -> Round 2 -> Round 3` horizontal shrinking amber bars as Argon re-examines tight crops against the manual criteria).
 - **Caption (5 words)**:
   > `Checks itself. Green, amber, red.`
 
 ---
 
-### Shot 5 — Human Gate Clears Only Amber (`0:32–0:40`, 8.0s)
+### Shot 5 — Human Final Pass & "Release dataset" Sign-Off (`0:32–0:40`, 8.0s)
 - **File**: `out/promo/shot_05_gate.mp4`
-- **Real Source**: Real AMBER gate item from `out/decisions.csv` / `out/labels_manual.jsonl` (or headless screenshot of `pages/2_Human_gate.py` framed cleanly, or exact PIL render of the Gate card for `liver` on `video12_15750_15758` / `grasper` on `video55_00588_660`).
+- **Real Source**: Real Human Gate (`pages/2_Human_gate.py`, reading `out/decisions.csv` and `out/amber_rounds.jsonl` $\rightarrow$ `out/verified_dataset.jsonl`).
 - **Composition**:
-  - Centered minimal Gate review card (`x = 180, y = 104, w = 920, h = 440`, `#12141C`, `1px` border `#232734`).
-  - Top bar of card: `Human Gate` on left, Amber pill `1 amber remaining` on right.
-  - Inside left (`w = 480, h = 270`): Real laparoscopic frame showing ONLY the single **Amber (`#F59E0B`)** bounding box (`liver` or `grasper`).
-  - Inside right: Structure name (`liver`), status badge (`unsure`), and two clean action buttons: `Approve` and `Reject`.
-  - **Action at `t = 3.5s`**: The `Approve` button subtly highlights (`#10B981` border/fill), the bounding box and badge smoothly transition from **Amber (`#F59E0B`)** to **Green (`#10B981`, `verified`)**, and the top-right counter updates to `0 amber remaining`.
+  - Centered minimal Gate review card (`x = 160, y = 96, w = 960, h = 456`, `#12141C`, `1px` border `#232734`).
+  - Top bar of card: `Final Pass · Release Dataset` on left; two clean status pills on right: `Ambers left: 1 -> 0` and `Audit sample: 20/20`.
+  - Inside left (`w = 480, h = 270`): Real laparoscopic frame with evidence crop showing the residual **Amber (`#F59E0B`)** item.
+  - Inside right: Structure label, manual criterion, `Approve` / `Reject` buttons, and the **`Release dataset`** button (`out/verified_dataset.jsonl`).
+  - **Action at `t = 3.5s`**: The last Amber item turns **Green (`#10B981`, `verified`)**, `Ambers left: 0`, and the **`Release dataset`** button unlocks in crisp **Green (`#10B981`)** (`out/verified_dataset.jsonl`).
 - **Caption (5 words)**:
   > `Human clears only amber cases.`
 
 ---
 
-### Shot 6 — The Result (`0:40–0:46`, 6.0s)
+### Shot 6 — The Result (`0:40–0:47`, 7.0s)
 - **File**: `out/promo/shot_06_result.mp4`
-- **Real Source**: Strictly `out/results.json`.
+- **Real Source**: Strictly `out/results.json` (and `out/student.json` if present).
 - **Conditional Rule (MANDATORY)**:
   - **Case A — `out/results.json` exists and contains a valid test-split metric**:
     - Display **one** hero number read from `out/results.json` (specifically held-out test accuracy on accepted self-verified labels excluding liver, e.g. `94.2%`), set in `84px` SF Pro Semibold `#F4F5F8`, centered at `(640, 320)`.
@@ -160,7 +165,7 @@ Load macOS system font `/System/Library/Fonts/SFNS.ttf` via Pillow `ImageFont.tr
 
 ---
 
-### Shot 7 — End Card (`0:46–0:52`, 6.0s)
+### Shot 7 — End Card (`0:47–0:54`, 7.0s)
 - **File**: `out/promo/shot_07_end.mp4`
 - **Composition**:
   - Pure `#0A0B0E` canvas.
