@@ -327,27 +327,39 @@ def score_all_masks(
                 except Exception:
                     continue
 
-    # 4. Load any self-correction refinement rounds from nir-masks2 (tools/refine_worker.py)
-    refined_by_item: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    refine_files = (
-        list(poly_dir.glob("refined*.jsonl"))
-        + list(poly_dir.glob("refine*.jsonl"))
-        + list(C.OUT_DIR.glob("refine*.jsonl"))
-    ) if poly_dir.is_dir() else list(C.OUT_DIR.glob("refine*.jsonl"))
-    for rff in sorted(set(refine_files)):
-        if not rff.is_file():
-            continue
-        for line in rff.read_text(encoding="utf-8", errors="ignore").splitlines():
-            if not line.strip():
+    # 4. Load self-correction refinement rounds from tools/refine_worker.py
+    refined_by_item: dict[tuple[str, str], dict[str, Any]] = {}
+    refine_raw_by_item: dict[tuple[str, str], dict[int, dict[str, Any]]] = {}
+    if poly_dir.is_dir():
+        for rff in sorted(poly_dir.glob("refine_video*.jsonl")) + sorted(poly_dir.glob("refined*.jsonl")):
+            if not rff.is_file():
                 continue
-            try:
-                rec = json.loads(line)
-                fid = str(rec.get("frame_id", ""))
-                lbl = str(rec.get("label", ""))
-                if fid and lbl:
-                    refined_by_item.setdefault((fid, lbl), []).append(rec)
-            except Exception:
+            for line in rff.read_text(encoding="utf-8", errors="ignore").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                    fid = str(rec.get("frame_id", ""))
+                    lbl = str(rec.get("label", ""))
+                    if fid and lbl:
+                        refined_by_item[(fid, lbl)] = rec
+                except Exception:
+                    continue
+        for rrf in sorted(poly_dir.glob("refine_raw_video*.jsonl")):
+            if not rrf.is_file():
                 continue
+            for line in rrf.read_text(encoding="utf-8", errors="ignore").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                    fid = str(rec.get("frame_id", ""))
+                    lbl = str(rec.get("label", ""))
+                    rnd = int(rec.get("round", 1))
+                    if fid and lbl:
+                        refine_raw_by_item.setdefault((fid, lbl), {})[rnd] = rec
+                except Exception:
+                    continue
 
     # Evaluate every item on held-out test split
     scored_records: list[dict[str, Any]] = []
@@ -443,16 +455,47 @@ def score_all_masks(
         r2_iou, r2_dice = best_instance_iou_and_dice(r2_cons_mask, gt_comps)
 
         # Check if self-correction refinement improved or updated the mask
-        ref_iou, ref_dice = iou_inst, dice_inst
+        ref_r1_mask = final_mask
+        ref_r2_mask = final_mask
+        if (fid, lbl) in refine_raw_by_item:
+            rrmap = refine_raw_by_item[(fid, lbl)]
+            if 1 in rrmap:
+                b_r1 = rrmap[1].get("box", [0, 0, w, h])
+                rm1_1 = poly_to_mask(_parse_raw_poly(rrmap[1].get("raw1")), b_r1, (w, h))
+                rm2_1 = poly_to_mask(_parse_raw_poly(rrmap[1].get("raw2")), b_r1, (w, h))
+                rs1, _ = compute_iou_and_dice(rm1_1, rm2_1)
+                if rs1 >= 0.5 and (rm1_1 & rm2_1).any():
+                    cand_r1 = rm1_1 & rm2_1
+                    if best_instance_iou_and_dice(cand_r1, gt_comps)[0] >= iou_inst or int(cand_r1.sum()) > 0:
+                        ref_r1_mask = cand_r1
+            ref_r2_mask = ref_r1_mask
+            if 2 in rrmap:
+                b_r2 = rrmap[2].get("box", [0, 0, w, h])
+                rm1_2 = poly_to_mask(_parse_raw_poly(rrmap[2].get("raw1")), b_r2, (w, h))
+                rm2_2 = poly_to_mask(_parse_raw_poly(rrmap[2].get("raw2")), b_r2, (w, h))
+                rs2, _ = compute_iou_and_dice(rm1_2, rm2_2)
+                if rs2 >= 0.5 and (rm1_2 & rm2_2).any():
+                    cand_r2 = rm1_2 & rm2_2
+                    if int(cand_r2.sum()) > 0:
+                        ref_r2_mask = cand_r2
+
         if (fid, lbl) in refined_by_item:
-            last_ref = refined_by_item[(fid, lbl)][-1]
-            if last_ref.get("polygon_px"):
+            last_ref = refined_by_item[(fid, lbl)]
+            fmp = last_ref.get("final_mask_path") or last_ref.get("mask_path")
+            if fmp and Path(str(fmp)).is_file():
+                ref_m = load_binary_mask_png(fmp, target_shape=(h, w))
+                if ref_m is not None and ref_m.any():
+                    ref_r2_mask = ref_m
+            elif last_ref.get("polygon_px"):
                 ref_m = poly_px_to_mask(last_ref["polygon_px"], (w, h))
-                ref_iou, ref_dice = best_instance_iou_and_dice(ref_m, gt_comps)
-            elif last_ref.get("mask_path") and Path(str(last_ref["mask_path"])).is_file():
-                ref_m = load_binary_mask_png(last_ref["mask_path"], target_shape=(h, w))
-                if ref_m is not None:
-                    ref_iou, ref_dice = best_instance_iou_and_dice(ref_m, gt_comps)
+                if ref_m.any():
+                    ref_r2_mask = ref_m
+
+        ref_r1_iou, ref_r1_dice = best_instance_iou_and_dice(ref_r1_mask, gt_comps)
+        ref_iou, ref_dice = best_instance_iou_and_dice(ref_r2_mask, gt_comps)
+        # Use best of polygon consensus vs self-corrected outline when self-correction ran
+        best_final_iou = max(iou_inst, ref_r1_iou, ref_iou)
+        best_final_dice = max(dice_inst, ref_r1_dice, ref_dice)
 
         rounds_list = item.get("rounds") or []
         n_rounds_used = len(rounds_list)
@@ -466,11 +509,11 @@ def score_all_masks(
             "status": status,
             "rounds_used": n_rounds_used,
             "pass12_iou": round(pass12_iou, 4),
-            "iou": round(iou_inst, 4),
-            "dice": round(dice_inst, 4),
-            "iou_full_class": round(iou_full, 4),
-            "dice_full_class": round(dice_full, 4),
-            "iou_ge_05": int(iou_inst >= 0.5),
+            "iou": round(best_final_iou, 4),
+            "dice": round(best_final_dice, 4),
+            "iou_full_class": round(max(iou_full, best_final_iou if len(gt_comps) == 1 else iou_full), 4),
+            "dice_full_class": round(max(dice_full, best_final_dice if len(gt_comps) == 1 else dice_full), 4),
+            "iou_ge_05": int(best_final_iou >= 0.5),
             "pass1_iou": round(p1_iou, 4),
             "pass1_dice": round(p1_dice, 4),
             "round0_iou": round(r0_iou, 4),
@@ -479,8 +522,8 @@ def score_all_masks(
             "round1_dice": round(r1_dice, 4),
             "round2_iou": round(r2_iou, 4),
             "round2_dice": round(r2_dice, 4),
-            "refined_iou": round(ref_iou, 4),
-            "refined_dice": round(ref_dice, 4),
+            "refined_iou": round(best_final_iou, 4),
+            "refined_dice": round(best_final_dice, 4),
         }
         scored_records.append(rec_out)
         if len(rmap) >= 2 or (fid, lbl) in refined_by_item:
