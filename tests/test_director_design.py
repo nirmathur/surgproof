@@ -64,3 +64,67 @@ def test_winning_demos_and_veo_prompts_exist():
     for forbidden in ("text", "numbers", "charts", "HUD", "glow", "lasers", "sci-fi", "heart"):
         assert forbidden in neg_text
 
+
+def test_rendered_promo_cut_passes_director_checks():
+    promo_mp4 = ROOT / "out" / "promo" / "surgproof_promo.mp4"
+    manifest_json = ROOT / "out" / "promo" / "manifest.json"
+    if not promo_mp4.is_file() or not manifest_json.is_file():
+        return
+    import json
+    m = json.loads(manifest_json.read_text(encoding="utf-8"))
+    dur = float(m.get("final_video", {}).get("duration_sec", 0.0))
+    assert 45.0 <= dur <= 60.0, f"Expected promo duration in 45..60s, got {dur}"
+    assert len(m.get("shots", {})) == 7, "Expected 7 shots in manifest.json"
+    for sid, sinfo in m["shots"].items():
+        wc = int(sinfo.get("word_count", 0))
+        assert wc <= 6, f"Shot {sid} caption exceeds 6 words ({wc})"
+    s6 = m["shots"].get("shot_06_result", {})
+    if s6.get("hero_number"):
+        assert s6.get("hero_number_source"), "shot_06_result must report hero_number_source in manifest.json"
+    for s_key in ("shot_03_labels", "shot_04_verify"):
+        shown = m["shots"].get(s_key, {}).get("shown_labels")
+        assert isinstance(shown, list) and len(shown) > 0, f"{s_key} must record shown_labels in manifest.json"
+
+
+def test_promo_code_has_zero_fabricated_boxes_or_verdicts():
+    patterns = [
+        (r'["\']box["\']\s*:\s*\[\s*\d', "literal bounding box"),
+        (r'["\']status["\']\s*:\s*["\'](accept|reject|AMBER|amber)["\']', "literal verdict"),
+        (r'["\']\d{1,3}\.\d%["\']', "literal percentage string"),
+        (r'0\.7\d?\s*\+\s*0\.\d+\s*\*', "synthetic score formula"),
+        (r'(accuracy|acc|precision|coverage)\s*=\s*0\.\d{2,}', "hard-coded metric"),
+    ]
+    promo_dirs = [ROOT / "promo"]
+    lane_promo = Path("/Users/nirmathur/surgatlas-lanes/promo/promo")
+    if lane_promo.is_dir():
+        promo_dirs.append(lane_promo)
+    for pdir in promo_dirs:
+        for py_file in sorted(pdir.glob("*.py")):
+            for i, line in enumerate(py_file.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+                s = line.strip()
+                if s.startswith("#") or "integrity: allow" in s:
+                    continue
+                for pat, what in patterns:
+                    assert not re.search(pat, line), f"{py_file}:{i}: {what}: {s[:110]}"
+
+
+def test_director_ui_branding_files_match_design_tokens():
+    web_css = ROOT / "web" / "style.css"
+    st_toml = ROOT / ".streamlit" / "config.toml"
+    ui_css = ROOT / "promo" / "ui_brand.css"
+    assert web_css.is_file(), "web/style.css must exist"
+    assert st_toml.is_file(), ".streamlit/config.toml must exist"
+    assert ui_css.is_file(), "promo/ui_brand.css must exist"
+
+    css_text = web_css.read_text(encoding="utf-8")
+    for token in ("#0A0B0E", "#12141C", "#232734", "#F4F5F8", "#8A909E", "#3B82F6", "#10B981", "#F59E0B", "#EF4444"):
+        assert token in css_text, f"Missing DESIGN.md token {token} in web/style.css"
+    assert "box-shadow: none !important" in css_text
+
+    toml_text = st_toml.read_text(encoding="utf-8")
+    for token in ("#0A0B0E", "#12141C", "#F4F5F8", "#3B82F6"):
+        assert token in toml_text, f"Missing DESIGN.md token {token} in .streamlit/config.toml"
+
+
+
+

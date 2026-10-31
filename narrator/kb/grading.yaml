@@ -1,0 +1,78 @@
+grades:
+  parkland_1:
+    criteria: Normal gallbladder, no adhesions, clear anatomy
+    required_findings: []
+    assessed_on: pre_dissection_view
+  parkland_2:
+    criteria: Minor adhesions at neck, gallbladder otherwise normal
+    required_findings:
+    - adhesions_minor
+    assessed_on: pre_dissection_view
+  parkland_3:
+    criteria: Hyperaemia, distension, or adhesions covering Hartmann pouch
+    required_findings:
+    - hyperaemia
+    assessed_on: pre_dissection_view
+  parkland_4:
+    criteria: Dense adhesions obscuring gallbladder, thick wall, or pericholecystic fluid
+    required_findings:
+    - adhesions_dense
+    assessed_on: pre_dissection_view
+  parkland_5:
+    criteria: Necrosis, gangrene, perforation, or completely buried gallbladder
+    required_findings:
+    - necrosis
+    assessed_on: pre_dissection_view
+  nassar_1:
+    criteria: Floppy gallbladder, thin-walled, no adhesions
+    cvs_failure_rate: 0.01
+  nassar_2:
+    criteria: Adhesions involving gallbladder neck or Hartmann pouch
+    cvs_failure_rate: 0.01
+  nassar_3:
+    criteria: Acute inflammation, distension, wall edema, or thick wall
+    cvs_failure_rate: 0.144
+  nassar_4:
+    criteria: Dense fibrous or gangrenous gallbladder, contracted or obscure Calot
+    cvs_failure_rate: 0.556
+  nassar_5:
+    criteria: Scleroatrophic gallbladder, Mirizzi syndrome, or impacted stones
+    cvs_failure_rate: 0.923
+tokyo:
+  inferable_from_video: false
+  note: Tokyo Guidelines 2018 severity grades require systemic inflammatory signs and organ dysfunction not inferable from
+    video alone
+rules:
+- id: grade.parkland_timing
+  statement: Assign Parkland grade from the pre-dissection view only
+  source_id: parkland
+  quote: 'Grades the severity of cholecystitis based on initial visual inspection before dissection:'
+  quote_verified: false
+  evidence_grade: cohort
+  seed: false
+  quote_status: grounding_only
+- id: grade.nassar_cvs_prior
+  statement: 'Higher Nassar grade strongly correlates with CVS failure rate (Grade IV: 55.6%, Grade V: 92.3%)'
+  source_id: nassar
+  quote: ability to demonstrate CVS progressively fell from 100% (grade I) to 7.7% (grade V;
+  quote_verified: true
+  evidence_grade: cohort
+  seed: false
+  quote_status: verified
+  quote_original: 'Failure to display the CVS rose drastically with increasing operative difficulty:'
+- id: grade.tokyo_not_inferable
+  statement: TG18 Grade II and III severity cannot be claimed from video alone without laboratory and vital signs
+  source_id: tg18
+  quote: severity grading is based on organ dysfunction
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: true
+  quote_status: not_found
+- id: grade.parkland_reliability
+  statement: Parkland grading shows high inter-rater agreement on initial presentation view
+  source_id: parkland
+  quote: The ICC among the raters of GB severity was 0.804
+  quote_verified: true
+  evidence_grade: cohort
+  seed: false
+  quote_status: verified

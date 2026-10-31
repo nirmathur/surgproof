@@ -1,0 +1,10 @@
+SOURCE_URL: https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:34126014&format=json&resultType=core
+PUBMED_URL: https://pubmed.ncbi.nlm.nih.gov/34126014/
+DOI: 10.1080/24699322.2021.1937320
+TITLE: Challenges in surgical video annotation.
+AUTHORS: Ward TM, Fer DM, Ban Y, Rosman G, Meireles OR, Hashimoto DA.
+JOURNAL: Computer assisted surgery (Abingdon, England) (2021), Vol 26, Pages 58-68
+NOTE: Full text on Taylor & Francis (10.1080/24699322.2021.1937320) not directly downloadable via script; official abstract fetched verbatim from Europe PMC / PubMed.
+
+ABSTRACT:
+Annotation of surgical video is important for establishing ground truth in surgical data science endeavors that involve computer vision. With the growth of the field over the last decade, several challenges have been identified in annotating spatial, temporal, and clinical elements of surgical video as well as challenges in selecting annotators. In reviewing current challenges, we provide suggestions on opportunities for improvement and possible next steps to enable translation of surgical data science efforts in surgical video analysis to clinical research and practice.

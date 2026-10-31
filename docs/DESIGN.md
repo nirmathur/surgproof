@@ -235,3 +235,27 @@ Beyond presence labels, `nir-localize` draws bounding boxes (`[ymin, xmin, ymax,
 - **`out/localize_rounds.jsonl`**: per-round disagreement resolution records (`frame_id, label, round, iou, verdict, reason`).
 - **`out/localize_results.json`**: post-loop held-out `test` evaluation against watershed-mask-derived bounding boxes and instrument masks (never read during localization/verification).
 
+---
+
+## 6. Grounded Narration & Promo Provenance (`out/narration_<video>.json`, `out/promo/manifest.json`)
+Enforced by `lanes/integrity.py`:
+- **`out/narration_<video>.json`** (`narrate.py` -> `app.py`):
+  - Top-level object: `{"video": "video12", "sentences": [...]}`.
+  - Every item in `sentences` MUST include non-empty `evidence: [{"frame_id": str, "key": str, "present": bool}]` where every `(frame_id, key)` has `status == "accept"` in `out/decisions.csv`, plus `claims: [{"text": str, "status": "verified" | "unsupported" | "contradicted", "evidence_frames": [frame_id]}]`.
+- **`out/promo/manifest.json`** (`promo/render.py` -> `lanes/integrity.py`):
+  - Every `shots.<shot>.shown_labels[]` item `{"frame_id", "key", "status"}` must exist in `out/decisions.csv` with matching `status`.
+  - Every `shots.<shot>.hero_number` (when not `null`/`"pending"`) MUST declare `hero_number_source` (`"<file>:<key>"`, e.g. `"out/results.json:accepted_5_informative.accuracy"`).
+
+---
+
+## 7. Web Annotation Toolbox & AI Segmentation Masks (`web/`, `out/masks/`, `web/serve.py`)
+Shared contract between `nir-webshell`, `nir-webcanvas`, `nir-webtimeline`, `nir-demo`, `nir-gate`, `nir-student`, `nir-localize`, `nir-masks2`, `nir-masks3`, and `nir-recorder`:
+- **`out/masks/<frame_id>_<label>.png`** (`localize.py` / `masks_worker.py`):
+  - AI segmentation mask PNG for `(frame_id, label)`. Referenced in `out/annotations.jsonl` (`"mask": "out/masks/<frame_id>_<label>.png"` or `"mask_path"`), with `mask_iou` and `round` (`0..3`). Never reads `mask_path` or `gt_*` from `data/index.csv` during generation.
+- **`web/data/video12.json` & `web/data/live.json`** (`web/export.py` -> `web/viewer.js`, `web/timeline.js`, `web/app.js`):
+  - Top-level keys: `video` (`"video12"`), `n_frames` (`80`), `headline` (from `out/results.json:accepted_5_informative`, including `accuracy`, `coverage`, `n_test_labels_excl_liver`, `source`), `labels` (`["grasper", "l_hook", "gallbladder", "cystic_duct", "blood", "liver"]`), `frames` (list of 80 frame objects sorted by `frame_idx`, each with `frame_id`, `frame_idx`, `img_url`, `phase`, `annotations` keyed by label with `present, status, conf, trust, box, tip, mask_url, evidence, amber_rounds`). Any frame/label not yet produced has `status: "pending"`.
+- **`web/serve.py` (`http://localhost:8600`)**:
+  - Serves `web/` static files, `/raw/...`, `/out/...`, and `POST /api/gate` (appending human Final Pass actions to `out/gate_log.jsonl` and `out/human_gate_log.jsonl`).
+
+
+

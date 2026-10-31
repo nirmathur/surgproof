@@ -121,8 +121,8 @@ def endoscapes_presence(mask_arr):
             out[f"gt_{key}"] = int(frac >= C.MIN_FRAC.get(key, C.MIN_FRAC["default"]))
             out[f"frac_{key}"] = round(frac, 5)
         else:
-            out[f"gt_{key}"] = -1
-            out[f"frac_{key}"] = -1.0
+            out[f"gt_{key}"] = None
+            out[f"frac_{key}"] = None
     frac_tool = float((mask_arr == 6).sum()) / total
     out["gt_tool_any"] = int(frac_tool >= C.MIN_FRAC["default"])
     out["frac_tool_any"] = round(frac_tool, 5)
@@ -130,10 +130,12 @@ def endoscapes_presence(mask_arr):
 
 
 def build_endoscapes2023():
-    """Download MedOtter/Endoscapes2023 (CC BY-NC-SA 4.0, 50 non-Cholec80 videos, 493 frames)
-    and build data/external/endoscapes2023/index.csv with the standard index contract.
+    """Download MedOtter/Endoscapes2023 (CC BY-NC-SA 4.0, non-Cholec80 videos),
+    drop upstream redacted/black frames (mean < 10.0 or std < 5.0), and build
+    data/external/endoscapes2023/index.csv with the standard index contract.
     """
     import io
+    import json
     from huggingface_hub import hf_hub_download
 
     raw_ext = C.RAW_DIR / "external" / "endoscapes2023"
@@ -145,53 +147,91 @@ def build_endoscapes2023():
     out_ext = C.DATA_DIR / "external" / "endoscapes2023"
     out_ext.mkdir(parents=True, exist_ok=True)
 
+    split_cache = raw_ext / "splits_manifest.json"
     split_map = {"test": "test", "val": "calib", "train": "train"}
+
+    if split_cache.exists() and any(frames_dir.glob("*.png")):
+        manifest = json.loads(split_cache.read_text())
+    else:
+        manifest = []
+        existing_idx = out_ext / "index.csv"
+        if existing_idx.exists() and any(frames_dir.glob("*.png")):
+            df_old = pd.read_csv(existing_idx)
+            for _, r in df_old.iterrows():
+                img_id = str(r["frame_id"]).replace("endoscapes_", "")
+                vid_id = str(r["video"]).replace("endoscapes_", "")
+                manifest.append({
+                    "image_id": img_id,
+                    "video_id": vid_id,
+                    "hf_split": str(r.get("source_split", r["split"])),
+                })
+        else:
+            for hf_split in ["test", "val", "train"]:
+                pq_path = hf_hub_download(
+                    "MedOtter/Endoscapes2023",
+                    f"data/{hf_split}-00000-of-00001.parquet",
+                    repo_type="dataset",
+                    local_dir=str(raw_ext),
+                )
+                df_pq = pd.read_parquet(pq_path)
+                for _, r in df_pq.iterrows():
+                    img_id = str(r["image_id"])
+                    f_path = frames_dir / f"{img_id}.png"
+                    m_path = masks_dir / f"{img_id}_mask.png"
+                    if not f_path.exists():
+                        Image.open(io.BytesIO(r["image"]["bytes"])).convert("RGB").save(f_path)
+                    if not m_path.exists():
+                        Image.open(io.BytesIO(r["label"]["bytes"])).save(m_path)
+                    manifest.append({
+                        "image_id": img_id,
+                        "video_id": str(r["video_id"]),
+                        "hf_split": hf_split,
+                    })
+        split_cache.write_text(json.dumps(manifest))
+
     rows = []
-    for hf_split in ["test", "val", "train"]:
-        pq_path = hf_hub_download(
-            "MedOtter/Endoscapes2023",
-            f"data/{hf_split}-00000-of-00001.parquet",
-            repo_type="dataset",
-            local_dir=str(raw_ext),
-        )
-        df_pq = pd.read_parquet(pq_path)
-        for _, r in df_pq.iterrows():
-            img_id = str(r["image_id"])
-            vid = f"endoscapes_{r['video_id']}"
-            frame_id = f"endoscapes_{img_id}"
-            f_path = frames_dir / f"{img_id}.png"
-            m_path = masks_dir / f"{img_id}_mask.png"
-            if not f_path.exists():
-                Image.open(io.BytesIO(r["image"]["bytes"])).convert("RGB").save(f_path)
-            mask_im = Image.open(io.BytesIO(r["label"]["bytes"]))
-            if not m_path.exists():
-                mask_im.save(m_path)
-            pres = endoscapes_presence(np.array(mask_im))
-            rows.append({
-                "frame_id": frame_id,
-                "video": vid,
-                "clip": vid,
-                "path": str(f_path),
-                "mask_path": str(m_path),
-                **{k: pres[k] for k in [
-                    "gt_grasper", "frac_grasper",
-                    "gt_l_hook", "frac_l_hook",
-                    "gt_liver", "frac_liver",
-                    "gt_gallbladder", "frac_gallbladder",
-                    "gt_cystic_duct", "frac_cystic_duct",
-                    "gt_blood", "frac_blood",
-                ]},
-                "split": split_map[hf_split],
-                "source_split": hf_split,
-                "dataset": "endoscapes2023",
-                "scorable_keys": "gallbladder,cystic_duct",
-                "gt_tool_any": pres["gt_tool_any"],
-                "frac_tool_any": pres["frac_tool_any"],
-            })
+    n_dropped_black = 0
+    for item in manifest:
+        img_id = item["image_id"]
+        hf_split = item["hf_split"]
+        vid = f"endoscapes_{item['video_id']}"
+        frame_id = f"endoscapes_{img_id}"
+        f_path = frames_dir / f"{img_id}.png"
+        m_path = masks_dir / f"{img_id}_mask.png"
+        img_arr = np.array(Image.open(f_path))
+        if float(img_arr.mean()) < 10.0 or float(img_arr.std()) < 5.0:
+            n_dropped_black += 1
+            continue
+        mask_im = Image.open(m_path)
+        pres = endoscapes_presence(np.array(mask_im))
+        rows.append({
+            "frame_id": frame_id,
+            "video": vid,
+            "clip": vid,
+            "path": str(f_path),
+            "mask_path": str(m_path),
+            **{k: pres[k] for k in [
+                "gt_grasper", "frac_grasper",
+                "gt_l_hook", "frac_l_hook",
+                "gt_liver", "frac_liver",
+                "gt_gallbladder", "frac_gallbladder",
+                "gt_cystic_duct", "frac_cystic_duct",
+                "gt_blood", "frac_blood",
+            ]},
+            "split": split_map.get(hf_split, hf_split),
+            "source_split": hf_split,
+            "dataset": "endoscapes2023",
+            "scorable_keys": "gallbladder,cystic_duct",
+            "gt_tool_any": pres["gt_tool_any"],
+            "frac_tool_any": pres["frac_tool_any"],
+        })
 
     df_out = pd.DataFrame(rows)
     df_out.to_csv(out_ext / "index.csv", index=False)
-    print(f"Endoscapes2023: {len(df_out)} frames, {df_out.video.nunique()} videos -> {out_ext / 'index.csv'}")
+    print(
+        f"Endoscapes2023: {len(df_out)} valid non-black frames (dropped {n_dropped_black} black frames), "
+        f"{df_out.video.nunique()} videos -> {out_ext / 'index.csv'}"
+    )
     print(df_out.groupby(["split", "source_split"]).size().to_string())
     for s in ["test", "calib", "train"]:
         sub = df_out[df_out.split == s]
@@ -230,8 +270,8 @@ def cholect50_presence(instruments):
             out[f"gt_{key}"] = present
             out[f"frac_{key}"] = float(present)
         else:
-            out[f"gt_{key}"] = -1
-            out[f"frac_{key}"] = -1.0
+            out[f"gt_{key}"] = None
+            out[f"frac_{key}"] = None
     return out
 
 

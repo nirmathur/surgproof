@@ -1,0 +1,60 @@
+findings:
+  blood:
+    description: Active hemorrhage or pool of blood in the operative field
+  smoke:
+    description: Diathermy electrocautery plume obscuring optical view
+  hyperaemia:
+    description: Vascular congestion or redness on the gallbladder wall or peritoneum
+  wall_thickening:
+    description: Gallbladder wall edematous or thickened beyond normal (>3 mm)
+  distension:
+    description: Tense hydropic gallbladder distended under pressure
+  pericholecystic_fluid:
+    description: Fluid collection surrounding gallbladder or in Morrison pouch
+  adhesions_minor:
+    description: Filmy, easily mobilised fibrous bands between gallbladder and omentum
+  adhesions_dense:
+    description: Fibrous or scarred adhesions fusing adjacent viscera or Calot
+  necrosis:
+    description: Black, patchy gangrenous, or ischemic devitalized gallbladder wall
+  perforation:
+    description: Full-thickness tear or breach in gallbladder wall
+  bile_spillage:
+    description: Extravasation of bilious liquid into peritoneal cavity
+  stone_spillage:
+    description: Free gallstones displaced into peritoneal cavity from perforation
+  fat_covering_triangle:
+    description: Excess adipose tissue overlying and concealing hepatocystic triangle
+  triangle_cleared:
+    description: Fat and fibrofatty tissue dissected free from hepatocystic triangle
+  lower_gb_off_plate:
+    description: Lower third of the gallbladder mobilized from the liver cystic plate
+  two_structures_only:
+    description: Precisely two tubular structures seen directly entering the gallbladder
+rules:
+- id: finding.smoke_evacuation
+  statement: Electrocautery smoke obscuring visual clarity should be evacuated before critical dissection
+  source_id: statpearls
+  quote: evacuation of smoke to maintain clear visualization
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: true
+  quote_status: not_found
+- id: finding.perforation_spillage
+  statement: Gallbladder perforation leads to bile and gallstone spillage requiring peritoneal lavage
+  source_id: statpearls
+  quote: '* **Stone and Bile Spillage:** Gallbladder perforation with lost gallstones'
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: grounding_only
+- id: finding.distension_decompression
+  statement: A tense distended gallbladder may require needle decompression before safe grasping
+  source_id: nassar
+  quote: A tense gallbladder (acute cholecystitis, empyema, mucocele) was decompressed.
+  quote_verified: true
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: verified
+  quote_original: Tense mucoceles or empyemas are needle-aspirated to facilitate grasper purchase and avoid tearing.
+  source_id_original: sages_guideline

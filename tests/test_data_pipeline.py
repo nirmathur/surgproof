@@ -116,17 +116,17 @@ def test_endoscapes_presence_mapping():
     assert out["gt_cystic_duct"] == 1
     assert out["gt_tool_any"] == 1
     for k in ("grasper", "l_hook", "liver", "blood"):
-        assert out[f"gt_{k}"] == -1
-        assert out[f"frac_{k}"] == -1.0
+        assert out[f"gt_{k}"] is None or pd.isna(out[f"gt_{k}"])
+        assert out[f"frac_{k}"] is None or pd.isna(out[f"frac_{k}"])
 
 
 def test_cholect50_presence_mapping():
-    """CholecT50 maps instrument presence ('grasper', 'hook' -> l_hook) and sets anatomy keys to -1."""
+    """CholecT50 maps instrument presence ('grasper', 'hook' -> l_hook) and sets anatomy keys to None/NaN."""
     out = prepare_data.cholect50_presence(["grasper", "hook", "bipolar"])
     assert out["gt_grasper"] == 1
     assert out["gt_l_hook"] == 1
     for k in ("liver", "gallbladder", "cystic_duct", "blood"):
-        assert out[f"gt_{k}"] == -1
+        assert out[f"gt_{k}"] is None or pd.isna(out[f"gt_{k}"])
 
     out_empty = prepare_data.cholect50_presence(["irrigator"])
     assert out_empty["gt_grasper"] == 0
@@ -138,12 +138,15 @@ def test_external_datasets_contract_if_built():
     endo_dir = C.DATA_DIR / "external" / "endoscapes2023"
     if (endo_dir / "index.csv").exists():
         df_e = pd.read_csv(endo_dir / "index.csv")
-        assert len(df_e) == 493
+        assert len(df_e) == 471
         assert df_e["video"].nunique() == 50
-        assert (df_e.split == "test").sum() == 74
+        assert (df_e.split == "test").sum() == 59
         assert set(df_e["gt_gallbladder"].unique()) <= {0, 1}
         assert set(df_e["gt_cystic_duct"].unique()) <= {0, 1}
-        assert (df_e["gt_grasper"] == -1).all()
+        assert df_e["gt_grasper"].isna().all()
+        for p in df_e.loc[df_e.split == "test", "path"]:
+            arr = np.array(Image.open(p))
+            assert float(arr.mean()) >= 10.0 and float(arr.std()) >= 5.0
         if (endo_dir / "features.npy").exists():
             Xe = np.load(endo_dir / "features.npy")
             assert Xe.shape == (len(df_e), 768)
@@ -159,7 +162,7 @@ def test_external_datasets_contract_if_built():
             assert f"video{vid_num:02d}" not in prepare_data.CHOLECSEG8K_VIDEOS
         assert set(df_c["gt_grasper"].unique()) <= {0, 1}
         assert set(df_c["gt_l_hook"].unique()) <= {0, 1}
-        assert (df_c["gt_liver"] == -1).all()
+        assert df_c["gt_liver"].isna().all()
         if (c50_dir / "features.npy").exists():
             Xc = np.load(c50_dir / "features.npy")
             assert Xc.shape == (len(df_c), 768)

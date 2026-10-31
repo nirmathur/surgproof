@@ -1,0 +1,95 @@
+# Closed vocabulary for claims. Instruments, verbs and targets follow CholecT50
+# (Nwoye et al. 2022, "Rendezvous", arXiv 2109.03223). The valid-triplet table below is
+# DERIVED from the paper's class lists, not the official 100-triplet file: quote_verified false.
+source_id: cholect50
+instruments:
+  grasper:   {synonyms: [forceps, grasping forceps, atraumatic grasper, maryland dissector, maryland, dissector], scored_class: grasper}
+  hook:      {synonyms: [l-hook, L-hook electrocautery, electrocautery hook, diathermy hook, l_hook], scored_class: l_hook}
+  bipolar:   {synonyms: [bipolar forceps]}
+  scissors:  {synonyms: [laparoscopic scissors]}
+  clipper:   {synonyms: [clip applier, clip applicator, clip_applier, endoclip, hem-o-lok applier]}
+  irrigator: {synonyms: [suction irrigator, suction, aspirator]}
+  specimen_bag_tool: {synonyms: [retrieval bag]}
+verbs:
+  grasp: {synonyms: [hold, grab]}
+  retract: {synonyms: [lift, pull, elevate, retracts]}
+  dissect: {synonyms: [dissecting, divide tissue]}
+  coagulate: {synonyms: [cauterize, burn, diathermy]}
+  clip: {synonyms: [apply clip, clipping]}
+  cut: {synonyms: [divide, transect, cutting]}
+  aspirate: {synonyms: [suction, suck]}
+  irrigate: {synonyms: [wash, flush]}
+  pack: {synonyms: [bag, place in bag]}
+  null_verb: {synonyms: [idle, still, no action]}
+targets:
+  gallbladder: {synonyms: [GB, gall bladder], scored_class: gallbladder}
+  cystic_plate: {synonyms: [liver bed, gallbladder bed, gallbladder fossa]}
+  cystic_duct: {synonyms: [cystic duct], scored_class: cystic_duct}
+  cystic_artery: {synonyms: [cystic artery]}     # NOT scorable on CholecSeg8k
+  cystic_pedicle: {synonyms: [pedicle]}
+  blood_vessel: {synonyms: [vessel]}
+  fluid: {synonyms: [bile, irrigation fluid]}
+  abdominal_wall_cavity: {synonyms: [abdominal wall, port site]}
+  liver: {synonyms: [hepatic parenchyma], scored_class: liver}
+  adhesion: {synonyms: [adhesions]}
+  omentum: {synonyms: [greater omentum]}
+  peritoneum: {synonyms: [serosa, peritoneal layer]}
+  gut: {synonyms: [bowel, duodenum, colon, gi tract]}
+  specimen_bag: {synonyms: [retrieval bag]}
+  hepatocystic_triangle: {synonyms: ["Calot's triangle", "triangle of Calot", "Calot triangle", hepatocystic triangle]}
+  common_bile_duct: {synonyms: [CBD, common duct, choledochus]}
+  null_target: {synonyms: []}
+findings:
+  blood: {synonyms: [bleeding, haemorrhage, hemorrhage, oozing], scored_class: blood}
+  smoke: {synonyms: [diathermy smoke, plume]}
+  hyperaemia: {synonyms: [hyperemia, redness, inflamed wall]}
+  wall_thickening: {synonyms: [thick wall, thickened gallbladder wall]}
+  distension: {synonyms: [distended gallbladder, hydrops]}
+  pericholecystic_fluid: {synonyms: [fluid around gallbladder]}
+  adhesions_minor: {synonyms: [filmy adhesions]}
+  adhesions_dense: {synonyms: [dense adhesions, fibrosis]}
+  necrosis: {synonyms: [gangrene, necrotic wall]}
+  perforation: {synonyms: [perforated gallbladder]}
+  bile_spillage: {synonyms: [bile leak]}
+  stone_spillage: {synonyms: [spilled stones]}
+  fat_covering_triangle: {synonyms: [fatty triangle]}
+  triangle_cleared: {synonyms: [triangle dissected, cleared triangle]}
+  lower_gb_off_plate: {synonyms: [gallbladder separated from cystic plate, lower third off liver bed]}
+  two_structures_only: {synonyms: [two structures entering gallbladder]}
+conditions: [acute_cholecystitis, chronic_cholecystitis, gangrenous_cholecystitis, mirizzi_syndrome,
+             empyema, gallbladder_cancer, biliary_colic, choledocholithiasis]
+grades:
+  - parkland_1
+  - parkland_2
+  - parkland_3
+  - parkland_4
+  - parkland_5
+  - nassar_1
+  - nassar_2
+  - nassar_3
+  - nassar_4
+  - nassar_5
+  # Tokyo 2018 severity grades are deliberately ABSENT: not inferable from video.
+phases: [preparation, calot_triangle_dissection, clipping_cutting, gallbladder_dissection,
+         gallbladder_packaging, cleaning_coagulation, gallbladder_retraction]
+cvs_criteria: [cvs_triangle_cleared, cvs_lower_gb_off_plate, cvs_two_structures]
+decisions: [difficulty_assessment, exposure_retraction, dissection_plane_r4u, cvs_pause,
+            cvs_not_reached_action, bailout_choice, clip_and_divide, gb_bed_haemostasis]
+
+# Valid instrument -> verbs and verb -> targets (derived; quote_verified: false).
+valid_instrument_verbs:
+  grasper: [grasp, retract, dissect, pack, null_verb]
+  hook: [dissect, coagulate, retract, cut, null_verb]
+  bipolar: [coagulate, dissect, grasp, retract, null_verb]
+  scissors: [cut, dissect, coagulate, null_verb]
+  clipper: [clip, null_verb]
+  irrigator: [aspirate, irrigate, retract, dissect, null_verb]
+  specimen_bag_tool: [pack, null_verb]
+invalid_verb_targets:        # combinations the narrator must never claim
+  clip: [liver, gallbladder, omentum, gut, abdominal_wall_cavity, fluid, specimen_bag, hepatocystic_triangle]
+  cut: [liver, gut, common_bile_duct]
+  aspirate: [cystic_duct, cystic_artery, gallbladder, liver, cystic_plate]
+  irrigate: [cystic_duct, cystic_artery]
+  pack: [cystic_duct, cystic_artery, liver, cystic_plate, blood_vessel]
+# Classes the CholecSeg8k masks can score. Claims about other entities are not scored.
+scorable_on_cholecseg8k: [grasper, l_hook, liver, gallbladder, cystic_duct, blood]

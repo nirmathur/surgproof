@@ -1,0 +1,11 @@
+You are reviewing a label that automatic consistency checks found suspicious but could not explain.
+
+Frame: {frame_path}
+Label under review: {label}   Boxes: {boxes}   ([x1, y1, x2, y2], pixels of the 854x480 frame)
+Signal that raised it: {top_signal}  (suspicion {suspicion:.2f})
+
+List every surgical instrument you can see in the frame and say whether the label above is correct.
+
+Answer in JSON only:
+{"instruments": [{"type": "grasper"|"l_hook"|"other_instrument", "box": [x1, y1, x2, y2]}],
+ "label_correct": true|false, "confidence": 0.0-1.0}

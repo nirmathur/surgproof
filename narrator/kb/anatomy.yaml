@@ -1,0 +1,63 @@
+variants:
+  right_hepatic_artery_crossing:
+    visual_cue: Arterial vessel crossing anterior or within hepatocystic triangle
+    prevalence: 15%
+  caterpillar_hump:
+    visual_cue: Tortuous loop of right hepatic artery dipping toward gallbladder neck (Moynihan hump)
+    prevalence: 1.3% to 13.3%
+  short_cystic_duct:
+    visual_cue: Gallbladder neck directly apposed or <5mm from common bile duct
+    prevalence: 2% to 6%
+  accessory_ducts:
+    visual_cue: Subvesical bile duct or duct of Luschka draining directly from liver bed
+    prevalence: 1% to 5%
+landmarks:
+  rouvieres_sulcus:
+    visual_cue: Cleft or sulcus on inferior liver surface anterior to caudate process
+    prevalence: 83%
+  r4u_line:
+    visual_cue: Reference line connecting base of Segment 4 to Rouviere sulcus; dissection stays ventral/cephalad
+    prevalence: 100% (geometric construct)
+rules:
+- id: anatomy.rha_crossing
+  statement: Right hepatic artery crosses the hepatocystic triangle in 15% and must not be mistransected
+  source_id: alius_2023
+  quote: 15% of right hepatic arteries course through the triangle and can be mistaken
+  quote_verified: true
+  evidence_grade: cohort
+  seed: false
+  quote_status: verified
+  quote_original: right hepatic artery was found traversing the hepatocystic triangle in 15%
+- id: anatomy.caterpillar_hump
+  statement: Caterpillar hump (Moynihan hump) occurs in up to 13.3% and poses high risk of accidental clipping
+  source_id: alius_2023
+  quote: caterpillar hump of the right hepatic artery
+  quote_verified: false
+  evidence_grade: cohort
+  seed: true
+  quote_status: not_found
+- id: anatomy.rouviere_sulcus
+  statement: Rouviere sulcus is identifiable in 83% of livers and marks the safe plane anterior to the hilum
+  source_id: alius_2023
+  quote: identified a prevalence of 83% of Rouviere’s sulcus
+  quote_verified: true
+  evidence_grade: cohort
+  seed: false
+  quote_status: verified
+- id: anatomy.r4u_line_safety
+  statement: Dissection below the R4U line (Segment 4 to Rouviere sulcus) enters the hazardous hilar zone
+  source_id: tg18
+  quote: it is vital to dissect at a location above
+  quote_verified: true
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: verified
+  quote_original: dissection plane above the line connecting rouviere sulcus and segment 4
+- id: anatomy.short_cystic_duct
+  statement: A short cystic duct increases the risk of tenting and transecting the common bile duct
+  source_id: statpearls
+  quote: short cystic duct leads to tenting of common bile duct
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: true
+  quote_status: not_found

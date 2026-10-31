@@ -1,0 +1,15 @@
+[free] clips=6 claims=78 failed=0 calls=0 hits=12 failed=0 cost=$0.000
+[grounded] clips=6 claims=24 failed=0 calls=6 hits=12 failed=0 cost=$0.042
+verdict   drop  hedge  speak
+mode                        
+free        35     19     24
+grounded     7      2     15
+calls=62 hits=136 failed=0 cost=$0.103
+narration lines: 94 (grounded 17)
+               condition  n_clips  n_claims  n_scored  claim_precision  hallucinated_structures_per_clip  hallucinated_claims_per_clip  hallucination_rate  coverage  n_hedged_scored  hedge_correctness                                             label_source
+0               free_raw        6        78        26            0.962                             0.000                         0.000               0.000     0.750                0                NaN  verifier (real, coord/artifacts/decisions.csv @6ed73f1)
+1      free_checked_noL4        6        46        13            1.000                             0.000                         0.000               0.000     0.562                0                NaN  verifier (real, coord/artifacts/decisions.csv @6ed73f1)
+2           free_checked        6        43        10            1.000                             0.000                         0.000               0.000     0.500                1                0.0  verifier (real, coord/artifacts/decisions.csv @6ed73f1)
+3           grounded_raw        6        24        21            0.952                             0.167                         0.167               0.059     0.938                1                1.0  verifier (real, coord/artifacts/decisions.csv @6ed73f1)
+4  grounded_checked_noL4        6        17        16            0.938                             0.167                         0.167               0.071     0.812                1                1.0  verifier (real, coord/artifacts/decisions.csv @6ed73f1)
+5       grounded_checked        6        17        16            0.938                             0.167                         0.167               0.071     0.812                2                0.5  verifier (real, coord/artifacts/decisions.csv @6ed73f1)

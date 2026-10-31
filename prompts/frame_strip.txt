@@ -1,0 +1,13 @@
+You are checking whether a surgical instrument really appears or disappears in a laparoscopic cholecystectomy video.
+
+Three consecutive frames (t-1, t, t+1) with the boxes currently labelled {label}:
+{strip}
+(boxes are [x1, y1, x2, y2] in pixels of the 854x480 frame; an empty list means no {label} is labelled)
+
+The {label} track starts or ends in the middle of the field of view, with no other instrument covering it.
+Real instruments enter and leave through the edge of the view or are hidden behind tissue or another instrument.
+
+Answer in JSON only:
+{"present": {"t-1": true|false, "t": true|false, "t+1": true|false},
+ "explanation": "enters_from_edge"|"leaves_via_edge"|"occluded_by_tissue"|"occluded_by_instrument"|"label_missing"|"label_spurious",
+ "confidence": 0.0-1.0}
