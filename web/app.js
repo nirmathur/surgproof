@@ -287,6 +287,9 @@
           mask_url: null,
           mask_b64: null,
           mask_iou: null,
+          mask_source: null,
+          polygon_px: null,
+          polygon_rounds: null,
           loc_round: null,
           loc_status: null,
           maskCandidates: [
@@ -322,6 +325,21 @@
       else if (ann.pass2 && typeof ann.pass2.iou === "number") lbl.box_iou = ann.pass2.iou;
       else if (typeof ann.iou === "number") lbl.box_iou = ann.iou;
       if (typeof ann.mask_iou === "number") lbl.mask_iou = ann.mask_iou;
+      if (Array.isArray(ann.polygon_px) && ann.polygon_px.length >= 3) {
+        lbl.polygon_px = ann.polygon_px;
+      } else if (Array.isArray(ann.polygon) && ann.polygon.length >= 3) {
+        lbl.polygon_px = ann.polygon;
+      } else if (Array.isArray(ann.points) && ann.points.length >= 3) {
+        lbl.polygon_px = ann.points;
+      }
+      if (Array.isArray(ann.polygon_rounds) || Array.isArray(ann.rounds)) {
+        lbl.polygon_rounds = ann.polygon_rounds || ann.rounds;
+        const lastR = lbl.polygon_rounds[lbl.polygon_rounds.length - 1];
+        if (lastR && typeof lastR.iou_pass1_pass2 === "number" && lbl.mask_iou === null) {
+          lbl.mask_iou = lastR.iou_pass1_pass2;
+        }
+      }
+      if (ann.mask_source) lbl.mask_source = String(ann.mask_source);
       if (ann.round !== undefined && ann.round !== null) lbl.loc_round = Number(ann.round);
       if (ann.status) lbl.loc_status = normStatus(ann.status);
       if (ann.mask_url || ann.mask_path) {
@@ -353,14 +371,27 @@
     };
   }
 
+  async function switchVideo(videoId) {
+    if (!videoId) return;
+    state.video = videoId;
+    state.frameById = {};
+    state.frames = [];
+    state.currentFrameIdx = 0;
+    state.seenLiveSignatures.clear();
+    const selEl = document.getElementById("sel-video");
+    if (selEl && selEl.value !== videoId) selEl.value = videoId;
+    await loadInitialData();
+  }
+
   async function loadInitialData() {
-    // 1. Load pre-exported web/data/video12.json from web/export.py first
+    const vid = state.video || "video12";
+    // 1. Load pre-exported web/data/<video>.json from web/export.py first
     const exported = await fetchJsonSafe([
-      "data/video12.json",
-      "/web/data/video12.json",
-      "/out/web_data/video12.json",
-      "/data/video12.json",
-      "/api/video12",
+      `data/${vid}.json`,
+      `/web/data/${vid}.json`,
+      `/out/web_data/${vid}.json`,
+      `/data/${vid}.json`,
+      `/api/${vid}`,
     ]);
 
     if (exported) {
@@ -393,7 +424,7 @@
             f.narration = fr.narration_entry.narration || fr.narration_entry.sentence || fr.narration_entry.text || null;
           }
 
-          const rawLabels = fr.labels || fr.labels_list || {};
+          const rawLabels = fr.labels || fr.annotations || fr.labels_list || {};
           const entries = Array.isArray(rawLabels)
             ? rawLabels.map((item) => [item.key || item.label, item])
             : Object.entries(rawLabels);
@@ -418,8 +449,9 @@
             if (v.p_wrong !== undefined && v.p_wrong !== null && v.p_wrong !== "") t.p_wrong = Number(v.p_wrong);
             if (v.critic_reason || v.critic) t.critic_reason = String(v.critic_reason || v.critic);
 
-            if (Array.isArray(v.round_history) && v.round_history.length > 0) {
-              t.round_history = v.round_history.map((rh) => ({
+            const rHist = v.round_history || v.amber_rounds;
+            if (Array.isArray(rHist) && rHist.length > 0) {
+              t.round_history = rHist.map((rh) => ({
                 round: rh.round,
                 status: normStatus(rh.status),
               }));
@@ -444,6 +476,10 @@
             if (typeof v.box_iou === "number") t.box_iou = v.box_iou;
             else if (v.pass2 && typeof v.pass2.iou === "number") t.box_iou = v.pass2.iou;
             if (typeof v.mask_iou === "number") t.mask_iou = v.mask_iou;
+            if (Array.isArray(v.polygon_px) && v.polygon_px.length >= 3) t.polygon_px = v.polygon_px;
+            else if (Array.isArray(v.polygon) && v.polygon.length >= 3) t.polygon_px = v.polygon;
+            if (Array.isArray(v.polygon_rounds)) t.polygon_rounds = v.polygon_rounds;
+            if (v.mask_source) t.mask_source = String(v.mask_source);
             if (v.loc_round !== undefined) t.loc_round = Number(v.loc_round);
             if (v.loc_status || v.spatial_status) t.loc_status = normStatus(v.loc_status || v.spatial_status);
             if (v.mask_url || v.ai_mask_url || v.mask_path) {
@@ -458,14 +494,15 @@
     }
 
     // 2. Supplement from raw /out/* files so the UI works even before web/export.py runs
-    const [resJson, locResJson, stuJson, manJson, narrJson, decText, annText] = await Promise.all([
+    const [resJson, locResJson, stuJson, manJson, narrJson, decText, annText, polyText] = await Promise.all([
       state.results ? Promise.resolve(state.results) : fetchJsonSafe(["/out/results.json", "../out/results.json", "data/results.json"]),
       state.localizeResults ? Promise.resolve(state.localizeResults) : fetchJsonSafe(["/out/localize_results.json", "../out/localize_results.json", "data/localize_results.json"]),
       state.student ? Promise.resolve(state.student) : fetchJsonSafe(["/out/student.json", "../out/student.json", "data/student.json"]),
       state.manual ? Promise.resolve(state.manual) : fetchJsonSafe(["/out/manual.json", "../out/manual.json", "data/manual.json"]),
-      fetchJsonSafe(["/out/narration_video12.json", "../out/narration_video12.json", "data/narration_video12.json"]),
+      fetchJsonSafe([`/out/narration_${vid}.json`, `../out/narration_${vid}.json`, `data/narration_${vid}.json`]),
       Object.keys(state.frameById).length > 0 ? Promise.resolve(null) : fetchTextSafe(["/out/decisions.csv", "../out/decisions.csv"]),
       fetchTextSafe(["/out/annotations.jsonl", "../out/annotations.jsonl", "/out/annotations_live.jsonl", "../out/annotations_live.jsonl"]),
+      fetchTextSafe([`/out/polygons/${vid}.jsonl`, `../out/polygons/${vid}.jsonl`]),
     ]);
 
     if (resJson) state.results = resJson;
@@ -489,8 +526,8 @@
     if (decText) {
       const rows = parseCsv(decText);
       for (const r of rows) {
-        const vid = r.video || r.video_id;
-        if (vid !== state.video && !String(r.frame_id || "").startsWith(state.video + "_")) continue;
+        const rowVid = r.video || r.video_id;
+        if (rowVid !== state.video && !String(r.frame_id || "").startsWith(state.video + "_")) continue;
         const f = ensureFrameRecord(r.frame_id);
         const k = r.key || r.label;
         if (!f.labels[k]) continue;
@@ -529,15 +566,27 @@
       state.liveAnnotationCount = state.seenLiveSignatures.size;
     }
 
+    if (polyText) {
+      const polyRows = parseJsonl(polyText);
+      for (const pRow of polyRows) {
+        mergeAnnotationRow(pRow, false);
+      }
+    }
+
     state.frames = Object.values(state.frameById).sort((a, b) => a.frame_num - b.frame_num);
 
-    // Default to showcase frame video12_15750_15758 or first frame with spatial annotations
+    // Default to showcase frame video12_15750_15758 or first frame with polygons/boxes
     const heroIdx = state.frames.findIndex((fr) => fr.frame_id === "video12_15750_15758");
+    const firstPolyIdx = state.frames.findIndex((fr) =>
+      LABEL_KEYS.some((k) => fr.labels[k] && Array.isArray(fr.labels[k].polygon_px))
+    );
     const firstSpatialIdx = state.frames.findIndex((fr) =>
       LABEL_KEYS.some((k) => fr.labels[k] && Array.isArray(fr.labels[k].box))
     );
     if (heroIdx >= 0) {
       state.currentFrameIdx = heroIdx;
+    } else if (firstPolyIdx >= 0) {
+      state.currentFrameIdx = firstPolyIdx;
     } else if (firstSpatialIdx >= 0) {
       state.currentFrameIdx = firstSpatialIdx;
     }
@@ -548,6 +597,10 @@
     }
 
     mountExternalComponentsIfPresent();
+    const extViewer = getExternalViewer();
+    if (state.externalViewerMounted && extViewer && typeof extViewer.update === "function") {
+      extViewer.update(buildNormalizedBundle());
+    }
     renderTopHeadlines();
     renderAmberFunnel();
     renderTimeline();
@@ -1006,6 +1059,11 @@
         meta.innerHTML += `<span>mask: pending</span>`;
       }
 
+      if (lbl && Array.isArray(lbl.polygon_px) && lbl.polygon_px.length >= 3) {
+        const pIouStr = typeof lbl.mask_iou === "number" ? ` · IoU ${lbl.mask_iou.toFixed(2)}` : "";
+        meta.innerHTML += `<span style="color:var(--verdict-accept);border-color:var(--verdict-accept)">polygon: ${lbl.polygon_px.length} pts${pIouStr}</span>`;
+      }
+
       if (lbl && Array.isArray(lbl.tip)) {
         meta.innerHTML += `<span style="color:var(--accent-blue)">tip [y=${lbl.tip[0]}, x=${lbl.tip[1]}]</span>`;
       }
@@ -1174,6 +1232,7 @@
     const H = canvas.height;
 
     const showMasks = document.getElementById("chk-ai-masks") ? document.getElementById("chk-ai-masks").checked : true;
+    const showPolygons = document.getElementById("chk-ai-polygons") ? document.getElementById("chk-ai-polygons").checked : true;
     const showBoxes = document.getElementById("chk-ai-boxes") ? document.getElementById("chk-ai-boxes").checked : true;
     const showDualPass = document.getElementById("chk-dual-pass") ? document.getElementById("chk-dual-pass").checked : false;
     const showTips = document.getElementById("chk-ai-tips") ? document.getElementById("chk-ai-tips").checked : true;
@@ -1234,6 +1293,36 @@
     const maskStatusEl = document.getElementById("mask-status-label");
     if (maskStatusEl) {
       maskStatusEl.textContent = loadedMasksCount > 0 ? `${loadedMasksCount} active` : "pending";
+    }
+
+    // 2b. AI Polygon Outlines (out/polygons/<video>.jsonl -> polygon_px [[x, y], ...])
+    let activePolygonsCount = 0;
+    for (const k of LABEL_KEYS) {
+      const lbl = fr.labels[k];
+      if (!lbl || !Array.isArray(lbl.polygon_px) || lbl.polygon_px.length < 3) continue;
+      activePolygonsCount++;
+      if (!showPolygons) continue;
+      const rgb = LABEL_RGB[k] || [59, 130, 246];
+      ctx.save();
+      ctx.beginPath();
+      lbl.polygon_px.forEach((pt, idx) => {
+        if (!Array.isArray(pt) || pt.length < 2) return;
+        const px = Number(pt[0]);
+        const py = Number(pt[1]);
+        if (idx === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.closePath();
+      ctx.fillStyle = `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.18)`;
+      ctx.fill();
+      ctx.strokeStyle = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+      ctx.lineWidth = state.selectedKey === k ? 2.8 : 2.0;
+      ctx.stroke();
+      ctx.restore();
+    }
+    const polyStatusEl = document.getElementById("polygon-status-label");
+    if (polyStatusEl) {
+      polyStatusEl.textContent = activePolygonsCount > 0 ? `${activePolygonsCount} active` : "pending";
     }
 
     // 3. AI Bounding Boxes (and optional Pass-1 vs Pass-2 Dual Boxes)
@@ -1641,6 +1730,153 @@
     }
   }
 
+  // 7-Beat Guided Pipeline Walkthrough Mode (Promo North Star)
+  function applyLayerToggles(cfg) {
+    const map = {
+      masks: "chk-ai-masks",
+      polygons: "chk-ai-polygons",
+      boxes: "chk-ai-boxes",
+      dualPass: "chk-dual-pass",
+      tips: "chk-ai-tips",
+      hud: "chk-hud-chips",
+      gt: "chk-show-gt",
+    };
+    for (const [k, id] of Object.entries(map)) {
+      if (cfg[k] !== undefined) {
+        const el = document.getElementById(id);
+        if (el) el.checked = Boolean(cfg[k]);
+      }
+    }
+    const extViewer = getExternalViewer();
+    if (state.externalViewerMounted && extViewer && typeof extViewer.setLayers === "function") {
+      extViewer.setLayers({
+        masks: document.getElementById("chk-ai-masks")?.checked,
+        polygons: document.getElementById("chk-ai-polygons")?.checked,
+        boxes: document.getElementById("chk-ai-boxes")?.checked,
+        dualPass: document.getElementById("chk-dual-pass")?.checked,
+        tips: document.getElementById("chk-ai-tips")?.checked,
+        hud: document.getElementById("chk-hud-chips")?.checked,
+        gt: document.getElementById("chk-show-gt")?.checked,
+      });
+    } else if (state.frames[state.currentFrameIdx]) {
+      renderCanvas(state.frames[state.currentFrameIdx]);
+    }
+  }
+
+  function setGuidedBeat(beatNum) {
+    const b = Math.max(1, Math.min(7, Number(beatNum) || 1));
+    state.guidedBeat = b;
+    const banner = document.getElementById("guided-beat-banner");
+    if (banner) banner.style.display = "flex";
+
+    document.querySelectorAll(".guided-step-btn").forEach((btn) => {
+      if (Number(btn.dataset.beat) === b) {
+        btn.classList.add("btn-primary");
+      } else {
+        btn.classList.remove("btn-primary");
+      }
+    });
+
+    const titleEl = document.getElementById("guided-beat-title");
+    const descEl = document.getElementById("guided-beat-desc");
+    const metaEl = document.getElementById("guided-beat-meta");
+    const manualBox = document.getElementById("manual-reference-box");
+    const drawer = document.getElementById("final-pass-drawer");
+    if (drawer && b !== 6) drawer.classList.remove("open");
+
+    const heroIdx = state.frames.findIndex((fr) => fr.frame_id === "video12_15750_15758");
+    const targetIdx = heroIdx >= 0 ? heroIdx : state.currentFrameIdx;
+    const curFrame = state.frames[targetIdx] || state.frames[0];
+    const fidStr = curFrame ? curFrame.frame_id : state.video;
+
+    if (b === 1) {
+      if (titleEl) titleEl.textContent = "Beat 1 · Surgical video. No labels.";
+      if (descEl) descEl.textContent = "Today: a human at every step. SurgProof: none.";
+      if (metaEl) metaEl.textContent = `Raw frame ${fidStr} (${state.frames.length} frames in ${state.video})`;
+      applyLayerToggles({ masks: false, polygons: false, boxes: false, dualPass: false, tips: false, hud: false, gt: false });
+      selectFrame(targetIdx);
+    } else if (b === 2) {
+      const srcCount = state.manual && Array.isArray(state.manual.sources) ? state.manual.sources.length : 1;
+      const structCount = state.manual && state.manual.structures ? Object.keys(state.manual.structures).length : 6;
+      if (titleEl) titleEl.textContent = "Beat 2 · Writes its own manual from public surgical teaching video.";
+      if (descEl) descEl.textContent = `Learns ${structCount} anatomical/instrument rules & safety constraints from ${srcCount} CC-BY source (out/manual.json).`;
+      if (metaEl) metaEl.textContent = "Zero human training labels";
+      if (manualBox) manualBox.open = true;
+      renderManualRule(state.selectedKey);
+      applyLayerToggles({ masks: false, polygons: false, boxes: false, dualPass: false, tips: false, hud: true, gt: false });
+    } else if (b === 3) {
+      if (titleEl) titleEl.textContent = `Beat 3 · Labels a real frame (${fidStr}).`;
+      if (descEl) descEl.textContent = "Pass-1 Gemini 3.8 Flash proposes structure presence with verbatim visual evidence.";
+      if (metaEl) metaEl.textContent = "Neutral proposal before double-check";
+      applyLayerToggles({ masks: false, polygons: false, boxes: true, dualPass: false, tips: false, hud: true, gt: false });
+      selectFrame(targetIdx);
+    } else if (b === 4) {
+      const amberLoop = (state.headline && state.headline.amber_loop) || (state.results && state.results.amber_loop);
+      const r5 = amberLoop && Array.isArray(amberLoop.ambers_by_round_test_excl_liver)
+        ? amberLoop.ambers_by_round_test_excl_liver.join(" → ")
+        : "pending";
+      if (titleEl) titleEl.textContent = "Beat 4 · Checks itself + 4-Round Argon Amber Loop.";
+      if (descEl) descEl.textContent = `3-signal verifier (conf, crop check, Pass-2 critic) + multi-round Argon re-check shrinks AMBERs: ${r5}.`;
+      if (metaEl) metaEl.textContent = "Accept (#10B981) · AMBER (#F59E0B) · Reject (#EF4444)";
+      applyLayerToggles({ masks: false, polygons: false, boxes: true, dualPass: true, tips: false, hud: true, gt: false });
+      selectFrame(targetIdx);
+    } else if (b === 5) {
+      if (titleEl) titleEl.textContent = "Beat 5 · AI draws segmentation masks, polygon outlines, boxes & tool tips.";
+      if (descEl) descEl.textContent = "Two-pass polygon segmentation (IoU >= 0.50 consensus) + bounding boxes + instrument tip crosshairs + surgical phase.";
+      if (metaEl) metaEl.textContent = `out/masks/ + out/polygons/${state.video}.jsonl`;
+      applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: true, gt: false });
+      selectFrame(targetIdx);
+    } else if (b === 6) {
+      const ambersLeft = getResidualAmbers().length;
+      if (titleEl) titleEl.textContent = "Beat 6 · Final Pass (Human Gate) · People stay in control.";
+      if (descEl) descEl.textContent = `Clear ${ambersLeft} residual AMBERs in ${state.video} + sign off 20-item random audit sample to unlock Release dataset.`;
+      if (metaEl) metaEl.textContent = "POST /api/gate → out/verified_dataset.jsonl";
+      renderGateDrawer();
+      if (drawer) drawer.classList.add("open");
+    } else if (b === 7) {
+      const accTxt = document.getElementById("headline-acc")?.textContent || "pending";
+      const nTxt = document.getElementById("headline-n")?.textContent || "pending";
+      if (titleEl) titleEl.textContent = `Beat 7 · Held-Out Proof: ${accTxt}`;
+      if (descEl) descEl.textContent = `${nTxt} · Ground truth touched once at the end to score the held-out test split.`;
+      if (metaEl) metaEl.textContent = "Source: out/results.json · out/student.json · out/localize_results.json";
+      applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: true, gt: false });
+      selectFrame(targetIdx);
+    }
+  }
+
+  function startGuidedWalkthrough() {
+    setGuidedBeat(1);
+  }
+
+  function stopGuidedWalkthrough() {
+    if (state.guidedTimer) {
+      clearInterval(state.guidedTimer);
+      state.guidedTimer = null;
+    }
+    const autoBtn = document.getElementById("btn-beat-autoplay");
+    if (autoBtn) autoBtn.textContent = "▶ Auto-Play";
+    const banner = document.getElementById("guided-beat-banner");
+    if (banner) banner.style.display = "none";
+    const drawer = document.getElementById("final-pass-drawer");
+    if (drawer) drawer.classList.remove("open");
+    applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: true, gt: false });
+  }
+
+  function toggleGuidedAutoplay() {
+    const autoBtn = document.getElementById("btn-beat-autoplay");
+    if (state.guidedTimer) {
+      clearInterval(state.guidedTimer);
+      state.guidedTimer = null;
+      if (autoBtn) autoBtn.textContent = "▶ Auto-Play";
+      return;
+    }
+    if (autoBtn) autoBtn.textContent = "⏸ Pause Beats";
+    state.guidedTimer = setInterval(() => {
+      const nextB = ((state.guidedBeat || 1) % 7) + 1;
+      setGuidedBeat(nextB);
+    }, 3800);
+  }
+
   function togglePlay() {
     state.playing = !state.playing;
     const btn = document.getElementById("btn-play");
@@ -1663,6 +1899,36 @@
       if (el) el.addEventListener(ev, fn);
     };
 
+    on("sel-video", "change", (e) => {
+      switchVideo(e.target.value);
+    });
+
+    on("btn-guided-mode", "click", () => {
+      const banner = document.getElementById("guided-beat-banner");
+      if (banner && banner.style.display !== "none") {
+        stopGuidedWalkthrough();
+      } else {
+        startGuidedWalkthrough();
+      }
+    });
+
+    document.querySelectorAll(".guided-step-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setGuidedBeat(Number(btn.dataset.beat) || 1);
+      });
+    });
+
+    on("btn-beat-prev", "click", () => {
+      const cur = state.guidedBeat || 1;
+      setGuidedBeat(cur <= 1 ? 7 : cur - 1);
+    });
+    on("btn-beat-next", "click", () => {
+      const cur = state.guidedBeat || 1;
+      setGuidedBeat(cur >= 7 ? 1 : cur + 1);
+    });
+    on("btn-beat-autoplay", "click", toggleGuidedAutoplay);
+    on("btn-beat-close", "click", stopGuidedWalkthrough);
+
     on("btn-first", "click", () => selectFrame(0));
     on("btn-prev", "click", () => selectFrame(state.currentFrameIdx - 1));
     on("btn-play", "click", togglePlay);
@@ -1677,12 +1943,13 @@
       }
     });
 
-    ["chk-ai-masks", "chk-ai-boxes", "chk-dual-pass", "chk-ai-tips", "chk-hud-chips", "chk-show-gt"].forEach((id) => {
+    ["chk-ai-masks", "chk-ai-polygons", "chk-ai-boxes", "chk-dual-pass", "chk-ai-tips", "chk-hud-chips", "chk-show-gt"].forEach((id) => {
       on(id, "change", () => {
         const extViewer = getExternalViewer();
         if (state.externalViewerMounted && extViewer && typeof extViewer.setLayers === "function") {
           extViewer.setLayers({
             masks: document.getElementById("chk-ai-masks")?.checked,
+            polygons: document.getElementById("chk-ai-polygons")?.checked,
             boxes: document.getElementById("chk-ai-boxes")?.checked,
             dualPass: document.getElementById("chk-dual-pass")?.checked,
             tips: document.getElementById("chk-ai-tips")?.checked,
@@ -1863,6 +2130,12 @@
           el.checked = !el.checked;
           el.dispatchEvent(new Event("change"));
         }
+      } else if (key === "p" || key === "P") {
+        const el = document.getElementById("chk-ai-polygons");
+        if (el) {
+          el.checked = !el.checked;
+          el.dispatchEvent(new Event("change"));
+        }
       } else if (key === "b" || key === "B") {
         const el = document.getElementById("chk-ai-boxes");
         if (el) {
@@ -1886,6 +2159,13 @@
         if (el) {
           el.checked = !el.checked;
           el.dispatchEvent(new Event("change"));
+        }
+      } else if (key === "w" || key === "W") {
+        const banner = document.getElementById("guided-beat-banner");
+        if (banner && banner.style.display !== "none") {
+          stopGuidedWalkthrough();
+        } else {
+          startGuidedWalkthrough();
         }
       } else if (key === "r" || key === "R") {
         triggerStreamReplay();
