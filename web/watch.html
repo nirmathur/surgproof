@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SurgProof · video12 (held-out)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="watch-body">
+  <main class="watch-player" id="watch-player" aria-label="SurgProof Watch Mode Player">
+    <div class="watch-stage" id="watch-stage">
+      <canvas class="watch-canvas" id="watch-canvas" width="854" height="480"></canvas>
+    </div>
+
+    <header class="watch-header" id="watch-header">
+      <a class="watch-title" id="watch-title" href="index.html" title="Return to SurgProof Toolbox">SurgProof · video12 (held-out)</a>
+      <span class="watch-chip" id="watch-headline-chip">pending</span>
+    </header>
+
+    <section class="watch-subtitles" id="watch-subtitles" aria-live="polite">
+      <p class="watch-subtitle-text" id="watch-subtitle-text">Loading verified surgical narration…</p>
+    </section>
+
+    <footer class="watch-controls" id="watch-controls">
+      <button class="watch-play-btn" id="watch-play-btn" type="button" aria-label="Play or pause video12 playback" title="Play / Pause (Space)">
+        <svg id="watch-icon-play" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true" style="display:none">
+          <path d="M4 2.5v11l9-5.5-9-5.5z" />
+        </svg>
+        <svg id="watch-icon-pause" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path d="M3.5 2.5h3v11h-3v-11zm6 0h3v11h-3v-11z" />
+        </svg>
+      </button>
+
+      <div class="watch-scrub-wrap">
+        <input
+          class="watch-scrub"
+          id="watch-scrub"
+          type="range"
+          min="0"
+          max="79"
+          step="1"
+          value="0"
+          aria-label="Scrub video12 frames"
+        />
+      </div>
+
+      <span class="watch-time" id="watch-time">01 / 80</span>
+    </footer>
+  </main>
+
+  <script src="watch.js" defer></script>
+</body>
+</html>
