@@ -54,7 +54,7 @@ def test_draw_handles_missing_image_and_boxes(tmp_path):
         {"key": "blood", "final_present": 1, "status": "AMBER", "box": "[700, 600, 300, 200]", "final_correct": 0},
         {"key": "liver", "final_present": 0, "status": "accept", "box": "[]", "final_correct": 1},
     ])
-    im_missing = app.draw(tmp_path / "nonexistent.png", rows, reveal=False, frame_id="video01_00080_80")
+    im_missing = app.draw(tmp_path / "nonexistent.png", rows, reveal=False, frame_id="video99_99999_99")
     assert isinstance(im_missing, Image.Image)
     assert im_missing.size == (640, 480)
 
@@ -63,6 +63,37 @@ def test_draw_handles_missing_image_and_boxes(tmp_path):
     im_real = app.draw(real_img_path, rows, reveal=True, frame_id="video01_00080_80")
     assert isinstance(im_real, Image.Image)
     assert im_real.size == (320, 240)
+
+
+def test_compute_amber_loop_progression_and_full_annotations(tmp_path):
+    dec_df = pd.DataFrame([
+        {"frame_id": "f1", "video": "v1", "key": "grasper", "status": "accept", "final_by": "rule"},
+        {"frame_id": "f1", "video": "v1", "key": "l_hook", "status": "accept", "final_by": "argon"},
+        {"frame_id": "f1", "video": "v1", "key": "cystic_duct", "status": "AMBER", "final_by": "argon"},
+    ])
+    rounds_raw = [
+        {"round": 0, "n_amber": 2, "n_accept": 1, "n_reject": 0},
+        {"round": 1, "n_amber": 1, "n_accept": 2, "n_reject": 0},
+    ]
+    prog = app.compute_amber_loop_progression(dec_df, rounds_raw, {})
+    assert len(prog) == 2
+    assert prog[0]["n_amber"] == 2
+    assert prog[-1]["n_amber"] == 1  # AMBER shrinks round by round
+
+    ann_rows = pd.DataFrame([
+        {
+            "frame_id": "f1",
+            "label": "grasper",
+            "status": "accept",
+            "round": 1,
+            "box": [100, 150, 400, 500],
+            "tip": [350, 450],
+            "phase": "Calot triangle dissection",
+        }
+    ])
+    im_ann = app.draw_full_annotations(tmp_path / "nonexistent.png", ann_rows, frame_id="video99_99999_99")
+    assert isinstance(im_ann, Image.Image)
+    assert im_ann.size == (640, 480)
 
 
 def test_human_gate_locks_export_until_all_amber_cleared(tmp_path):
