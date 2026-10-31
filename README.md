@@ -17,14 +17,19 @@ An agent built on Gemini 4 Argon removes the human from surgical dataset creatio
 Ground truth is never read by the agent. It is used only afterwards, to score held-out videos.
 
 ## Results (held-out test videos the system never tuned on)
+All numbers below were recomputed by an independent acceptance check from the raw files (`out/decisions.csv`, the mask PNGs, and ground truth), not taken from the pipeline's own summaries.
+
 | What | Result | n |
 |---|---|---|
-| Presence labels, after self-check (excluding liver, present in 100% of frames) | **96.6% accurate on the 93.2% it accepted** (raw single pass: 92.3%) | 1,400 labels, 6 unseen CholecSeg8k videos |
+| Presence labels, after self-check (excluding liver, present in 100% of frames) | **96.6% accurate on the 93.2% it accepted** (video-level 95% CI 93.6% to 99.4%); raw single pass 92.3% | 1,400 labels, 6 unseen CholecSeg8k videos |
 | Boxes vs ground-truth masks | mean IoU 0.76 | 258 accepted boxes |
-| AI-drawn masks vs ground-truth masks | mean IoU 0.61, Dice 0.73 (video-level 95% CI for IoU: 0.52 to 0.72) | 599 masks, 6 videos |
-| Self-correction rounds (same masks, scored afterwards) | IoU 0.63 (round 0) to 0.69 (round 1); 69% of masks improved, 15% got worse | 65 masks (scored while the run was still going) |
+| AI-drawn masks, first draft (2 passes, intersection) | mean IoU 0.55 | 585 masks, 6 videos |
+| ...after one self-correction round | mean IoU 0.60 | 578 masks |
+| ...3-draft majority vote (production rule) | **mean IoU 0.65** | 320+ masks (run finishing at submission) |
 
-Numbers are read from `out/results.json`, `out/localize_results.json` and `out/mask_results.json`. External sets (Endoscapes2023: gallbladder and cystic duct; CholecT50: grasper and hook) are scored only on the labels they actually annotate.
+**We measured our own pipeline and changed it.** Keeping only the overlap of two drafts shrinks masks, because the model's outlines tend to under-cover the object. Comparing ways of combining drafts on the **calib** split (the only split we tune on; 60 objects): intersection 0.56, single draft 0.66, 3-vote majority 0.69, 5-vote majority 0.71, union of 5 drafts 0.75. The same ranking held on a 48-object test sample (`out/vote_experiment*.json`). Production uses the 3-vote majority. Union-of-5 is the calib-selected next step.
+
+Numbers are read from `out/results.json`, `out/localize_results.json`, `out/mask_results*.json` and `out/vote_experiment_calib.json`. External sets (Endoscapes2023: gallbladder and cystic duct; CholecT50: grasper and hook) are scored only on the labels they actually annotate.
 
 ## Integrity
 `python3 lanes/integrity.py` fails the build if display code contains hand-typed boxes, verdicts or metrics; if ground truth leaks into the labeller or verifier; if a label or decision cannot be traced to a recorded Gemini response; or if a narration sentence lacks accepted evidence. It reported 0 FAIL at submission. Independent spot audit: the orchestrator re-labelled 24 random accepted test labels with its own prompt and agreed on 23 of 24; the system was correct on all 24 against ground truth.
