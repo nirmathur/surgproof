@@ -7,9 +7,20 @@ Six Antigravity (agy) workers on Gemini 4 Argon build this project in parallel. 
 - raw/, data/, out/ and cache.sqlite are symlinks to the shared copies in ~/surgatlas. All lanes see the same data and outputs.
 - Status files: out/lanes/<lane>.md (shared). Read other lanes' status files to see what exists.
 
-## Phases
-A. Research and redesign (no feature code yet). Audit the current code for your layer: what is wrong, fragile or unjustified. Run deep research on the state of the art for your layer (use tools/deep_research.py once the architect has committed it; until then use your web search). Write docs/redesign/<lane>.md: problems found, evidence with links, proposed design, and the exact interface (input/output files, schemas, CLI). Commit it and push your branch.
-B. Build. Once docs/DESIGN.md exists on main, run `git merge main` and build to it. If DESIGN.md is wrong for your layer, say why in your status file under REQUESTS rather than ignoring it.
+## FOCUSED BUILD MODE (deadline today, demo ~15:30)
+- Ship the README run order. No redesign phase. Fix what breaks in your files as you go.
+- Research only if it unblocks you within 10 minutes. Only the architect runs deep research, one brief, in the background.
+- Work in small, runnable steps. A smaller result that is real beats a perfect plan.
+
+## Keep each other updated (HARD RULE, both machines)
+- Shared workspace = GitHub Issues on nirmathur/surgatlas. Bulletin = issue #1 (pinned). Your lane's task issues are labelled lane:<lane>.
+- Every 10 minutes AND at every milestone, do both:
+  1. Rewrite out/lanes/<lane>.md (shape below).
+  2. `gh issue comment 1 -R nirmathur/surgatlas -b "[nir-<lane>] DONE: ... | NEXT: ... | BLOCKED: ... | NEED: <who> -> <what>"`
+- Before each task: `gh issue view 1 -R nirmathur/surgatlas --comments | tail -80` and act on anything addressed to you.
+- Claim a task: comment on its issue and `gh issue edit <n> -R nirmathur/surgatlas --add-label status:claimed --remove-label status:todo`. Close it with a comment naming the artifact path and commit sha.
+- Changing a file or schema another lane reads? Post on #1 with `-> <lane>` before you change it.
+- Silence is a failure: the orchestrator restarts any lane with no post for 15 minutes.
 
 ## Git (proper, not optional)
 - Work only in your own worktree and branch. Small commits, imperative messages ("Add mask-convention detector"), each one leaving tests passing.
@@ -26,7 +37,6 @@ B. Build. Once docs/DESIGN.md exists on main, run `git merge main` and build to 
 
 ## Status file shape (keep it short, update at every milestone)
 ```
-PHASE: A | B
 STATUS: running | blocked | done
 ARTIFACTS: paths, with counts/shapes
 NUMBERS: metric = value (how computed, which split)
@@ -35,5 +45,3 @@ REQUESTS: changes needed from other lanes, or none
 ```
 "done" means the artifact exists and you checked it, not that a script exited 0.
 
-## Cross-machine notes (Harald's agents work on another machine)
-Read coord/README.md and coord/OWNERSHIP.md. Your notes file is coord/notes/nir-<lane>.md (Harald's agents use harald-<lane>). Append-only, your own file only. Check for notes addressed to you at every milestone.

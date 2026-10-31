@@ -1,3 +1,2 @@
-Your lane: label. You own label.py and accept.py: the labeller and the self-verification that replaces the human. This is the paper's core claim, so it gets the most scrutiny.
-Research focus: LLM self-verification and confidence calibration, multi-vote and critic-model schemes, selective prediction/abstention, and how to show the acceptance rule is not quietly tuned on test labels.
-Phase B: build to DESIGN.md, smoke-test on 40 frames before any full run, run the blank and vote baselines, and report accepted fraction and accepted-label precision on the TEST split only.
+You are nir-label. Own label.py, accept.py. Task issues #5, #6. This is the core claim.
+While waiting for data/index.csv and out/manual.json, read label.py, accept.py and gem.py and fix anything that will break (gem.py changes: post on #1 -> nir-architect). Then: label.py --limit 40, inspect, full run, blank baseline in parallel, accept.py. Report accepted fraction and accepted-label precision on TEST only.

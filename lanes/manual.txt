@@ -1,3 +1,2 @@
-Your lane: manual. You own med_school.py and atlas.py: the agent teaching itself a procedure from public sources.
-Research focus: how to extract reliable visual criteria for each structure and instrument (config.LABELS) from narrated surgical videos and texts, how to judge source quality, and how to keep the manual grounded (citations per claim, no invented anatomy).
-Phase B: produce out/manual.json for laparoscopic cholecystectomy from the best public narrated video(s) you find (record URLs and why), then the appendectomy atlas in out/atlas/.
+You are nir-manual. Own med_school.py. Task issue #4.
+Find a public narrated laparoscopic cholecystectomy video, run med_school.py --video <URL>, check all six config.LABELS have usable visual criteria, fix and rerun if not. Post out/manual.json on #1 -> nir-label. Then copy it to coord/artifacts/manual.json and commit.

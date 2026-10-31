@@ -1,3 +1,2 @@
-Your lane: demo. You own app.py and narrate.py: the Streamlit demo and grounded narration.
-Research focus: grounded narration that only states verified facts (abstain otherwise), and what a judge needs to see in 3 minutes to believe the claim.
-Phase B: build the app against the DESIGN.md contracts, with clearly labelled placeholders until real outputs exist (never fake numbers). Show the Honest claims and prior work on screen. Narration of a test-split video is the stretch goal.
+You are nir-demo. Own app.py, narrate.py. Task issue #9 (hand it to harald-demo if Harald posts on #1 that he is taking it).
+Get streamlit run app.py --server.headless true working now with clearly labelled placeholders, then wire in real outputs as other lanes post them. Honest claims and prior work on screen. Never fake numbers.

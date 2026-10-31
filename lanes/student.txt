@@ -1,3 +1,2 @@
-Your lane: student. You own student.py and mock_test.py: training the specialist only on verified labels.
-Research focus: learning from noisy or self-labelled data, small-data multi-label classifiers on frozen features, and the right comparisons (verified-only vs all-labels vs blank baseline vs oracle upper bound), with confidence intervals at the video level.
-Phase B: make mock_test.py an end-to-end test of the whole pipeline on synthetic data, then train and report out/student.json with every upper bound clearly marked.
+You are nir-student. Own student.py, mock_test.py. Task issue #7.
+Make mock_test.py pass end to end now. Then wait for out/decisions.csv and data/features.npy, run student.py, report verified-only vs baselines vs oracle upper bound on TEST, with upper bounds clearly marked.
