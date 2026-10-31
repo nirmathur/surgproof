@@ -756,7 +756,7 @@ async def run_live_video_async(
                 conf_v = float(v.get("confidence", 0.0))
                 if conf_v >= 0.80:
                     d.at[row_idx, "status"] = "accept"
-                    d.at[row_idx, "trust"] = round(0.70 + 0.3 * conf_v * 0.99, 4)
+                    d.at[row_idx, "trust"] = round(conf_v, 4)
                 else:
                     d.at[row_idx, "status"] = "AMBER"
 
