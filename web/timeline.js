@@ -649,8 +649,8 @@
     var v = normalizeVerdict(cell);
     var hasBox = Array.isArray(cell.box) && cell.box.length === 4 ? "B" : "";
     var hasTip = Array.isArray(cell.tip) && cell.tip.length === 2 ? "T" : "";
-    var hasMask = cell.mask || cell.mask_url || cell.mask_path ? "M" : "";
-    var r = cell.round !== undefined ? String(cell.round) : "";
+    var hasMask = cell.mask || cell.mask_url || cell.mask_path || cell.mask_b64 ? "M" : "";
+    var r = cell.round !== undefined ? String(cell.round) : (cell.loc_round !== undefined ? String(cell.loc_round) : "");
     return [v, hasBox, hasTip, hasMask, r].join(":");
   }
 
@@ -775,8 +775,9 @@
 
     if (typeof data === "object") {
       if (data.video) state.video = data.video;
-      if (Array.isArray(data.labels) && data.labels.length > 0) {
-        state.labels = data.labels.slice();
+      var incomingLabels = data.labels || data.label_keys;
+      if (Array.isArray(incomingLabels) && incomingLabels.length > 0) {
+        state.labels = incomingLabels.slice();
       }
       var frameCount = Number(data.n_frames) ||
         (Array.isArray(data.frames) && data.frames.length) ||
@@ -1145,7 +1146,7 @@
         var hasSpatial = cellObj && (
           (Array.isArray(cellObj.box) && cellObj.box.length === 4) ||
           (Array.isArray(cellObj.tip) && cellObj.tip.length === 2) ||
-          Boolean(cellObj.mask || cellObj.mask_url || cellObj.mask_path)
+          Boolean(cellObj.mask || cellObj.mask_url || cellObj.mask_path || cellObj.mask_b64)
         );
 
         cellsHtml.push(
@@ -1255,7 +1256,7 @@
     }
   }
 
-  function setFrameInternal(target, notifySeek) {
+  function setFrameInternal(target, notifySeek, labelKey) {
     var n = Math.max(1, state.frames.length);
     var idx = state.currentFrame;
 
@@ -1272,13 +1273,15 @@
     if (notifySeek) {
       var frameObj = state.frames[idx] || createEmptyFrame(idx, state.video);
       if (typeof state.onSeek === "function") {
-        state.onSeek(idx, frameObj);
+        state.onSeek(idx, labelKey || frameObj, frameObj);
       }
       var payload = {
         index: idx,
         frameIndex: idx,
         frameId: frameObj.frame_id,
-        frame: frameObj
+        frame: frameObj,
+        key: labelKey || state.selectedLabel || null,
+        label: labelKey || state.selectedLabel || null
       };
       dispatchTimelineEvent("timeline:seek", payload);
       dispatchTimelineEvent("surgproof:seek", payload);
@@ -1352,7 +1355,7 @@
         var fIdx = Number(cellEl.getAttribute("data-frame-idx"));
         var lKey = cellEl.getAttribute("data-label-key");
         state.selectedLabel = lKey;
-        setFrameInternal(fIdx, true);
+        setFrameInternal(fIdx, true, lKey);
         var fObj = state.frames[state.currentFrame];
         var cellDetail = {
           index: state.currentFrame,
