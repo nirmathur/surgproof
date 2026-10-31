@@ -151,7 +151,10 @@ async def grounded_clip(clip, labels, evs, kb_text) -> dict:
 
 
 def select_clips(split: str | None, max_clips: int | None):
+    import os
     clips = D.list_clips()
+    if os.environ.get("NARRATOR_LABELS"):  # real-input run: only clips the real label table covers
+        clips = clips[clips.clip_id.isin(set(D.load_labels().clip_id))]
     if split:
         clips = clips[clips.split.isin(split.split(","))]
     mc = max_clips or C.cfg()["claims"]["max_clips"]

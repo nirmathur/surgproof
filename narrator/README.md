@@ -53,3 +53,7 @@ See `coordination/contracts/narrator_outputs.md` (claims.parquet, narration.json
 ## Licences
 CholecSeg8k: CC BY-NC-SA 4.0, not redistributed (data stays outside git). Cholec80 / CholecT50: non-commercial research licences.
 KB quotes are short (<15 words) with source URLs.
+
+## Results
+See `out/eval/RESULTS.md` (numbers, n, which inputs were mock, and the bad results). Real-input smoke run: `out/real/`
+(`NARRATOR_LABELS=<decisions.csv> NARRATOR_OUT=narrator/out/real`).

@@ -56,8 +56,9 @@ def chart_free_vs_grounded(t: pd.DataFrame, mock: bool):
         sub += (" '*_checked' uses L4 on a MOCK label table (GT + noise): circular, NOT a real result."
                 " '*_checked_noL4' uses only rules + blind visual (L5) + perturbation (L6) + KB (L7): independent of GT.")
     fig.suptitle("Free VLM narration vs grounded, checked narration", x=0.01, ha="left", fontsize=12, color=INK)
-    fig.text(0.01, 0.90, sub, fontsize=8, color=MUTED)
-    fig.tight_layout(rect=(0, 0, 1, 0.88))
+    import textwrap
+    fig.text(0.01, 0.905, "\n".join(textwrap.wrap(sub, 190)), fontsize=8, color=MUTED, va="top")
+    fig.tight_layout(rect=(0, 0, 1, 0.82))
     fig.savefig(EV / "hallucination.png", dpi=150); plt.close(fig)
 
 

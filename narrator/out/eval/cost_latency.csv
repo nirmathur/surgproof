@@ -1,6 +1,6 @@
 mode,n_clips,calls_per_clip,cost_usd_per_clip,tokens_in_per_clip,latency_s_per_clip,note
 free,28.0,2.9285714285714284,0.020191035714285713,7129.0,30.432200184890203,generation only; checker cost reported separately
-grounded,28.0,1.0714285714285714,0.010720178571428568,8961.107142857143,30.032098208154952,generation only; checker cost reported separately
-checker_l5,,,,,,"362 calls, $0.579 total, mean latency 6.6s"
-checker_l6,,,,,,"293 calls, $0.335 total, mean latency 5.3s"
-checker_l7,,,,,,"193 calls, $0.596 total, mean latency 7.0s"
+grounded,28.0,1.2857142857142858,0.01223592857142857,10637.67857142857,30.032098208154952,generation only; checker cost reported separately
+checker_l5,,,,,,"619 calls, $0.962 total, mean latency 6.3s"
+checker_l6,,,,,,"396 calls, $0.447 total, mean latency 5.5s"
+checker_l7,,,,,,"440 calls, $1.365 total, mean latency 5.4s"

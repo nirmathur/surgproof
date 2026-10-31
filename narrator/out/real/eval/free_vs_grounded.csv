@@ -1,0 +1,7 @@
+condition,n_clips,n_claims,n_scored,n_scored_asserted,claim_precision,hallucinated_structures_per_clip,hallucinated_claims_per_clip,hallucination_rate,coverage,n_hedged_scored,hedge_correctness,label_source
+free_raw,6,78,26,26,0.9615384615384616,0.0,0.0,0.0,0.75,0,,"verifier (real, coord/artifacts/decisions.csv @6ed73f1)"
+free_checked_noL4,6,47,13,13,1.0,0.0,0.0,0.0,0.5625,0,,"verifier (real, coord/artifacts/decisions.csv @6ed73f1)"
+free_checked,6,44,10,9,1.0,0.0,0.0,0.0,0.5,1,0.0,"verifier (real, coord/artifacts/decisions.csv @6ed73f1)"
+grounded_raw,6,24,21,20,1.0,0.0,0.0,0.0,0.9375,1,1.0,"verifier (real, coord/artifacts/decisions.csv @6ed73f1)"
+grounded_checked_noL4,6,17,16,15,1.0,0.0,0.0,0.0,0.8125,1,1.0,"verifier (real, coord/artifacts/decisions.csv @6ed73f1)"
+grounded_checked,6,17,16,14,1.0,0.0,0.0,0.0,0.8125,2,0.5,"verifier (real, coord/artifacts/decisions.csv @6ed73f1)"

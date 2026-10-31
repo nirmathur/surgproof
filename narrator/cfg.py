@@ -17,6 +17,9 @@ def cfg() -> dict:
 
 
 def path(key: str, **fmt) -> Path:
+    if key in ("out", "eval") and os.environ.get("NARRATOR_OUT"):  # separate run (e.g. real inputs)
+        base = (ROOT / os.environ["NARRATOR_OUT"]).resolve()
+        return base if key == "out" else base / "eval"
     p = cfg()["paths"][key].format(**fmt)
     return (ROOT / p).resolve()
 

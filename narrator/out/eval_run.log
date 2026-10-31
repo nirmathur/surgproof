@@ -1,66 +1,71 @@
-               condition  n_clips  n_claims  n_scored  claim_precision  hallucinated_structures_per_clip  hallucinated_claims_per_clip  hallucination_rate  coverage  n_hedged_scored  hedge_correctness label_source
-0               free_raw       28       349       123         0.951220                          0.071429                      0.071429            0.018182  0.765432                1           1.000000         mock
-1      free_checked_noL4       28       183        68         0.985294                          0.000000                      0.000000            0.000000  0.604938                0                NaN         mock
-2           free_checked       28       181        66         1.000000                          0.000000                      0.000000            0.000000  0.592593               26           0.461538         mock
-3           grounded_raw       28       153       133         0.834586                          0.750000                      0.750000            0.159091  0.987654               28           1.000000         mock
-4  grounded_checked_noL4       28       105        99         1.000000                          0.000000                      0.000000            0.000000  0.913580               13           1.000000         mock
-5       grounded_checked       28       104        98         1.000000                          0.000000                      0.000000            0.000000  0.901235               14           0.928571         mock
+               condition  n_clips  n_claims  n_scored  n_scored_asserted  claim_precision  hallucinated_structures_per_clip  hallucinated_claims_per_clip  hallucination_rate  coverage  n_hedged_scored  hedge_correctness label_source
+0               free_raw       28       349       123                122         0.950820                          0.071429                      0.071429            0.018349  0.765432                1           1.000000         mock
+1      free_checked_noL4       28       187        68                 68         0.985294                          0.000000                      0.000000            0.000000  0.604938                0                NaN         mock
+2           free_checked       28       185        66                 40         1.000000                          0.000000                      0.000000            0.000000  0.592593               26           0.461538         mock
+3           grounded_raw       28       153       133                105         0.876190                          0.428571                      0.428571            0.115385  0.987654               28           1.000000         mock
+4  grounded_checked_noL4       28       107        99                 86         1.000000                          0.000000                      0.000000            0.000000  0.913580               13           1.000000         mock
+5       grounded_checked       28       106        98                 84         1.000000                          0.000000                      0.000000            0.000000  0.901235               14           0.928571         mock
          mode  n_clips  calls_per_clip  cost_usd_per_clip  tokens_in_per_clip  latency_s_per_clip                                               note
 0        free     28.0        2.928571           0.020191         7129.000000           30.432200  generation only; checker cost reported separately
-1    grounded     28.0        1.071429           0.010720         8961.107143           30.032098  generation only; checker cost reported separately
-2  checker_l5      NaN             NaN                NaN                 NaN                 NaN         362 calls, $0.579 total, mean latency 6.6s
-3  checker_l6      NaN             NaN                NaN                 NaN                 NaN         293 calls, $0.335 total, mean latency 5.3s
-4  checker_l7      NaN             NaN                NaN                 NaN                 NaN         193 calls, $0.596 total, mean latency 7.0s
-   error_type       layer  n_injected  n_clean    recall  precision       mcc   tp  fp  abstain_rate l4_inputs
-81        ALL          L1         216      197  0.018519   1.000000  0.094444    4   0      0.000000      mock
-82        ALL          L2         216      197  0.555556   1.000000  0.611171  120   0      0.435185      mock
-83        ALL          L3         216      197  0.111111   0.923077  0.207617   24   2      0.000000      mock
-84        ALL          L4         216      197  0.111111   0.521739 -0.000895   24  22      0.611111      mock
-85        ALL           P         216      197  0.222222   1.000000  0.346322   48   0      0.777778      mock
-86        ALL          L5         216      197  0.259259   0.888889  0.310794   56   7      0.671296      mock
-87        ALL          L6         216      197  0.000000        NaN  0.000000    0   0      0.930556      mock
-88        ALL          L7         216      197  0.453704   0.771654  0.331741   98  29      0.546296      mock
-89        ALL  full_stack         216      197  0.935185   0.782946  0.671449  202  56      0.000000      mock
+1    grounded     28.0        1.285714           0.012236        10637.678571           30.032098  generation only; checker cost reported separately
+2  checker_l5      NaN             NaN                NaN                 NaN                 NaN         619 calls, $0.962 total, mean latency 6.3s
+3  checker_l6      NaN             NaN                NaN                 NaN                 NaN         396 calls, $0.447 total, mean latency 5.5s
+4  checker_l7      NaN             NaN                NaN                 NaN                 NaN         440 calls, $1.365 total, mean latency 5.4s
+[injection] excluded 52 injected claims that GT says are actually true
+   error_type       layer  n_injected  n_clean    recall  precision       mcc   tp  fp  abstain_rate  clean_false_drop_rate l4_inputs
+90        ALL          L1         164      169  0.006098   1.000000  0.055712    1   0      0.000000               0.000000      mock
+91        ALL          L2         164      169  0.640244   1.000000  0.688888  105   0      0.359756               0.000000      mock
+92        ALL          L3         164      169  0.006098   0.333333 -0.030354    1   2      0.000000               0.011834      mock
+93        ALL          L4         164      169  0.164634   0.551020  0.048627   27  22      0.774390               0.130178      mock
+94        ALL           P         164      169  0.292683   1.000000  0.416600   48   0      0.707317               0.000000      mock
+95        ALL          L5         164      169  0.243902   0.851064  0.290750   40   7      0.737805               0.041420      mock
+96        ALL          L6         164      169  0.000000        NaN  0.000000    0   0      0.981707               0.000000      mock
+97        ALL          L7         164      169  0.585366   1.000000  0.646075   96   0      0.414634               0.000000      mock
+98        ALL         L5c         164      169  0.085366   0.197183 -0.307493   14  57      0.835366               0.337278      mock
+99        ALL  full_stack         164      169  0.987805   0.852632  0.830344  162  28      0.000000               0.165680      mock
                  error_type    recall  precision       mcc
-8          absent_structure  0.958333   0.291139  0.437608
-17           cvs_after_clip  1.000000   0.300000  0.463380
-26              entity_swap  0.458333   0.164179  0.117832
-35     fabricated_knowledge  1.000000   0.300000  0.463380
-44         grade_escalation  1.000000   0.300000  0.463380
-53   impossible_combination  1.000000   0.300000  0.463380
-62  not_inferable_condition  1.000000   0.300000  0.463380
-71    phase_order_violation  1.000000   0.300000  0.463380
-80        shifted_timestamp  1.000000   0.300000  0.463380
-89                      ALL  0.935185   0.782946  0.671449
+9          absent_structure  0.958333   0.450980  0.593202
+19           cvs_after_clip  1.000000   0.461538  0.620541
+29              entity_swap  0.900000   0.243243  0.416470
+39     fabricated_knowledge  1.000000   0.461538  0.620541
+49         grade_escalation  1.000000   0.461538  0.620541
+59   impossible_combination  1.000000   0.243243  0.450491
+69  not_inferable_condition  1.000000   0.461538  0.620541
+79    phase_order_violation  1.000000   0.461538  0.620541
+89        shifted_timestamp  1.000000   0.034483  0.169616
+99                      ALL  0.987805   0.852632  0.830344
                             source layer_a layer_b    n    miss_a    miss_b  both_miss  independent_both_miss     ratio       phi
-0                  injected_errors      L1      L2  122  1.000000  0.016393   0.016393               0.016393  1.000000       NaN
-1                  injected_errors      L1      L3  216  0.981481  0.888889   0.870370               0.872428  0.997642 -0.048564
-2                  injected_errors      L1      L4   84  1.000000  0.714286   0.714286               0.714286  1.000000       NaN
+0                  injected_errors      L1      L2  105  1.000000  0.000000   0.000000               0.000000       NaN       NaN
+1                  injected_errors      L1      L3  164  0.993902  0.993902   0.987805               0.987842  0.999962 -0.006135
+2                  injected_errors      L1      L4   37  1.000000  0.270270   0.270270               0.270270  1.000000       NaN
 3                  injected_errors      L1       P   48  1.000000  0.000000   0.000000               0.000000       NaN       NaN
-4                  injected_errors      L1      L5   71  0.943662  0.211268   0.211268               0.199365  1.059701  0.126457
-5                  injected_errors      L1      L6   15  1.000000  1.000000   1.000000               1.000000  1.000000       NaN
-6                  injected_errors      L1      L7   98  1.000000  0.000000   0.000000               0.000000       NaN       NaN
-7                  injected_errors      L2      L3  122  0.016393  0.991803   0.008197               0.016259  0.504132 -0.704179
-8                  injected_errors      L2      L4   18  0.000000  0.944444   0.000000               0.000000       NaN       NaN
-9                  injected_errors      L2       P   48  0.000000  0.000000   0.000000               0.000000       NaN       NaN
-10                 injected_errors      L2      L5   24  0.000000  0.000000   0.000000               0.000000       NaN       NaN
-11                 injected_errors      L2      L7   74  0.027027  0.000000   0.000000               0.000000       NaN       NaN
-12                 injected_errors      L3      L4   84  0.726190  0.714286   0.464286               0.518707  0.895082 -0.270160
-13                 injected_errors      L3       P   48  1.000000  0.000000   0.000000               0.000000       NaN       NaN
-14                 injected_errors      L3      L5   71  1.000000  0.211268   0.211268               0.211268  1.000000       NaN
-15                 injected_errors      L3      L6   15  1.000000  1.000000   1.000000               1.000000  1.000000       NaN
-16                 injected_errors      L3      L7   98  0.989796  0.000000   0.000000               0.000000       NaN       NaN
-17                 injected_errors      L4      L5   61  0.639344  0.245902   0.229508               0.157216  1.459829  0.349610
-18                 injected_errors      L4      L6   15  0.933333  1.000000   0.933333               0.933333  1.000000       NaN
-19                 injected_errors       P      L7   48  0.000000  0.000000   0.000000               0.000000       NaN       NaN
-20                 injected_errors      L5      L6   15  1.000000  1.000000   1.000000               1.000000  1.000000       NaN
-21  real_gemini_claims_wrong_vs_gt      L1      L2    5  1.000000  0.800000   0.800000               0.800000  1.000000       NaN
-22  real_gemini_claims_wrong_vs_gt      L1      L3   28  1.000000  0.642857   0.642857               0.642857  1.000000       NaN
-23  real_gemini_claims_wrong_vs_gt      L1      L4   28  1.000000  0.785714   0.785714               0.785714  1.000000       NaN
-24  real_gemini_claims_wrong_vs_gt      L1      L5   28  1.000000  0.071429   0.071429               0.071429  1.000000       NaN
+4                  injected_errors      L1      L5   43  0.976744  0.069767   0.069767               0.068145  1.023810  0.042258
+5                  injected_errors      L1      L7   96  1.000000  0.000000   0.000000               0.000000       NaN       NaN
+6                  injected_errors      L1     L5c   27  1.000000  0.481481   0.481481               0.481481  1.000000       NaN
+7                  injected_errors      L2      L3  105  0.000000  1.000000   0.000000               0.000000       NaN       NaN
+8                  injected_errors      L2       P   48  0.000000  0.000000   0.000000               0.000000       NaN       NaN
+9                  injected_errors      L2      L5    9  0.000000  0.000000   0.000000               0.000000       NaN       NaN
+10                 injected_errors      L2      L7   72  0.000000  0.000000   0.000000               0.000000       NaN       NaN
+11                 injected_errors      L3      L4   37  0.972973  0.270270   0.270270               0.262966  1.027778  0.101430
+12                 injected_errors      L3       P   48  1.000000  0.000000   0.000000               0.000000       NaN       NaN
+13                 injected_errors      L3      L5   43  1.000000  0.069767   0.069767               0.069767  1.000000       NaN
+14                 injected_errors      L3      L7   96  1.000000  0.000000   0.000000               0.000000       NaN       NaN
+15                 injected_errors      L3     L5c   27  0.962963  0.481481   0.444444               0.463649  0.958580 -0.203519
+16                 injected_errors      L4      L5   36  0.277778  0.083333   0.055556               0.023148  2.400000  0.261785
+17                 injected_errors      L4     L5c   27  0.259259  0.481481   0.000000               0.124829  0.000000 -0.570088
+18                 injected_errors       P      L7   48  0.000000  0.000000   0.000000               0.000000       NaN       NaN
+19                 injected_errors      L5     L5c   26  0.076923  0.461538   0.000000               0.035503  0.000000 -0.267261
+20  real_gemini_claims_wrong_vs_gt      L1      L2    5  1.000000  0.800000   0.800000               0.800000  1.000000       NaN
+21  real_gemini_claims_wrong_vs_gt      L1      L3   28  1.000000  0.642857   0.642857               0.642857  1.000000       NaN
+22  real_gemini_claims_wrong_vs_gt      L1      L4   28  1.000000  0.785714   0.785714               0.785714  1.000000       NaN
+23  real_gemini_claims_wrong_vs_gt      L1      L5   28  1.000000  0.071429   0.071429               0.071429  1.000000       NaN
+24  real_gemini_claims_wrong_vs_gt      L1     L5c   17  1.000000  0.411765   0.411765               0.411765  1.000000       NaN
 25  real_gemini_claims_wrong_vs_gt      L2      L3    5  0.800000  0.600000   0.600000               0.480000  1.250000  0.612372
 26  real_gemini_claims_wrong_vs_gt      L2      L4    5  0.800000  0.000000   0.000000               0.000000       NaN       NaN
 27  real_gemini_claims_wrong_vs_gt      L2      L5    5  0.800000  0.200000   0.200000               0.160000  1.250000  0.250000
 28  real_gemini_claims_wrong_vs_gt      L3      L4   28  0.642857  0.785714   0.500000               0.505102  0.989899 -0.025950
 29  real_gemini_claims_wrong_vs_gt      L3      L5   28  0.642857  0.071429   0.035714               0.045918  0.777778 -0.082690
-30  real_gemini_claims_wrong_vs_gt      L4      L5   28  0.785714  0.071429   0.035714               0.056122  0.636364 -0.193122
+30  real_gemini_claims_wrong_vs_gt      L3     L5c   17  0.529412  0.411765   0.235294               0.217993  1.079365  0.070430
+31  real_gemini_claims_wrong_vs_gt      L4      L5   28  0.785714  0.071429   0.035714               0.056122  0.636364 -0.193122
+32  real_gemini_claims_wrong_vs_gt      L4     L5c   17  0.764706  0.411765   0.352941               0.314879  1.120879  0.182323
+33  real_gemini_claims_wrong_vs_gt      L5     L5c   17  0.058824  0.411765   0.000000               0.024221  0.000000 -0.209165

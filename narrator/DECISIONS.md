@@ -13,3 +13,4 @@
 - Showcase video: https://www.youtube.com/watch?v=PuC7iJffTpw, approved by the user | clear CVS + clipping | narrator/out/showcase
 - Not committed: dataset frames (evidence/, demo_preview.html embeds frames), GT-derived tables, fetched paper texts (kb/raw*, passages.parquet) | CholecSeg8k CC BY-NC-SA and paper copyright | rebuild with make data kb evidence preview
 - L5c OpenCLIP (ViT-B-32 laion2b, zero-shot, own venv narrator/.venv-clip since open_clip needs torch 2.15) is report-only | 52% accuracy on 200 decided GT test cases = chance | check/__init__.py REPORT_ONLY
+- Injection clean base = GT presence/absence + knowledge claims citing quote-verified rules; make_gold_claims' phase claims excluded | CholecSeg8k has no phase labels, so 'correct phase' was asserted, not known (first run: 28 false 'clean drops') | eval/injection.clean_base

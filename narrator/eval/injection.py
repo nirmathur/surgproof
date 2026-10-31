@@ -39,6 +39,12 @@ def clean_base(seed=0) -> list[dict]:
     gt = gt[gt.split == "test"]
     clips = D.list_clips()
     gold = INJ.make_gold_claims(gt, clips[clips.split == "test"])
+    # keep only claims whose correctness is established: GT presence/absence, and knowledge claims citing a
+    # quote-verified KB rule. make_gold_claims' phase claims are NOT verifiable (CholecSeg8k has no phase labels).
+    import json as _j
+    qv = _j.loads((C.out_dir() / "kb_quotes.json").read_text()) if (C.out_dir() / "kb_quotes.json").exists() else {}
+    gold = [c for c in gold if c.get("type") in ("presence", "absence")
+            or (c.get("type") == "knowledge" and all(qv.get(k, {}).get("quote_verified") for k in c.get("kb_refs") or ["?"]))]
     rng = random.Random(seed)
     rng.shuffle(gold)
     gold = gold[:N_CLEAN]

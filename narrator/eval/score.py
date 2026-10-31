@@ -1,5 +1,7 @@
 """Eval item 1: free vs grounded against CholecSeg8k masks (test videos only).
 
+Precision and hallucination count ASSERTED claims (speak, or unhedged in raw mode); hedged claims are scored by
+hedge_correctness (hedged item really uncertain in the label table, or absent in GT).
 Scored claim types: presence / absence of the scored classes (grasper, l_hook, liver, gallbladder,
 cystic_duct, blood). GT: class covers > presence.min_frac of pixels in any sampled GT frame inside the
 claim window (nearest sampled frame if the window holds none).
@@ -57,12 +59,14 @@ def annotate(df: pd.DataFrame) -> pd.DataFrame:
 
 def condition_metrics(d: pd.DataFrame, clips: list[str], lk: dict, labels: pd.DataFrame) -> dict:
     s = d[d.gt_correct.notna()]
-    pos = s[~((s.type == "absence") | (s.polarity == "negated"))]
-    halluc = pos[pos.gt_correct == False]  # noqa: E712
+    asserted = s[s.verdict_eff != "hedge"]          # what the narrator states as fact
+    pos_all = s[~((s.type == "absence") | (s.polarity == "negated"))]
+    pos = asserted[~((asserted.type == "absence") | (asserted.polarity == "negated"))]
+    halluc = pos[pos.gt_correct == False]  # noqa: E712  hedged claims are scored by hedge_correctness instead
     n_clips = max(1, len(clips))
     # coverage: share of (clip, present scored class) pairs mentioned by any positive claim
     present_pairs = {(c, k[1]) for k, g in lk.items() for c in [k[0]] if c in clips and g.present.any()}
-    mentioned = {(r.clip_id, r.scored_class) for r in pos.itertuples()}
+    mentioned = {(r.clip_id, r.scored_class) for r in pos_all.itertuples()}
     hed = s[s.verdict_eff == "hedge"]
     hedge_ok = []
     for r in hed.itertuples():
@@ -71,8 +75,8 @@ def condition_metrics(d: pd.DataFrame, clips: list[str], lk: dict, labels: pd.Da
         uncertain = bool((lab.status == "uncertain").any()) if len(lab) else False
         hedge_ok.append(uncertain or not r.gt_correct)
     return {
-        "n_claims": int(len(d)), "n_scored": int(len(s)),
-        "claim_precision": float(s.gt_correct.mean()) if len(s) else np.nan,
+        "n_claims": int(len(d)), "n_scored": int(len(s)), "n_scored_asserted": int(len(asserted)),
+        "claim_precision": float(asserted.gt_correct.mean()) if len(asserted) else np.nan,
         "hallucinated_structures_per_clip": len({(r.clip_id, r.scored_class) for r in halluc.itertuples()}) / n_clips,
         "hallucinated_claims_per_clip": len(halluc) / n_clips,
         "hallucination_rate": float((pos.gt_correct == False).mean()) if len(pos) else np.nan,  # noqa: E712

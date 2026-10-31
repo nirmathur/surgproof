@@ -152,7 +152,15 @@ def build_mock_labels(gt: pd.DataFrame | None = None, force: bool = False) -> pd
 
 
 def load_labels() -> pd.DataFrame:
-    """Real labeller table if one exists (out/labels_*.jsonl), else the mock table."""
+    """Real labeller table if one exists (out/labels_*.jsonl), else the mock table.
+    NARRATOR_LABELS=<decisions.csv> forces a specific real verifier table (DESIGN.md 1B)."""
+    import os
+    if os.environ.get("NARRATOR_LABELS"):
+        from narrator import adapters
+        d = adapters.from_decisions(Path(os.environ["NARRATOR_LABELS"]))
+        d["split"] = d.video_id.map(C.split_of)
+        return d[["video_id", "clip_id", "frame_idx", "label", "present", "status", "confidence", "boxes",
+                  "source", "split"]].drop_duplicates(["video_id", "clip_id", "frame_idx", "label"])
     real = sorted(C.ROOT.glob(C.cfg()["paths"]["labels_glob"]))
     if (C.ROOT / "out" / "decisions.csv").exists() or (C.ROOT / "out" / "labels_manual.jsonl").exists():
         from narrator import adapters  # noqa: F401  (written when the real schema is known)
