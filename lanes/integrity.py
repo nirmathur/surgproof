@@ -20,9 +20,9 @@ def fail(msg):
     fails.append(msg)
 
 
-DISPLAY = [f for f in ["app.py", "narrate.py"] + glob.glob("pages/*.py") + glob.glob("promo/*.py") if os.path.exists(f)]
+DISPLAY = [f for f in ["app.py", "narrate.py"] + glob.glob("pages/*.py") + glob.glob("promo/*.py") + glob.glob("web/*.js") + glob.glob("web/*.html") + glob.glob("web/*.py") if os.path.exists(f)]
 PATTERNS = [
-    (r'["\']box["\']\s*:\s*\[\s*\d', "literal bounding box"),
+    (r'["\']?box["\']?\s*:\s*\[\s*\d', "literal bounding box"),
     (r'["\']status["\']\s*:\s*["\'](accept|reject|AMBER|amber)["\']', "literal verdict"),
     (r'["\']\d{1,3}\.\d%["\']', "literal percentage string"),
     (r'0\.7\d?\s*\+\s*0\.\d+\s*\*', "synthetic score formula"),
@@ -100,6 +100,53 @@ for f in glob.glob("out/*results*.json") + glob.glob("out/eval*.json"):
         for k in {"grasper", "l_hook", "liver", "gallbladder", "cystic_duct", "blood"} - ok:
             if re.search(rf'"{name}[^"]*{k}|"{k}[^"]*{name}', s2):
                 fail(f"{f}: reports {k} on {name}, which has no {k} ground truth")
+
+# ---- PROVENANCE: every model output must trace to a real recorded Gemini response ----
+import random, sqlite3
+if os.path.exists("cache.sqlite"):
+    con = sqlite3.connect("cache.sqlite")
+    blob = "\n".join(v or "" for (v,) in con.execute("select v from cache"))
+    con.close()
+    norm = lambda t: re.sub(r"\s+", " ", str(t)).strip().lower()
+    blob_n = norm(blob)
+    def traced(row):
+        ev = row.get("evidence") or row.get("rationale") or ""
+        return len(ev) < 12 or norm(ev)[:60] in blob_n
+    for f in glob.glob("out/labels_*.jsonl"):
+        rows = [json.loads(l) for l in open(f)]
+        sample = random.Random(0).sample(rows, min(300, len(rows)))
+        bad = [r for r in sample if not traced(r)]
+        if bad:
+            fail(f"{f}: {len(bad)}/{len(sample)} sampled labels have evidence text found in NO recorded Gemini response (e.g. {bad[0].get('frame_id')}/{bad[0].get('key')})")
+        else:
+            notes.append(f"{f}: {len(sample)} sampled labels traced to recorded model responses")
+    if os.path.exists("out/decisions.csv"):
+        drows = list(csv.DictReader(open("out/decisions.csv")))
+        sample = random.Random(1).sample(drows, min(300, len(drows)))
+        bad = [r for r in sample if not traced(r)]
+        if bad:
+            fail(f"out/decisions.csv: {len(bad)}/{len(sample)} sampled decisions not traceable to a recorded model response")
+        else:
+            notes.append(f"out/decisions.csv: {len(sample)} sampled decisions traced to recorded model responses")
+
+# ---- PROMO/APP must declare their sources, and the declared values must match the data ----
+man = "out/promo/manifest.json"
+if os.path.exists(man):
+    m = json.load(open(man))
+    dec_idx = {}
+    if os.path.exists("out/decisions.csv"):
+        for r in csv.DictReader(open("out/decisions.csv")):
+            dec_idx[(r["frame_id"], r["key"])] = r
+    for shot, s in m.get("shots", {}).items():
+        for item in s.get("shown_labels", []) or []:
+            d = dec_idx.get((item.get("frame_id"), item.get("key")))
+            if d is None:
+                fail(f"{man}: {shot} shows {item} but that frame/label is not in decisions.csv")
+            elif item.get("status") and item["status"].lower() != str(d.get("status", "")).lower():
+                fail(f"{man}: {shot} shows status {item['status']} for {item.get('key')} but decisions.csv says {d.get('status')}")
+        hn = s.get("hero_number")
+        if hn not in (None, "", "pending") and not s.get("hero_number_source"):
+            fail(f"{man}: {shot} shows a number ({hn}) with no hero_number_source (file + key)")
 
 print(f"integrity: {len(fails)} FAIL, scanned {len(DISPLAY)} display files")
 for x in fails:

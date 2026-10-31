@@ -399,8 +399,14 @@ def evaluate_raw_labels_jsonl(path: Path | None, idx: pd.DataFrame | None) -> di
     }
 
 
+SUPPORTED_EXTERNAL_LABELS = {
+    "endoscapes2023": {"gallbladder", "cystic_duct"},
+    "cholect50": {"grasper", "l_hook"},
+}
+
+
 def evaluate_external_datasets(data_dir: Path, out_dir: Path) -> dict:
-    """Discover and evaluate external held-out datasets (Endoscapes2023, CholecT50) with gt=-1 support."""
+    """Discover and evaluate external held-out datasets (Endoscapes2023, CholecT50) on supported labels only."""
     ext_root = data_dir / "external"
     if not ext_root.exists():
         return {}
@@ -408,9 +414,14 @@ def evaluate_external_datasets(data_dir: Path, out_dir: Path) -> dict:
     for ext_idx_p in sorted(ext_root.glob("*/index.csv")):
         ds_name = ext_idx_p.parent.name
         ext_idx = pd.read_csv(ext_idx_p)
+        allowed = SUPPORTED_EXTERNAL_LABELS.get(ds_name, set(C.LABELS))
+        # Blank out any unsupported gt_* columns in memory so they can never be scored even if non-empty on disk
+        for k in C.LABELS:
+            if k not in allowed and f"gt_{k}" in ext_idx.columns:
+                ext_idx[f"gt_{k}"] = np.nan
         scorable = [
             k for k in C.LABELS
-            if f"gt_{k}" in ext_idx.columns and ext_idx[f"gt_{k}"].isin([0, 1]).any()
+            if k in allowed and f"gt_{k}" in ext_idx.columns and pd.to_numeric(ext_idx[f"gt_{k}"], errors="coerce").isin([0, 1]).any()
         ]
         ds_info = {
             "n_frames": int(len(ext_idx)),

@@ -138,12 +138,15 @@ def test_external_datasets_contract_if_built():
     endo_dir = C.DATA_DIR / "external" / "endoscapes2023"
     if (endo_dir / "index.csv").exists():
         df_e = pd.read_csv(endo_dir / "index.csv")
-        assert len(df_e) == 493
+        assert len(df_e) == 471
         assert df_e["video"].nunique() == 50
-        assert (df_e.split == "test").sum() == 74
+        assert (df_e.split == "test").sum() == 59
         assert set(df_e["gt_gallbladder"].unique()) <= {0, 1}
         assert set(df_e["gt_cystic_duct"].unique()) <= {0, 1}
         assert df_e["gt_grasper"].isna().all()
+        for p in df_e.loc[df_e.split == "test", "path"]:
+            arr = np.array(Image.open(p))
+            assert float(arr.mean()) >= 10.0 and float(arr.std()) >= 5.0
         if (endo_dir / "features.npy").exists():
             Xe = np.load(endo_dir / "features.npy")
             assert Xe.shape == (len(df_e), 768)

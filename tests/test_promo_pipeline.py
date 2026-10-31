@@ -85,8 +85,9 @@ def test_load_real_result_number_and_boxes_honesty(tmp_path: Path):
     )
     card = load_real_result_card(out_dir=tmp_path)
     assert card is not None
-    assert card["headline"] == "96.4% accurate on the 88% it accepted"
+    assert card["headline"] == "96.4% accurate on the 88.0% it accepted"
     assert card["subtext"] == "n = 1400 held-out labels, 6 unseen videos"
+    assert card["source"] == "out/results.json:accepted_5_informative.accuracy"
 
     # 4. Boxes: empty when out/annotations.jsonl is absent; populated only from out/annotations.jsonl
     _, items_no_ann = _load_target_frame_and_boxes(out_dir=tmp_path)

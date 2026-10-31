@@ -138,12 +138,17 @@ def _eval_trained_models_on_external(models_by_key_source: dict, const_by_key_so
         if len(ext_te) == 0:
             continue
 
+        allowed_ext_keys = {"endoscapes2023": {"gallbladder", "cystic_duct"}, "cholect50": {"grasper", "l_hook"}}.get(
+            ds_name, set(C.LABELS)
+        )
         per_label_ext = {}
         for key in C.LABELS:
+            if key not in allowed_ext_keys:
+                continue
             col = f"gt_{key}"
             if col not in ext_te.columns:
                 continue
-            yte = ext_te[col].values
+            yte = pd.to_numeric(ext_te[col], errors="coerce").values
             valid = np.isin(yte, [0, 1])
             if not np.any(valid):
                 continue

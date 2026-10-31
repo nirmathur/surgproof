@@ -76,9 +76,9 @@ def _check_file_for_gt_references(py_path: Path):
 
 
 def test_verifier_never_reads_gt_or_truth():
-    """Audit rule: accept.py and verify/ must NEVER read or reference `truth` or `gt_*`."""
+    """Audit rule: accept.py, verify/, localize.py, and verify_localize.py must NEVER read or reference `truth` or `gt_*`."""
     root = Path(C.ROOT)
-    targets = [root / "accept.py"]
+    targets = [root / "accept.py", root / "localize.py", root / "verify_localize.py"]
     verify_dir = root / "verify"
     if verify_dir.is_dir():
         targets.extend(sorted(verify_dir.rglob("*.py")))
@@ -87,5 +87,5 @@ def test_verifier_never_reads_gt_or_truth():
         if t.is_file():
             all_hits.extend(_check_file_for_gt_references(t))
     assert not all_hits, (
-        f"Ground-truth leakage detected in verifier code! Verifier must never read truth/gt_*: {all_hits}"
+        f"Ground-truth leakage detected in verifier/localizer code! Must never read truth/gt_*: {all_hits}"
     )

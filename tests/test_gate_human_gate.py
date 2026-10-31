@@ -583,4 +583,26 @@ def test_real_decisions_csv_and_amber_rounds_jsonl_funnel_and_design_1d_fields(t
         assert "provenance" in row
 
 
+def test_human_gate_page_passes_lanes_integrity_patterns():
+    """Verify pages/2_Human_gate.py passes all display-file anti-fabrication regexes in lanes/integrity.py."""
+    import re
+    patterns = [
+        (r'["\']box["\']\s*:\s*\[\s*\d', "literal bounding box"),
+        (r'["\']status["\']\s*:\s*["\'](accept|reject|AMBER|amber)["\']', "literal verdict"),
+        (r'["\']\d{1,3}\.\d%["\']', "literal percentage string"),
+        (r'0\.7\d?\s*\+\s*0\.\d+\s*\*', "synthetic score formula"),
+        (r'(accuracy|acc|precision|coverage)\s*=\s*0\.\d{2,}', "hard-coded metric"),
+    ]
+    fails = []
+    for i, line in enumerate(GATE_PAGE_PATH.read_text(encoding="utf-8").splitlines(), 1):
+        s = line.strip()
+        if s.startswith("#") or "integrity: allow" in s:
+            continue
+        for pat, what in patterns:
+            if re.search(pat, line):
+                fails.append(f"pages/2_Human_gate.py:{i}: {what}: {s[:110]}")
+    assert not fails, f"Integrity check failed on pages/2_Human_gate.py: {fails}"
+
+
+
 
