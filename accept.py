@@ -1,7 +1,8 @@
-"""Step 5: decide which labels to trust, send the uncertain band to Argon, and evaluate.
+"""Step 5: decide which labels to trust, send the uncertain band to Argon, and write decisions.csv.
 
 Zero-label rule (no human labels used): trust score from the checks, thresholds fixed in advance.
-Post-decision evaluation runs only after out/decisions.csv is written.
+Statuses emitted: 'accept' (verified), 'AMBER' (abstain -> Human Gate), 'reject' (rejected).
+Post-decision evaluation runs separately via eval.score_decisions after decisions.csv is saved.
 
   python accept.py            # writes out/decisions.csv and out/results.json
   python accept.py --no-argon # skip the Argon reviser (faster)
@@ -15,7 +16,29 @@ from pydantic import BaseModel
 
 import config as C
 import gem
-import label as L
+from eval.score_decisions import evaluate_decisions
+
+VERIFIER_INPUT_COLS = [
+    "frame_id",
+    "video",
+    "video_id",
+    "split",
+    "key",
+    "mode",
+    "sample",
+    "model",
+    "prompt_hash",
+    "present",
+    "conf",
+    "confidence",
+    "box",
+    "evidence",
+    "rationale",
+    "pv_match",
+    "pv_conf",
+    "p_wrong",
+    "critic",
+]
 
 
 class Verdict(BaseModel):
@@ -24,7 +47,7 @@ class Verdict(BaseModel):
     reasoning: str
 
 
-def is_pv_match(val):
+def _pv_ok(val) -> bool:
     if val is None or (isinstance(val, float) and pd.isna(val)) or pd.isna(val):
         return False
     if isinstance(val, str):
@@ -33,12 +56,10 @@ def is_pv_match(val):
 
 
 def trust(r):
-    conf = float(getattr(r, "conf", getattr(r, "confidence", 0.0)))
-    p_wrong = float(getattr(r, "p_wrong", 0.5))
-    s = conf * (1.0 - p_wrong)
-    if int(getattr(r, "present", 0)) == 1:
-        s *= 1.0 if is_pv_match(getattr(r, "pv_match", None)) else 0.5
-    return round(float(s), 6)
+    s = float(r.conf) * (1.0 - float(r.p_wrong))
+    if int(r.present) == 1:
+        s *= 1.0 if _pv_ok(getattr(r, "pv_match", None)) else 0.5
+    return s
 
 
 def status(s):
@@ -46,20 +67,12 @@ def status(s):
 
 
 async def argon_revise(r, manual):
-    pvm = getattr(r, "pv_match", None)
-    pvc = getattr(r, "pv_conf", None)
-    if pvm is None or pd.isna(pvm):
-        pv_desc = "was not applicable (claimed absent or no valid box)"
-    elif is_pv_match(pvm):
-        pv_desc = f"agreed (conf {float(pvc if pd.notna(pvc) else 0.5):.2f})"
-    else:
-        pv_desc = f"disagreed (conf {float(pvc if pd.notna(pvc) else 0.5):.2f})"
-
+    pv_agreed = _pv_ok(getattr(r, "pv_match", None))
     v = await gem.call(
         f"You are the senior reviewer. A junior labeller said '{r.key}' is "
-        f"{'PRESENT' if int(r.present) == 1 else 'ABSENT'} (conf {float(r.conf):.2f}, evidence: {r.evidence}). "
-        f"A blind crop check {pv_desc}. "
-        f"A critic argued: {r.critic!r} (p_wrong {float(r.p_wrong):.2f}).\n"
+        f"{'PRESENT' if r.present else 'ABSENT'} (conf {r.conf:.2f}, evidence: {r.evidence}). "
+        f"A blind crop check {'agreed' if pv_agreed else 'disagreed or was not possible'}. "
+        f"A critic argued: {r.critic!r} (p_wrong {r.p_wrong:.2f}).\n"
         "Look at the frame yourself and give the final call. Be willing to say you are unsure.\n"
         f"Manual: {json.dumps(manual)}",
         model=C.ARGON, images=[gem.img_part(r.frame_path)], schema=Verdict, tag="argon-revise")
@@ -68,21 +81,17 @@ async def argon_revise(r, manual):
     return v
 
 
-def risk_coverage(correct, score):
-    return L.risk_coverage(correct, score)
-
-
-async def main(use_argon, argon_budget, labels_path=None, index_path=None, out_decisions_path=None, out_results_path=None):
-    idx_file = index_path or (C.DATA_DIR / "index.csv")
-    lab_file = labels_path or (C.OUT_DIR / "labels_manual.jsonl")
-    dec_file = out_decisions_path or (C.OUT_DIR / "decisions.csv")
-
-    idx = pd.read_csv(idx_file, usecols=["frame_id", "path"]).set_index("frame_id")
-    d = pd.read_json(lab_file, lines=True)
-    for col in list(d.columns):
-        if col == "tr" + "uth" or col.startswith("g" + "t_"):
-            d = d.drop(columns=[col])
-
+async def main(use_argon, argon_budget):
+    idx = pd.read_csv(C.DATA_DIR / "index.csv")[["frame_id", "path"]].set_index("frame_id")
+    raw_d = pd.read_json(C.OUT_DIR / "labels_manual.jsonl", lines=True)
+    if "conf" not in raw_d.columns and "confidence" in raw_d.columns:
+        raw_d["conf"] = raw_d["confidence"]
+    if "evidence" not in raw_d.columns and "rationale" in raw_d.columns:
+        raw_d["evidence"] = raw_d["rationale"]
+    if "video" not in raw_d.columns and "video_id" in raw_d.columns:
+        raw_d["video"] = raw_d["video_id"]
+    keep_cols = [c for c in VERIFIER_INPUT_COLS if c in raw_d.columns]
+    d = raw_d[keep_cols].copy()
     d["frame_path"] = d.frame_id.map(idx.path)
     d["trust"] = d.apply(trust, axis=1)
     d["status"] = d.trust.map(status)
@@ -96,31 +105,20 @@ async def main(use_argon, argon_budget, labels_path=None, index_path=None, out_d
                   f"({(d.status != 'accept').sum()} flagged in total)")
         verdicts = await asyncio.gather(*[argon_revise(r, manual) for r in band.itertuples()])
         for (i, _), v in zip(band.iterrows(), verdicts):
-            v_conf = L.clamp_prob(v.get("confidence", 0.5), default=0.5)
-            d.at[i, "final_present"] = int(bool(v.get("present", False)))
+            d.at[i, "final_present"] = int(v["present"])
             d.at[i, "final_by"] = "argon"
-            if v_conf >= 0.8:
+            if v["confidence"] >= 0.8:
                 d.at[i, "status"] = "accept"
-                d.at[i, "trust"] = round(0.70 + 0.3 * v_conf * 0.99, 6)
-            elif v_conf >= 0.45:
-                d.at[i, "status"] = "AMBER"
-                d.at[i, "trust"] = round(0.35 + 0.34 * v_conf, 6)
-            else:
+                d.at[i, "trust"] = 0.70 + 0.3 * v["confidence"] * 0.99
+            elif v["confidence"] < 0.35:
                 d.at[i, "status"] = "reject"
-                d.at[i, "trust"] = round(min(float(d.at[i, "trust"]), 0.34 * v_conf), 6)
-
-    dec_file.parent.mkdir(parents=True, exist_ok=True)
-    d.to_csv(dec_file, index=False)
+            else:
+                d.at[i, "status"] = "AMBER"
+    d.to_csv(C.OUT_DIR / "decisions.csv", index=False)
     coord_dec = C.ROOT / "coord" / "artifacts" / "decisions.csv"
     coord_dec.parent.mkdir(parents=True, exist_ok=True)
     d.to_csv(coord_dec, index=False)
-
-    res = L.score_decisions_file(dec_file, idx_file, out_results_path)
-    print(json.dumps({k: v for k, v in res.items() if not isinstance(v, dict) or "curve" not in v}, indent=2), flush=True)
-    for k, v in res.items():
-        if isinstance(v, dict) and "curve" in v:
-            print(f"{k:28s} coverage@95%={v['coverage_at_95']:.2f}  acc@60%={v['acc_at_60']:.3f}  AURC={v['aurc']:.4f}", flush=True)
-    return res
+    return evaluate_decisions(C.DATA_DIR, C.OUT_DIR)
 
 
 if __name__ == "__main__":

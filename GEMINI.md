@@ -7,7 +7,7 @@ Six Antigravity (agy) workers on Gemini 4 Argon build this project in parallel. 
 - raw/, data/, out/ and cache.sqlite are symlinks to the shared copies in ~/surgatlas. All lanes see the same data and outputs.
 - Status files: out/lanes/<lane>.md (shared). Read other lanes' status files to see what exists.
 
-## FOCUSED BUILD MODE (deadline today, demo ~15:30)
+## FOCUSED BUILD MODE: SUBMISSION 15:15 TODAY (feature freeze 14:30)
 - Ship the README run order. No redesign phase. Fix what breaks in your files as you go.
 - Research only if it unblocks you within 10 minutes. Only the architect runs deep research, one brief, in the background.
 - Work in small, runnable steps. A smaller result that is real beats a perfect plan.
