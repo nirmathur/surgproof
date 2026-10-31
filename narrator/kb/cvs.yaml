@@ -1,0 +1,71 @@
+criteria:
+  cvs_triangle_cleared:
+    text: Hepatocystic triangle cleared of fat and fibrous tissue
+  cvs_lower_gb_off_plate:
+    text: Lower third of the gallbladder separated from the liver bed (cystic plate exposed)
+  cvs_two_structures:
+    text: Only two structures (cystic duct and cystic artery) seen entering the gallbladder
+rules:
+- id: cvs.c1_triangle_cleared
+  statement: The hepatocystic triangle must be completely cleared of fat and fibrous tissue
+  source_id: strasberg_2010
+  quote: all fat and fibrous tissue must be removed from the triangle of Calot
+  quote_verified: true
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: verified
+  quote_original: must be cleared completely of all fat and fibrous tissue.
+- id: cvs.c2_lower_gb_off_plate
+  statement: The lower third of the gallbladder must be dissected off the cystic plate
+  source_id: nassar
+  quote: at least one third of the gallbladder mobilised off the cystic plate.
+  quote_verified: true
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: verified
+  quote_original: The lowest 1/3 of the gallbladder must be dissected completely off the cystic plate
+  source_id_original: strasberg_2010
+- id: cvs.c3_two_structures
+  statement: Only two structures, and only two, should be seen entering the gallbladder
+  source_id: strasberg_2010
+  quote: 2 structures, and only 2, should be seen entering the gallbladder.
+  quote_verified: true
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: verified
+  quote_original: Only two structures—the cystic duct and cystic artery—should be visualized entering the gallbladder.
+- id: cvs.two_windows_alone
+  statement: Two windows alone is not CVS; the lower gallbladder must be detached from the liver bed
+  source_id: strasberg_2010
+  quote: The making of 2 “windows” alone does not satisfy the requirements of CVS.
+  quote_verified: true
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: verified
+  quote_original: two windows alone does not constitute the critical view
+- id: cvs.confirmed_before_clip_cut
+  statement: CVS must be confirmed before any clip application or transection of tubular structures
+  source_id: tg18
+  quote: fulfill the three criteria of CVS before dividing any structures.
+  quote_verified: true
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: verified
+  quote_original: achieved before clipping or dividing any tubular structure.
+  source_id_original: sages_guideline
+- id: cvs.doublet_documentation
+  statement: CVS documentation requires imaging both anterior and posterior views
+  source_id: strasberg_2010
+  quote: photographic or video documentation displaying both the **anterior** and **posterior** views of the CVS
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: grounding_only
+- id: cvs.post_clip_timing
+  statement: A CVS achieved claim made after clipping and cutting is temporally inconsistent
+  source_id: sages_guideline
+  quote: to allow for reflection before “clipping, cutting or transecting any ductal structures”[84].
+  quote_verified: false
+  evidence_grade: derived
+  seed: false
+  quote_status: not_found

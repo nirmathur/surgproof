@@ -1,0 +1,213 @@
+nodes:
+- id: difficulty_assessment
+  order: 1
+  guideline_action: Assess anatomical operative difficulty using Parkland or Nassar grading from initial pre-dissection inspection.
+  alternatives:
+  - Proceed with dissection without formal difficulty assessment
+  - Underestimate inflammation leading to delayed bailout
+  evidence_grade: expert opinion
+  source_id: madni2018
+  quote: Assign Parkland grade from the pre-dissection view only
+  quote_verified: false
+  seed: true
+  detect:
+    from:
+    - grade
+    - finding
+    rule: Check for initial Parkland or Nassar grade claims or anatomical findings during preparation phase before Calot dissection.
+- id: exposure_retraction
+  order: 2
+  guideline_action: Retract gallbladder fundus cephalad and infundibulum laterally to open and expose the hepatocystic triangle.
+  alternatives:
+  - Retract infundibulum medially towards common bile duct
+  - Inadequate cephalad fundus traction causing triangle crowding
+  evidence_grade: expert opinion
+  source_id: sages2020
+  quote: Retract fundus cephalad and infundibulum laterally to expose hepatocystic triangle
+  quote_verified: false
+  seed: true
+  detect:
+    from:
+    - action
+    - presence
+    rule: Check for grasper retracting gallbladder fundus and infundibulum during preparation and triangle dissection phases.
+- id: dissection_plane_r4u
+  order: 3
+  guideline_action: Maintain dissection plane strictly anterior and superior to the R4U line (Rouviere sulcus to Segment 4
+    base).
+  alternatives:
+  - Dissect posterior or inferior to Rouviere sulcus
+  - Enter liver substance below the R4U landmark line
+  evidence_grade: conditional recommendation, very low certainty
+  source_id: tg18
+  quote: Dissect above the line from the base of Segment 4 to Rouvière sulcus
+  quote_verified: false
+  seed: true
+  detect:
+    from:
+    - action
+    - decision_point
+    rule: Check dissection actions and targets during Calot dissection phase relative to Rouviere sulcus and cystic plate
+      landmarks.
+- id: cvs_pause
+  order: 4
+  guideline_action: Perform a momentary pause before clipping to confirm all three CVS criteria (triangle cleared, lower plate
+    exposed, two structures only).
+  alternatives:
+  - Clip without momentary pause
+  - Clip with only two criteria verified (inaccuracy)
+  - Clip with one or zero criteria verified (blunder)
+  evidence_grade: best practice
+  source_id: sages_q13
+  quote: Pause before clipping or transecting to confirm CVS
+  quote_verified: false
+  seed: true
+  detect:
+    from:
+    - cvs_criterion
+    - decision_point
+    - action
+    rule: Check confirmed CVS criteria claims immediately preceding clipper action or clipping phase.
+- id: cvs_not_reached_action
+  order: 5
+  guideline_action: If CVS cannot be achieved safely due to severe fibrosis or inflammation, obtain intraoperative imaging,
+    call for second surgeon help, or prepare for bailout.
+  alternatives:
+  - Continue forceful dissection in hepatocystic triangle
+  - Blind thermal dissection or blind clipping without CVS
+  evidence_grade: strong recommendation, very low certainty
+  source_id: sages_q4_q17
+  quote: Use intraoperative imaging or call for help when anatomy is uncertain
+  quote_verified: false
+  seed: true
+  detect:
+    from:
+    - decision_point
+    - action
+    - condition
+    rule: Check whether prolonged dissection (>time limit) without CVS triggers imaging, calling for help, or transition to
+      bailout.
+- id: bailout_choice
+  order: 6
+  guideline_action: Select subtotal cholecystectomy (fenestrating or reconstituting) rather than fundus-first total cholecystectomy
+    when CVS cannot be achieved.
+  alternatives:
+  - Fundus-first (dome-down) total cholecystectomy in severe inflammation
+  - Forcing complete dissection of scarred cystic duct
+  evidence_grade: conditional recommendation, low certainty
+  source_id: sages_q2_q9
+  quote: Prefer subtotal over fundus-first total cholecystectomy when CVS cannot be achieved
+  quote_verified: false
+  seed: true
+  detect:
+    from:
+    - action
+    - decision_point
+    rule: Check for subtotal cholecystectomy actions or bailout decision claims when CVS is not attained.
+- id: clip_and_divide
+  order: 7
+  guideline_action: Apply occlusive clips and divide only the cystic duct and cystic artery after definitive CVS confirmation.
+  alternatives:
+  - Clip prior to clearing the lower third of gallbladder off liver bed
+  - Clip structure before verifying only two structures enter gallbladder
+  - Clip tubular structure without anterior and posterior visual confirmation
+  evidence_grade: expert opinion
+  source_id: sages_q1
+  quote: Use CVS to identify the cystic duct and artery before dividing
+  quote_verified: false
+  seed: true
+  detect:
+    from:
+    - action
+    - cvs_criterion
+    rule: Check clipper tool actions, clip verb on cystic duct/artery, and prior CVS criteria status.
+- id: gb_bed_haemostasis
+  order: 8
+  guideline_action: Maintain dissection in the cystic plate plane off the liver bed and achieve complete haemostasis and bile
+    leak inspection prior to extraction.
+  alternatives:
+  - Inadvertent deep penetration into hepatic parenchyma
+  - Omitting systematic inspection of cystic plate and clip security
+  evidence_grade: expert opinion
+  source_id: sages2020
+  quote: Inspect the gallbladder fossa for bleeding and bile leak prior to completion
+  quote_verified: false
+  seed: true
+  detect:
+    from:
+    - phase
+    - action
+    - finding
+    rule: Check cleaning/coagulation phase actions, aspirate/irrigate actions, and absence of active bleeding or bile leak
+      findings.
+rules:
+- id: decision.difficulty_assessment
+  statement: Operative difficulty should be formally assessed from pre-dissection anatomical appearance.
+  source_id: nassar
+  quote: early recognition of difficulty and identification of cholecys- tectomies
+  quote_verified: true
+  evidence_grade: expert opinion
+  seed: false
+  quote_status: verified
+  quote_original: Assign Parkland grade from the pre-dissection view only
+  source_id_original: madni2018
+- id: decision.exposure_retraction
+  statement: Hepatocystic triangle exposure requires fundus retracted cephalad and infundibulum retracted laterally.
+  source_id: sages2020
+  quote: Retract fundus cephalad and infundibulum laterally to expose hepatocystic triangle
+  quote_verified: false
+  evidence_grade: expert opinion
+  seed: true
+  quote_status: not_found
+- id: decision.dissection_plane_r4u
+  statement: Dissection in Calot triangle must stay above the R4U line to protect common bile duct.
+  source_id: tg18
+  quote: Dissect above the line from the base of Segment 4 to Rouvière sulcus
+  quote_verified: false
+  evidence_grade: conditional recommendation, very low certainty
+  seed: true
+  quote_status: not_found
+- id: decision.cvs_pause
+  statement: A deliberate pause must be taken to verify all three CVS criteria prior to clipping.
+  source_id: alius_2023
+  quote: “momentary intraoperative pause” to allow for reflection before “clipping, cutting or transecting
+  quote_verified: true
+  evidence_grade: best practice
+  seed: false
+  quote_status: verified
+  quote_original: Pause before clipping or transecting to confirm CVS
+  source_id_original: sages_q13
+- id: decision.cvs_not_reached_action
+  statement: When CVS cannot be reached safely, obtain imaging, call for assistance, or prepare bailout.
+  source_id: tg18
+  quote: A bail-out procedure should be chosen if
+  quote_verified: true
+  evidence_grade: strong recommendation, very low certainty
+  seed: false
+  quote_status: verified
+  quote_original: Use intraoperative imaging or call for help when anatomy is uncertain
+  source_id_original: sages_q4_q17
+- id: decision.bailout_choice
+  statement: Subtotal cholecystectomy is preferred over fundus-first cholecystectomy in hostile gallbladders.
+  source_id: sages_q2_q9
+  quote: Prefer subtotal over fundus-first total cholecystectomy when CVS cannot be achieved
+  quote_verified: false
+  evidence_grade: conditional recommendation, low certainty
+  seed: true
+  quote_status: not_found
+- id: decision.clip_and_divide
+  statement: The cystic duct and artery should be clipped only after full CVS confirmation.
+  source_id: sages_q1
+  quote: Use CVS to identify the cystic duct and artery before dividing
+  quote_verified: false
+  evidence_grade: expert opinion
+  seed: true
+  quote_status: not_found
+- id: decision.gb_bed_haemostasis
+  statement: The gallbladder bed should be dissected cleanly off cystic plate and inspected for bleeding or bile leak.
+  source_id: sages2020
+  quote: Inspect the gallbladder fossa for bleeding and bile leak prior to completion
+  quote_verified: false
+  evidence_grade: expert opinion
+  seed: true
+  quote_status: not_found
