@@ -380,4 +380,81 @@ def test_three_round_amber_loop_shrinks_ambers_and_logs(tmp_path, monkeypatch):
     n_written = export_verified_dataset_jsonl(d, {"sources": [{"url": "https://youtube.com/watch?v=test"}]}, ds_path)
     assert n_written == 3
     assert ds_path.exists()
+    ds_rows = [ pd.Series(r) for r in pd.read_json(ds_path, lines=True).to_dict(orient="records") ]
+    assert len(ds_rows) == 3
+    for r in ds_rows:
+        assert "final_present" in r and "final_by" in r
+        assert "manual_sources" in r and "audit_signed_off_by" in r and "released_at" in r
+    for lrec in logs:
+        assert "present" in lrec and "conf" in lrec and "verdict" in lrec and "reason" in lrec
+
+
+def test_zero_synthetic_score_formulas_or_literal_verdicts_in_verifier_code():
+    """Ensure accept.py and verify/*.py have zero hits on lanes/integrity.py display PATTERNS."""
+    import re
+
+    root = Path(accept.__file__).resolve().parent
+    files = [root / "accept.py"] + sorted((root / "verify").rglob("*.py"))
+    patterns = [
+        (r'["\']box["\']\s*:\s*\[\s*\d', "literal bounding box"),
+        (r'["\']status["\']\s*:\s*["\'](accept|reject|AMBER|amber)["\']', "literal verdict"),
+        (r'["\']\d{1,3}\.\d%["\']', "literal percentage string"),
+        (r'0\.7\d?\s*\+\s*0\.\d+\s*\*', "synthetic score formula"),
+        (r'(accuracy|acc|precision|coverage)\s*=\s*0\.\d{2,}', "hard-coded metric"),
+    ]
+    for fpath in files:
+        for i, line in enumerate(fpath.read_text(encoding="utf-8").splitlines(), 1):
+            if line.strip().startswith("#"):
+                continue
+            for pat, what in patterns:
+                assert not re.search(pat, line), f"{fpath.name}:{i}: {what}: {line.strip()}"
+
+
+def test_accept_on_smoke_labels_in_tmp(tmp_path):
+    """Run accept.main (--no-argon) against coord/artifacts/labels_smoke.jsonl into tmp_path."""
+    smoke_path = C.ROOT / "coord" / "artifacts" / "labels_smoke.jsonl"
+    if not smoke_path.exists():
+        pytest.skip("coord/artifacts/labels_smoke.jsonl not present")
+    out_csv = tmp_path / "decisions_smoke.csv"
+    summary = asyncio.run(
+        accept.main(
+            use_argon=False,
+            argon_budget=0,
+            labels_path=smoke_path,
+            out_path=out_csv,
+            skip_eval=True,
+        )
+    )
+    assert out_csv.exists()
+    df = pd.read_csv(out_csv)
+    assert len(df) == 240
+    assert list(df.columns) == DECISION_OUTPUT_COLS
+    assert set(df["status"].unique()).issubset({"accept", "AMBER", "reject"})
+    assert summary["n_total"] == 240
+
+
+def test_full_decisions_and_results_artifacts_contract():
+    """Verify full out/decisions.csv and out/results.json meet DESIGN.md contracts with zero GT leakage."""
+    import json
+
+    dec_path = C.OUT_DIR / "decisions.csv"
+    res_path = C.OUT_DIR / "results.json"
+    if not dec_path.exists() or not res_path.exists():
+        pytest.skip("out/decisions.csv or out/results.json not present")
+
+    df = pd.read_csv(dec_path)
+    assert len(df) == 6060
+    assert list(df.columns) == DECISION_OUTPUT_COLS
+    assert not any(c == "truth" or c.startswith("gt_") for c in df.columns)
+    assert set(df["status"].unique()).issubset({"accept", "AMBER", "reject"})
+
+    res = json.loads(res_path.read_text())
+    assert res["n_test_labels"] == 1680
+    assert res["headline_labels"] == HEADLINE_KEYS
+    assert res["excluded_uninformative_labels"] == ["liver"]
+    assert "accepted_5_informative" in res
+    assert res["accepted_5_informative"]["n_test_labels_excl_liver"] == 1400
+    assert res["upper_bound_calibrated"]["is_upper_bound"] is True
+
+
 

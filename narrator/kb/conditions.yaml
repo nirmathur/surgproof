@@ -1,0 +1,84 @@
+conditions:
+  acute_cholecystitis:
+    visibility: visible
+    supporting_findings:
+    - hyperaemia
+    - wall_thickening
+    - distension
+    - pericholecystic_fluid
+    against_findings: []
+  chronic_cholecystitis:
+    visibility: needs_non_video_data
+    supporting_findings:
+    - adhesions_dense
+    - wall_thickening
+    against_findings:
+    - distension
+  gangrenous_cholecystitis:
+    visibility: visible
+    supporting_findings:
+    - necrosis
+    - perforation
+    - bile_spillage
+    against_findings: []
+  mirizzi_syndrome:
+    visibility: needs_non_video_data
+    supporting_findings:
+    - distension
+    - adhesions_dense
+    against_findings: []
+  empyema:
+    visibility: visible
+    supporting_findings:
+    - distension
+    - wall_thickening
+    - pericholecystic_fluid
+    against_findings: []
+  gallbladder_cancer:
+    visibility: not_inferable
+    supporting_findings:
+    - wall_thickening
+    against_findings: []
+  biliary_colic:
+    visibility: not_inferable
+    supporting_findings: []
+    against_findings:
+    - necrosis
+    - perforation
+  choledocholithiasis:
+    visibility: not_inferable
+    supporting_findings: []
+    against_findings: []
+rules:
+- id: cond.acute_chole.visibility
+  statement: 'Acute cholecystitis displays hallmark visible signs: hyperaemia, wall edema, distension, and fluid'
+  source_id: tg18
+  quote: Gallbladder with distension/edema/thickened wall; hyperemia; adhesions obscuring the body of the gallbladder.
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: grounding_only
+- id: cond.gangrenous.necrosis
+  statement: Gangrenous cholecystitis is visually characterized by patchy or extensive wall necrosis
+  source_id: tg18
+  quote: Severe inflammation, complete adherence to the liver bed, wall necrosis/gangrene, or extensive omental wrapping.
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: false
+  quote_status: grounding_only
+- id: cond.mirizzi.external_data
+  statement: Mirizzi syndrome type requires cholangiography or cross-sectional imaging and cannot be fully staged from video
+  source_id: tg18
+  quote: mirizzi syndrome requires preoperative or intraoperative cholangiography
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: true
+  quote_status: not_found
+- id: cond.cancer.not_inferable
+  statement: Malignancy or gallbladder cancer cannot be confirmed without histopathology
+  source_id: statpearls
+  quote: gallbladder carcinoma requires histological confirmation
+  quote_verified: false
+  evidence_grade: guideline_expert_opinion
+  seed: true
+  quote_status: not_found

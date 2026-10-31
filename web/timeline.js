@@ -76,6 +76,7 @@
     liveFetchInFlight: false,
     zoomLevel: 1,
     isScrubbing: false,
+    waveActiveUntil: 0,
     cellSignatures: {},
     freshCells: {},
     freshCleanupTimer: null,
@@ -126,16 +127,20 @@
       ".sp-timeline *, .sp-timeline *::before, .sp-timeline *::after {",
       "  box-sizing: border-box;",
       "}",
+      ".timeline-pane:has(.sp-timeline) > .timeline-header {",
+      "  display: none;",
+      "}",
       ".tl-toolbar {",
       "  display: flex;",
       "  align-items: center;",
       "  justify-content: space-between;",
-      "  gap: 12px;",
-      "  padding: 6px 12px;",
+      "  gap: 8px;",
+      "  padding: 3px 10px;",
       "  background: var(--tl-surface);",
       "  border-bottom: 1px solid var(--tl-border);",
-      "  min-height: 36px;",
-      "  flex-wrap: wrap;",
+      "  min-height: 28px;",
+      "  flex-wrap: nowrap;",
+      "  overflow-x: auto;",
       "}",
       ".tl-transport, .tl-legend, .tl-controls {",
       "  display: flex;",
@@ -283,7 +288,7 @@
       "  color: var(--tl-text);",
       "}",
       ".tl-sidebar-row--ruler {",
-      "  height: 24px;",
+      "  height: 20px;",
       "  font-size: 10px;",
       "  font-weight: 600;",
       "  letter-spacing: 0.05em;",
@@ -292,13 +297,13 @@
       "  background: #0E1016;",
       "}",
       ".tl-sidebar-row--phase {",
-      "  height: 26px;",
+      "  height: 22px;",
       "  font-weight: 600;",
       "  color: #93C5FD;",
       "  background: #10131C;",
       "}",
       ".tl-sidebar-row--label {",
-      "  height: 24px;",
+      "  height: 20px;",
       "  cursor: pointer;",
       "  transition: background 120ms ease;",
       "}",
@@ -347,7 +352,7 @@
       "  flex-direction: column;",
       "}",
       ".tl-ruler {",
-      "  height: 24px;",
+      "  height: 20px;",
       "  display: grid;",
       "  background: #0E1016;",
       "  border-bottom: 1px solid var(--tl-border-subtle);",
@@ -360,7 +365,7 @@
       "  border-left: 1px solid rgba(255, 255, 255, 0.05);",
       "  display: flex;",
       "  align-items: flex-start;",
-      "  padding-top: 3px;",
+      "  padding-top: 2px;",
       "  padding-left: 3px;",
       "  font-size: 9px;",
       "  font-variant-numeric: tabular-nums;",
@@ -382,21 +387,21 @@
       "  background: rgba(255, 255, 255, 0.14);",
       "}",
       ".tl-tick--major::after {",
-      "  height: 7px;",
+      "  height: 6px;",
       "  background: rgba(255, 255, 255, 0.32);",
       "}",
       ".tl-phase-track {",
-      "  height: 26px;",
+      "  height: 22px;",
       "  display: grid;",
       "  position: relative;",
       "  background: #0C0E14;",
       "  border-bottom: 1px solid var(--tl-border-subtle);",
-      "  padding: 3px 0;",
+      "  padding: 2px 0;",
       "}",
       ".tl-phase-band {",
-      "  height: 20px;",
+      "  height: 17px;",
       "  margin: 0 1px;",
-      "  border-radius: 4px;",
+      "  border-radius: 3px;",
       "  border: 1px solid #2563EB;",
       "  background: #132038;",
       "  color: #93C5FD;",
@@ -421,7 +426,7 @@
       "  font-style: italic;",
       "}",
       ".tl-track {",
-      "  height: 24px;",
+      "  height: 20px;",
       "  display: grid;",
       "  border-bottom: 1px solid var(--tl-border-subtle);",
       "  background: var(--tl-bg);",
@@ -459,17 +464,25 @@
       ".tl-cell--pending {",
       "  background: repeating-linear-gradient(-45deg, #0C0E14, #0C0E14 3px, #12151E 3px, #12151E 6px);",
       "}",
-      ".tl-cell--current {",
+      ".tl-cell--current, .tl-cell.active-frame {",
       "  outline: 1px solid rgba(244, 245, 248, 0.55);",
       "  z-index: 1;",
       "}",
       ".tl-cell--fresh {",
-      "  animation: tlCellArrive 1.5s cubic-bezier(0.22, 1, 0.36, 1);",
+      "  animation: tlCellArrive 520ms cubic-bezier(0.34, 1.56, 0.64, 1);",
+      "}",
+      ".tl-cell--wave {",
+      "  animation: tlCellWave 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;",
+      "  animation-delay: var(--tl-delay, 0ms);",
       "}",
       "@keyframes tlCellArrive {",
-      "  0% { filter: brightness(2.1); transform: scaleY(0.35); }",
-      "  45% { filter: brightness(1.45); transform: scaleY(1.0); }",
+      "  0% { filter: brightness(1.85); transform: scaleY(0.28); }",
+      "  60% { filter: brightness(1.25); transform: scaleY(1.04); }",
       "  100% { filter: brightness(1.0); transform: scaleY(1.0); }",
+      "}",
+      "@keyframes tlCellWave {",
+      "  0% { opacity: 0.15; transform: scaleY(0.25); }",
+      "  100% { opacity: 1.0; transform: scaleY(1.0); }",
       "}",
       ".tl-spatial-dot {",
       "  width: 4px;",
@@ -490,6 +503,10 @@
       "  pointer-events: none;",
       "  z-index: 5;",
       "  transform: translateX(-1px);",
+      "  transition: left 90ms cubic-bezier(0.22, 1, 0.36, 1);",
+      "}",
+      ".tl-playhead--scrubbing {",
+      "  transition: none;",
       "}",
       ".tl-playhead-cap {",
       "  position: absolute;",
@@ -645,8 +662,8 @@
     var v = normalizeVerdict(cell);
     var hasBox = Array.isArray(cell.box) && cell.box.length === 4 ? "B" : "";
     var hasTip = Array.isArray(cell.tip) && cell.tip.length === 2 ? "T" : "";
-    var hasMask = cell.mask || cell.mask_url || cell.mask_path ? "M" : "";
-    var r = cell.round !== undefined ? String(cell.round) : "";
+    var hasMask = cell.mask || cell.mask_url || cell.mask_path || cell.mask_b64 ? "M" : "";
+    var r = cell.round !== undefined ? String(cell.round) : (cell.loc_round !== undefined ? String(cell.loc_round) : "");
     return [v, hasBox, hasTip, hasMask, r].join(":");
   }
 
@@ -694,6 +711,9 @@
       target.annotations[k] = merged;
       var nextSig = computeCellSignature(merged);
       markCellFresh(idx, k, prevSig, nextSig, isInitialLoad);
+      if (incomingMap[k] && (incomingMap[k].hasNewLivePulse || incomingMap[k].is_new)) {
+        state.freshCells[idx + "__" + k] = Date.now();
+      }
     }
   }
 
@@ -768,8 +788,9 @@
 
     if (typeof data === "object") {
       if (data.video) state.video = data.video;
-      if (Array.isArray(data.labels) && data.labels.length > 0) {
-        state.labels = data.labels.slice();
+      var incomingLabels = data.labels || data.label_keys;
+      if (Array.isArray(incomingLabels) && incomingLabels.length > 0) {
+        state.labels = incomingLabels.slice();
       }
       var frameCount = Number(data.n_frames) ||
         (Array.isArray(data.frames) && data.frames.length) ||
@@ -1138,13 +1159,16 @@
         var hasSpatial = cellObj && (
           (Array.isArray(cellObj.box) && cellObj.box.length === 4) ||
           (Array.isArray(cellObj.tip) && cellObj.tip.length === 2) ||
-          Boolean(cellObj.mask || cellObj.mask_url || cellObj.mask_path)
+          Boolean(cellObj.mask || cellObj.mask_url || cellObj.mask_path || cellObj.mask_b64)
         );
 
+        var isWave = now < state.waveActiveUntil;
+        var waveDelay = isWave ? " style=\"--tl-delay:" + (fi * 6 + tk * 16) + "ms\"" : "";
         cellsHtml.push(
-          '<div class="tl-cell tl-cell--' + verdict +
-          (isCur ? " tl-cell--current" : "") +
-          (isFresh ? " tl-cell--fresh" : "") + '" ' +
+          '<div class="tl-cell track-cell tl-cell--' + verdict +
+          (isCur ? " tl-cell--current active-frame" : "") +
+          (isFresh ? " tl-cell--fresh" : (isWave ? " tl-cell--wave" : "")) + '"' +
+          waveDelay + " " +
           'data-frame-idx="' + fi + '" data-label-key="' + escapeHtml(tKey) + '" data-verdict="' + verdict + '">' +
           (hasSpatial ? '<span class="tl-spatial-dot"></span>' : "") +
           "</div>"
@@ -1185,6 +1209,11 @@
     state.dom.frameCounter = rootEl.querySelector("[data-tl-frame-counter]");
     state.dom.frameId = rootEl.querySelector("[data-tl-frame-id]");
     state.dom.phasePill = rootEl.querySelector("[data-tl-phase-pill]");
+
+    if (typeof document !== "undefined" && typeof document.getElementById === "function") {
+      var extCount = document.getElementById("timeline-frame-count");
+      if (extCount) extCount.textContent = String(n);
+    }
   }
 
   function updatePlayheadDOM() {
@@ -1194,6 +1223,7 @@
     var pct = ((state.currentFrame + 0.5) / n) * 100;
 
     if (state.dom.playhead) {
+      state.dom.playhead.classList.toggle("tl-playhead--scrubbing", Boolean(state.isScrubbing));
       state.dom.playhead.style.left = pct.toFixed(4) + "%";
     }
     var curFrame = state.frames[state.currentFrame] || createEmptyFrame(state.currentFrame, state.video);
@@ -1211,13 +1241,15 @@
       state.dom.phasePill.classList.toggle("tl-phase-pill--pending", isPending);
     }
 
-    var prevCur = rootEl.querySelectorAll(".tl-cell--current");
+    var prevCur = rootEl.querySelectorAll(".tl-cell--current, .tl-cell.active-frame");
     for (var i = 0; i < prevCur.length; i++) {
       prevCur[i].classList.remove("tl-cell--current");
+      prevCur[i].classList.remove("active-frame");
     }
     var nextCur = rootEl.querySelectorAll('.tl-cell[data-frame-idx="' + state.currentFrame + '"]');
     for (var j = 0; j < nextCur.length; j++) {
       nextCur[j].classList.add("tl-cell--current");
+      nextCur[j].classList.add("active-frame");
     }
 
     if (state.dom.stageScroll && state.dom.stage && state.zoomLevel > 1) {
@@ -1241,7 +1273,7 @@
     }
   }
 
-  function setFrameInternal(target, notifySeek) {
+  function setFrameInternal(target, notifySeek, labelKey) {
     var n = Math.max(1, state.frames.length);
     var idx = state.currentFrame;
 
@@ -1258,13 +1290,15 @@
     if (notifySeek) {
       var frameObj = state.frames[idx] || createEmptyFrame(idx, state.video);
       if (typeof state.onSeek === "function") {
-        state.onSeek(idx, frameObj);
+        state.onSeek(idx, labelKey || frameObj, frameObj);
       }
       var payload = {
         index: idx,
         frameIndex: idx,
         frameId: frameObj.frame_id,
-        frame: frameObj
+        frame: frameObj,
+        key: labelKey || state.selectedLabel || null,
+        label: labelKey || state.selectedLabel || null
       };
       dispatchTimelineEvent("timeline:seek", payload);
       dispatchTimelineEvent("surgproof:seek", payload);
@@ -1338,7 +1372,7 @@
         var fIdx = Number(cellEl.getAttribute("data-frame-idx"));
         var lKey = cellEl.getAttribute("data-label-key");
         state.selectedLabel = lKey;
-        setFrameInternal(fIdx, true);
+        setFrameInternal(fIdx, true, lKey);
         var fObj = state.frames[state.currentFrame];
         var cellDetail = {
           index: state.currentFrame,
@@ -1573,9 +1607,6 @@
       throw new Error("Timeline.mount: container element is required");
     }
 
-    pausePlayback();
-    stopLivePolling();
-
     var initialData = data;
     var seekCb = onSeek;
     var pollLive = true;
@@ -1598,6 +1629,19 @@
       if (data.liveUrl) liveUrl = data.liveUrl;
     }
 
+    if (
+      state.container === targetEl &&
+      state.dom.root &&
+      state.dom.root.parentNode === targetEl &&
+      initialData
+    ) {
+      if (typeof seekCb === "function") state.onSeek = seekCb;
+      return update(initialData);
+    }
+
+    pausePlayback();
+    stopLivePolling();
+
     state.container = targetEl;
     state.onSeek = typeof seekCb === "function" ? seekCb : null;
     state.frames = [];
@@ -1606,6 +1650,7 @@
     state.freshCells = {};
     state.currentFrame = 0;
     state.selectedLabel = null;
+    state.waveActiveUntil = Date.now() + 900;
     state.dom = {};
 
     ingestData(initialData, true);
@@ -1674,6 +1719,12 @@
     };
   }
 
+  function animateWave() {
+    state.waveActiveUntil = Date.now() + 900;
+    renderDOM();
+    return api;
+  }
+
   var api = {
     mount: mount,
     update: update,
@@ -1686,6 +1737,7 @@
     nextFrame: function () { pausePlayback(); return setFrameInternal(state.currentFrame + 1, true); },
     prevFrame: function () { pausePlayback(); return setFrameInternal(state.currentFrame - 1, true); },
     nextAmber: jumpToNextAmber,
+    animateWave: animateWave,
     startLivePoll: startLivePolling,
     stopLivePoll: stopLivePolling,
     pollLiveOnce: pollLiveOnce,

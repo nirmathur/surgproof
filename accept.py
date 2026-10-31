@@ -128,11 +128,10 @@ async def main(
     verified_ds_path = out_dir_for_aux / f"verified_dataset{suffix}.jsonl"
     export_verified_dataset_jsonl(d, manual, verified_ds_path)
 
-    # Mirror to shared coord/artifacts/ ONLY when writing to the real shared out/decisions.csv
+    # Mirror to worktree coord/artifacts/ ONLY when writing to the real shared out/decisions.csv
     real_out_dec = (C.ROOT / "out" / "decisions.csv").resolve()
-    shared_root = C.OUT_DIR.resolve().parent
     if dest.resolve() == real_out_dec:
-        coord_dir = shared_root / "coord" / "artifacts"
+        coord_dir = C.ROOT / "coord" / "artifacts"
         coord_dir.mkdir(parents=True, exist_ok=True)
         d.to_csv(coord_dir / "decisions.csv", index=False)
         (coord_dir / "amber_rounds.jsonl").write_text(rounds_path.read_text())
@@ -141,12 +140,28 @@ async def main(
     if skip_eval or dest.resolve() != (C.OUT_DIR / "decisions.csv").resolve():
         return summarize_decisions_zero_label(d)
 
-    res = evaluate_decisions(C.DATA_DIR, C.OUT_DIR)
-    res = enrich_results_excl_liver(res, d)
     res_path = C.OUT_DIR / "results.json"
+    prior_res = {}
+    if res_path.exists():
+        try:
+            prior_res = json.loads(res_path.read_text())
+        except Exception:
+            prior_res = {}
+
+    res = evaluate_decisions(C.DATA_DIR, C.OUT_DIR)
+    for k_sec in ("accepted", "accepted_excl_liver", "accepted_all_6_labels"):
+        if (
+            isinstance(prior_res.get(k_sec), dict)
+            and "bootstrap_ci_95" in prior_res[k_sec]
+            and isinstance(res.get(k_sec), dict)
+            and "bootstrap_ci_95" not in res[k_sec]
+        ):
+            res[k_sec]["bootstrap_ci_95"] = prior_res[k_sec]["bootstrap_ci_95"]
+
+    res = enrich_results_excl_liver(res, d)
     res_path.write_text(json.dumps(res, indent=2))
     if dest.resolve() == real_out_dec:
-        coord_res = shared_root / "coord" / "artifacts" / "results.json"
+        coord_res = C.ROOT / "coord" / "artifacts" / "results.json"
         coord_res.parent.mkdir(parents=True, exist_ok=True)
         coord_res.write_text(json.dumps(res, indent=2))
     return res

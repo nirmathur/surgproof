@@ -1,0 +1,5 @@
+verdict   drop  hedge  speak
+mode                        
+free        34     19     25
+grounded     7      2     15
+calls=9 hits=189 failed=0 cost=$0.021

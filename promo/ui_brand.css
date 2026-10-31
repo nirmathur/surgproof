@@ -1,0 +1,36 @@
+/* Shared SurgProof Brand CSS for Streamlit (app.py, pages/1_Annotate.py, pages/2_Human_gate.py)
+ * Strictly aligned with promo/DESIGN.md tokens:
+ *   Canvas: #0A0B0E | Card: #12141C | Border: 1px solid #232734
+ *   Text: #F4F5F8 / #8A909E | Accent: #3B82F6 | Verdicts: #10B981 / #F59E0B / #EF4444
+ *   Zero glows, zero HUD sci-fi clutter, Inter / SF Pro typography.
+ */
+:root {
+  --sp-bg-canvas: #0A0B0E;
+  --sp-bg-card: #12141C;
+  --sp-border-hairline: #232734;
+  --sp-text-primary: #F4F5F8;
+  --sp-text-secondary: #8A909E;
+  --sp-accent-blue: #3B82F6;
+  --sp-verdict-accept: #10B981;
+  --sp-verdict-amber: #F59E0B;
+  --sp-verdict-reject: #EF4444;
+}
+
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+  background-color: #0A0B0E !important;
+  color: #F4F5F8 !important;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif !important;
+}
+
+[data-testid="stSidebar"] {
+  background-color: #12141C !important;
+  border-right: 1px solid #232734 !important;
+}
+
+[data-testid="stMetric"], .sp-card {
+  background-color: #12141C !important;
+  border: 1px solid #232734 !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  box-shadow: none !important;
+}
