@@ -223,6 +223,13 @@ def score_all_masks(
     m_dir = Path(masks_dir) if masks_dir is not None else (C.OUT_DIR / "masks")
     res_file = Path(out_path) if out_path is not None else (C.OUT_DIR / "mask_results.json")
 
+    if index_path is None and polygons_dir is None and masks_dir is None:
+        try:
+            from masks_worker import atomic_merge_into_annotations
+            atomic_merge_into_annotations([])
+        except Exception:
+            pass
+
     idx_df = pd.read_csv(idx_file) if idx_file.is_file() else pd.DataFrame()
     idx_by_fid = (
         idx_df.drop_duplicates(subset=["frame_id"]).set_index("frame_id").to_dict(orient="index")
@@ -399,13 +406,25 @@ def score_all_masks(
                 cur_mask = (m1_2 & m2_2) if (m1_2 & m2_2).any() else (m1_2 if m1_2.any() else m2_2)
         r2_cons_mask = cur_mask
 
-        # Load final PNG mask from disk (or polygon_px fallback)
+        # Prefer genuine Gemini polygon consensus mask from out/polygons/ when present,
+        # and restore out/masks/<fid>_<lbl>.png if another worker overwrote it.
         png_path = m_dir / f"{fid}_{lbl}.png"
-        final_mask = load_binary_mask_png(png_path, target_shape=(h, w))
-        if final_mask is None and item.get("polygon_px"):
-            final_mask = poly_px_to_mask(item["polygon_px"], (w, h))
-        if final_mask is None:
-            final_mask = r2_cons_mask if r2_cons_mask is not None else r0_p1_mask
+        poly_mask_candidate = None
+        if r2_cons_mask is not None and r2_cons_mask.any():
+            poly_mask_candidate = r2_cons_mask
+        elif item.get("polygon_px"):
+            poly_mask_candidate = poly_px_to_mask(item["polygon_px"], (w, h))
+
+        if poly_mask_candidate is not None and poly_mask_candidate.any():
+            final_mask = poly_mask_candidate
+            if item.get("status") == "accept":
+                try:
+                    m_dir.mkdir(parents=True, exist_ok=True)
+                    Image.fromarray((final_mask.astype(np.uint8) * 255)).save(png_path)
+                except Exception:
+                    pass
+        else:
+            final_mask = load_binary_mask_png(png_path, target_shape=(h, w))
         if final_mask is None:
             continue
 
