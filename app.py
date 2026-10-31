@@ -140,7 +140,7 @@ def frame_sort_key(frame_id: str):
 
 
 def join_ground_truth_for_reveal(dec_df: pd.DataFrame, idx_df: pd.DataFrame | None) -> pd.DataFrame:
-    """Join hidden ground truth from data/index.csv ONLY at evaluation/reveal time."""
+    """Join hidden ground truth from data/index.csv ONLY at evaluation/reveal time (ignoring gt == -1)."""
     df = dec_df.copy()
     if "final_present" not in df.columns and "present" in df.columns:
         df["final_present"] = df["present"]
@@ -153,16 +153,49 @@ def join_ground_truth_for_reveal(dec_df: pd.DataFrame, idx_df: pd.DataFrame | No
                 val = idx_lookup.loc[r.frame_id, col]
                 if isinstance(val, pd.Series):
                     val = val.iloc[0]
-                truths.append(int(val))
+                ival = int(val) if pd.notna(val) else -1
+                truths.append(ival if ival in (0, 1) else np.nan)
             else:
                 truths.append(np.nan)
         df["truth"] = truths
-    if "truth" in df.columns and df["truth"].notna().any():
+    elif "truth" in df.columns:
+        df["truth"] = df["truth"].where(df["truth"].isin([0, 1]), np.nan)
+    valid = df["truth"].isin([0, 1])
+    if valid.any():
         if "correct" not in df.columns and "present" in df.columns:
-            df["correct"] = (df["present"].astype(int) == df["truth"].astype(int)).astype(int)
+            df["correct"] = np.where(valid, (df["present"].astype(float) == df["truth"].astype(float)).astype(float), np.nan)
         if "final_correct" not in df.columns:
-            df["final_correct"] = (df["final_present"].astype(int) == df["truth"].astype(int)).astype(int)
+            df["final_correct"] = np.where(valid, (df["final_present"].astype(float) == df["truth"].astype(float)).astype(float), np.nan)
     return df
+
+
+def score_jsonl_against_index(jsonl_path: Path, idx_df: pd.DataFrame | None, split_filter: str = "test") -> dict | None:
+    """Compute real accuracy metrics from a leak-free labels_*.jsonl joined with index.csv on held-out test split."""
+    if not jsonl_path.exists() or idx_df is None or idx_df.empty:
+        return None
+    try:
+        d = pd.read_json(jsonl_path, lines=True)
+        if d.empty:
+            return None
+        if split_filter and "split" in d.columns:
+            d = d[d["split"] == split_filter]
+        if d.empty:
+            return None
+        joined = join_ground_truth_for_reveal(d, idx_df)
+        scorable = joined[joined["truth"].isin([0, 1])]
+        if scorable.empty:
+            return None
+        nt = scorable[scorable["key"].isin(NON_TRIVIAL_KEYS)]
+        per_key = scorable.groupby("key")["correct"].mean().round(4).to_dict()
+        return {
+            "n_rows": int(len(scorable)),
+            "n_frames": int(scorable["frame_id"].nunique()),
+            "acc_5_nontrivial": round(float(nt["correct"].mean()), 4) if not nt.empty else None,
+            "acc_all_6": round(float(scorable["correct"].mean()), 4),
+            "per_key": per_key,
+        }
+    except Exception:
+        return None
 
 
 # ---------------- Human Gate (#14) Helpers ----------------
@@ -891,6 +924,45 @@ with tab_proof:
     res = load_json(resolve_artifact("results.json"))
     stu = load_json(resolve_artifact("student.json"))
     eval_audit = load_json(resolve_artifact("eval_audit.json"))
+
+    # Show live measured baseline numbers from labels_blank.jsonl / labels_manual.jsonl if already on disk
+    if idx_file.exists() and (blank_file.exists() or lbl_file.exists() or smoke_file.exists()):
+        idx_df_eval = pd.read_csv(idx_file)
+        blank_stats = score_jsonl_against_index(blank_file, idx_df_eval, split_filter="test") if blank_file.exists() else None
+        manual_cand = lbl_file if lbl_file.exists() else smoke_file
+        manual_stats = score_jsonl_against_index(manual_cand, idx_df_eval, split_filter="test") if manual_cand.exists() else None
+        if blank_stats or manual_stats:
+            st.subheader("Live Measured Labelling Accuracy on Held-Out Test Split (`data/index.csv`)")
+            b_cols = st.columns(4)
+            if blank_stats:
+                b_cols[0].metric(
+                    "Blank Baseline (5 non-trivial labels)",
+                    f"{blank_stats['acc_5_nontrivial'] * 100:.1f}%" if blank_stats.get("acc_5_nontrivial") is not None else "n/a",
+                    f"{blank_stats['n_frames']} test frames ({blank_stats['n_rows']} labels)",
+                )
+                b_cols[1].metric("Blank Baseline (all 6 incl. liver)", f"{blank_stats['acc_all_6'] * 100:.1f}%")
+            if manual_stats:
+                delta_5 = (
+                    f"{(manual_stats['acc_5_nontrivial'] - blank_stats['acc_5_nontrivial']) * 100:+.1f} pts vs blank"
+                    if (blank_stats and manual_stats.get("acc_5_nontrivial") is not None and blank_stats.get("acc_5_nontrivial") is not None)
+                    else f"{manual_stats['n_frames']} test frames"
+                )
+                b_cols[2].metric(
+                    f"Self-Written Manual ({manual_cand.name}, 5 non-trivial)",
+                    f"{manual_stats['acc_5_nontrivial'] * 100:.1f}%" if manual_stats.get("acc_5_nontrivial") is not None else "n/a",
+                    delta_5,
+                )
+                b_cols[3].metric(f"Self-Written Manual ({manual_cand.name}, all 6)", f"{manual_stats['acc_all_6'] * 100:.1f}%")
+            per_key_rows = []
+            for k in C.LABELS:
+                row_k = {"label": k, "is_headline_nontrivial": k != "liver"}
+                if blank_stats and k in blank_stats["per_key"]:
+                    row_k["blank_test_acc"] = blank_stats["per_key"][k]
+                if manual_stats and k in manual_stats["per_key"]:
+                    row_k["manual_test_acc"] = manual_stats["per_key"][k]
+                per_key_rows.append(row_k)
+            with st.expander("Per-structure raw test accuracy (`labels_blank.jsonl` / `labels_manual.jsonl`)"):
+                st.dataframe(pd.DataFrame(per_key_rows), width="stretch")
 
     if not res:
         st.warning(
