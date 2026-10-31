@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""SurgProof fabrication checker. Exit 1 if anything shown to a judge could be invented.
+
+Checks:
+  1. Display code (app.py, pages/, promo/, narrate.py) contains no literal boxes, verdicts,
+     metric percentages or synthetic score formulas.
+  2. Labeller output carries no ground truth; the verifier/localizer never read it.
+  3. manual.json cites sources; results/student report their sample size.
+  4. Every narration sentence cites accepted decision rows that exist.
+Run: python3 lanes/integrity.py   (prints FAIL lines; exit 1 on any FAIL)
+"""
+import csv, glob, json, os, re, sys
+
+R = os.path.expanduser("~/surgatlas")
+os.chdir(R)
+fails, notes = [], []
+
+
+def fail(msg):
+    fails.append(msg)
+
+
+DISPLAY = [f for f in ["app.py", "narrate.py"] + glob.glob("pages/*.py") + glob.glob("promo/*.py") if os.path.exists(f)]
+PATTERNS = [
+    (r'["\']box["\']\s*:\s*\[\s*\d', "literal bounding box"),
+    (r'["\']status["\']\s*:\s*["\'](accept|reject|AMBER|amber)["\']', "literal verdict"),
+    (r'["\']\d{1,3}\.\d%["\']', "literal percentage string"),
+    (r'0\.7\d?\s*\+\s*0\.\d+\s*\*', "synthetic score formula"),
+    (r'(accuracy|acc|precision|coverage)\s*=\s*0\.\d{2,}', "hard-coded metric"),
+]
+for f in DISPLAY:
+    for i, line in enumerate(open(f, errors="ignore"), 1):
+        s = line.strip()
+        if s.startswith("#") or "integrity: allow" in s:
+            continue
+        for pat, what in PATTERNS:
+            if re.search(pat, line):
+                fail(f"{f}:{i}: {what}: {s[:110]}")
+
+for f in glob.glob("out/labels_*.jsonl") + glob.glob("coord/artifacts/labels_*.jsonl"):
+    with open(f) as fh:
+        for n, line in enumerate(fh):
+            if n > 2000:
+                break
+            r = json.loads(line)
+            if "truth" in r or any(k.startswith("gt_") for k in r):
+                fail(f"{f}: ground truth inside labeller output (row {n})")
+                break
+
+for f in ["accept.py", "localize.py", "verify_localize.py"] + glob.glob("verify/*.py"):
+    if os.path.exists(f):
+        for i, line in enumerate(open(f, errors="ignore"), 1):
+            if re.search(r'gt_|\btruth\b|mask_path', line) and not line.strip().startswith("#") and "integrity: eval-only" not in line:
+                fail(f"{f}:{i}: verifier/localizer touches ground truth: {line.strip()[:100]}")
+
+if os.path.exists("out/manual.json"):
+    m = json.load(open("out/manual.json"))
+    if not re.search(r"https?://", json.dumps(m.get("sources", ""))):
+        fail("out/manual.json: no source URLs")
+for f in ["out/results.json", "out/student.json"]:
+    if os.path.exists(f):
+        s = json.dumps(json.load(open(f)))
+        if not re.search(r'"n_[a-z_]*"\s*:\s*\d', s):
+            fail(f"{f}: no sample size (n_*) reported")
+        else:
+            notes.append(f"{f}: n fields present")
+
+dec = {}
+if os.path.exists("out/decisions.csv"):
+    for r in csv.DictReader(open("out/decisions.csv")):
+        dec[(r.get("frame_id"), r.get("key") or r.get("label"))] = r.get("status")
+for f in glob.glob("out/narration_*.json"):
+    n = json.load(open(f))
+    sents = n.get("sentences", n if isinstance(n, list) else [])
+    for s in sents:
+        ev = s.get("evidence", []) if isinstance(s, dict) else []
+        if not ev:
+            fail(f"{f}: sentence without evidence: {str(s)[:90]}")
+            continue
+        for e in ev:
+            st = dec.get((e.get("frame_id"), e.get("key") or e.get("label")))
+            if st != "accept":
+                fail(f"{f}: evidence not an accepted decision: {e}")
+
+print(f"integrity: {len(fails)} FAIL, scanned {len(DISPLAY)} display files")
+for x in fails:
+    print("FAIL", x)
+for x in notes:
+    print("ok  ", x)
+sys.exit(1 if fails else 0)
