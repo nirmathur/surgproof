@@ -34,3 +34,6 @@ BLOCKED ON: exact thing, or none
 REQUESTS: changes needed from other lanes, or none
 ```
 "done" means the artifact exists and you checked it, not that a script exited 0.
+
+## Cross-machine notes (Harald's agents work on another machine)
+Read coord/README.md and coord/OWNERSHIP.md. Your notes file is coord/notes/nir-<lane>.md (Harald's agents use harald-<lane>). Append-only, your own file only. Check for notes addressed to you at every milestone.
