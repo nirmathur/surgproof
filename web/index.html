@@ -82,6 +82,7 @@
               <button class="btn btn-sm guided-step-btn" data-beat="3" type="button">3 · Frame Labels</button>
               <button class="btn btn-sm guided-step-btn" data-beat="4" type="button">4 · Amber Loop</button>
               <button class="btn btn-sm guided-step-btn" data-beat="5" type="button">5 · AI Masks &amp; Polygons</button>
+              <button class="btn btn-sm guided-step-btn" data-beat="5.5" type="button">5b · Self-Correction (r0→r1)</button>
               <button class="btn btn-sm guided-step-btn" data-beat="6" type="button">6 · Final Pass</button>
               <button class="btn btn-sm guided-step-btn" data-beat="7" type="button">7 · Held-Out Proof</button>
             </div>
@@ -108,11 +109,14 @@
               <span>AI Masks (<span id="mask-status-label">pending</span>)</span>
               <kbd>M</kbd>
             </label>
-            <select class="btn btn-sm" id="sel-mask-round" aria-label="Mask self-correction round" title="Switch self-correction mask round (R0 = out/masks/, R1 = out/masks_r1/, R2 = out/masks_r2/)">
-              <option value="0">Mask R0</option>
-              <option value="1">Mask R1</option>
-              <option value="2">Mask R2</option>
-            </select>
+            <div class="toggle-chip" id="mask-round-control" style="gap:4px;padding:2px 8px;" title="Self-correction mask round slider: r0 (initial) -> r1 (self-corrected) -> r2 (round 2)">
+              <span style="font-size:11px;color:var(--text-secondary);">Round:</span>
+              <input type="range" id="rng-mask-round" min="0" max="2" step="1" value="1" style="width:52px;accent-color:var(--verdict-accept);cursor:pointer;" aria-label="Mask self-correction round slider r0 r1 r2" />
+              <button class="btn btn-sm mask-round-btn" data-round="0" type="button" style="padding:1px 5px;font-size:10.5px;">r0</button>
+              <button class="btn btn-sm mask-round-btn btn-accept" data-round="1" type="button" style="padding:1px 5px;font-size:10.5px;">r1</button>
+              <button class="btn btn-sm mask-round-btn" data-round="2" type="button" style="padding:1px 5px;font-size:10.5px;">r2</button>
+              <span id="mask-round-stat" style="font-size:10.5px;font-family:var(--font-mono);color:var(--verdict-accept);">r1</span>
+            </div>
             <label class="toggle-chip" title="Draw AI polygon outlines (polygon_px) from out/polygons/">
               <input type="checkbox" id="chk-ai-polygons" checked />
               <span>Polygons (<span id="polygon-status-label">pending</span>)</span>
@@ -134,7 +138,7 @@
               <kbd>T</kbd>
             </label>
             <label class="toggle-chip" title="Show per-structure verdict chips on frame HUD">
-              <input type="checkbox" id="chk-hud-chips" />
+              <input type="checkbox" id="chk-hud-chips" checked />
               <span>Verdict HUD</span>
               <kbd>H</kbd>
             </label>
@@ -143,7 +147,7 @@
           <div class="layer-toggles">
             <label class="toggle-chip gt-toggle" title="Scoring View Only: overlay CholecSeg8k ground-truth watershed segmentation mask for post-hoc evaluation">
               <input type="checkbox" id="chk-show-gt" />
-              <span>Scoring (ground truth)</span>
+              <span>Scoring View: Show Ground Truth</span>
               <kbd>G</kbd>
             </label>
             <button class="btn btn-sm" id="btn-zoom-reset" type="button" title="Reset canvas zoom (0)">100%</button>
@@ -206,7 +210,7 @@
 
         <!-- Mount Point #objects (Right Panel Label List with Evidence + Double-Check + Amber Rounds) -->
         <div class="inspector-scroll" id="objects">
-          <div id="inspector-cards" style="display:contents"></div>
+          <!-- Populated dynamically by web/app.js from web/data/video12.json / out/decisions.csv -->
         </div>
 
         <!-- Self-Written Manual Rule Inspector (out/manual.json) -->
@@ -237,7 +241,7 @@
 
       <!-- Mount Point #timeline (used by nir-webtimeline web/timeline.js & fallback tracks) -->
       <div class="timeline-tracks" id="timeline">
-        <div id="timeline-tracks" style="display:contents"></div>
+        <!-- Populated dynamically: 1 phase track + 6 anatomical/instrument tracks -->
       </div>
     </section>
 

@@ -37,6 +37,7 @@ def test_web_ui_files_exist_and_have_required_toolbox_elements():
         "btn-stream-agent",
         "btn-final-pass",
         "chk-ai-masks",
+        "rng-mask-round",
         "chk-ai-polygons",
         "chk-ai-boxes",
         "chk-ai-tips",
@@ -47,11 +48,12 @@ def test_web_ui_files_exist_and_have_required_toolbox_elements():
     for dom_id in required_ids:
         assert f'id="{dom_id}"' in html, f"Missing #{dom_id} in web/index.html"
 
-    # Must poll live.json every 2 seconds, read video bundles, render polygon_px, and support 7-beat guided mode
+    # Must poll live.json every 2 seconds, read video bundles, render polygon_px, and support 7-beat guided mode + round slider
     assert "video12" in js
     assert "live.json" in js
     assert "polygon_px" in js
     assert "setGuidedBeat" in js
+    assert "setMaskRound" in js
     assert "pollLiveAnnotations" in js
     assert "2000" in js
 
