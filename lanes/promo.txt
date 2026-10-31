@@ -1,5 +1,5 @@
 You are nir-promo. Own promo/ only. Task issue #10.
-Make a 60-90 second pitch video for SurgAtlas with Gemini Omni (gemini-omni-1.1-flash, the video model on this key; clips up to 40s) via the google-genai SDK, key from GEMINI_API_KEY.
+Make a 60-90 second pitch video for SurgAtlas with Veo 3.1 via the google-genai SDK (veo-3.1-fast-generate-preview for drafts, veo-3.1-generate-preview for finals; client.models.generate_videos, poll the operation; Omni gemini-omni-1.1-flash only as fallback), key from GEMINI_API_KEY.
 1. Write promo/storyboard.md: 4-6 shots telling the story (agent learns a surgery from public video, labels frames, checks itself, trains a specialist, narrates). Post it on #1 -> nir.
 2. Generate the shots to out/promo/. Generated footage is ILLUSTRATIVE and must carry an on-screen "illustrative" caption; never generate fake results, fake charts or fake surgeon endorsements.
 3. Leave the slot for real numbers and a screen capture of app.py, filled from pipeline outputs once they exist. Stitch with ffmpeg to out/promo/surgatlas_promo.mp4.
