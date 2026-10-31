@@ -47,3 +47,10 @@ REQUESTS: changes needed from other lanes, or none
 ```
 "done" means the artifact exists and you checked it, not that a script exited 0.
 
+
+## Reward hacking = fabrication (zero tolerance)
+- Making a check pass without the underlying thing being true is fabrication. Examples: editing lanes/integrity.py or any test to loosen it; adding 'integrity: allow' markers to silence a finding; writing entries into cache.sqlite or out/ files by hand; deleting or skipping failing tests; computing a number on a subset and presenting it as the whole; filtering data until a metric looks good; narrating labels that were not accepted.
+- lanes/ (integrity.py, progress.py) and tests/test_integrity.py are owned by the orchestrator. Do not edit them. The orchestrator runs its own untouchable copy of the checker and hashes the repo copy every tick.
+- 'integrity: allow' is permitted ONLY on a line that records a human click in the gate page, with the words '(human action)'. Every marker is reviewed.
+- The orchestrator also re-labels random frames independently with its own prompt and compares against your outputs. Disagreements are investigated.
+- Consequence: the commit is reverted, the lane restarted, and the finding posted on #1.
