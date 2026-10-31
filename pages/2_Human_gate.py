@@ -1177,7 +1177,27 @@ def render_human_gate_page() -> None:
         picked_source = sources[0]
         st.caption(f"Source: **{picked_source[0]}** (`{picked_source[1].name}`)")
 
-    dec_df = load_decisions_from_source(picked_source[1])
+    dec_df_all = load_decisions_from_source(picked_source[1])
+    if len(dec_df_all) > 500 and "split" in dec_df_all.columns and "key" in dec_df_all.columns:
+        scope_options = [
+            "Held-Out Test Split · 5 Headline Structures (split='test', excl. liver)",
+            "Held-Out Test Split · All 6 Structures (split='test')",
+            "Full Dataset · All Splits (train + calib + test)",
+        ]
+        picked_scope = st.radio(
+            "Release Gate Scope",
+            scope_options,
+            index=0,
+            horizontal=True,
+        )
+        if picked_scope == scope_options[0]:
+            dec_df = dec_df_all[(dec_df_all["split"] == "test") & (dec_df_all["key"] != "liver")].copy().reset_index(drop=True)
+        elif picked_scope == scope_options[1]:
+            dec_df = dec_df_all[dec_df_all["split"] == "test"].copy().reset_index(drop=True)
+        else:
+            dec_df = dec_df_all
+    else:
+        dec_df = dec_df_all
     pending_df, cleared_df, summary = compute_amber_queue(dec_df, gate_log)
 
     rounds_by_item: dict[tuple[str, str], list[dict]] = {}
