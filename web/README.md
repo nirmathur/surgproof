@@ -13,5 +13,5 @@ cd web/ui && npm ci && npm run build            # writes web/dist
 npm run dev                                       # hot reload on :5173, proxies /api to :8600
 ```
 
-Reads only real pipeline files (`out/` first, then `coord/artifacts/`), see `DATA_CONTRACT.md`.
+Reads only real pipeline files (`out/` first, then `coord/artifacts/`), see `docs/DATA_CONTRACT.md`.
 Missing files show as "waiting for ..."; no number is ever filled in. `app.py` (Streamlit) stays as the fallback.

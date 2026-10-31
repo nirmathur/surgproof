@@ -2,7 +2,7 @@ PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo 
 PORT ?= 8600
 SRC ?= gt_corrupted
 
-.PHONY: all setup run gt corrupted eval recheck render test clean-tracker
+.PHONY: all setup run demo gt corrupted eval recheck render test clean-tracker
 
 all: gt corrupted eval recheck render
 
@@ -12,6 +12,8 @@ setup:
 
 run:
 	./run.sh
+
+demo: run
 
 gt:
 	$(PY) -m tracker.index

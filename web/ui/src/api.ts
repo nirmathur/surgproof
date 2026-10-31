@@ -1,4 +1,4 @@
-// Shapes follow docs/DESIGN.md and DATA_CONTRACT.md. Everything is optional: missing = pending.
+// Shapes follow docs/DESIGN.md and docs/DATA_CONTRACT.md. Everything is optional: missing = pending.
 export type Status = 'accept' | 'AMBER' | 'reject'
 
 export interface LabelRow {

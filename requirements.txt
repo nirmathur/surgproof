@@ -3,8 +3,15 @@ pydantic>=2
 huggingface_hub
 numpy
 pandas
+pyarrow
 pillow
+opencv-python-headless
+scipy
 scikit-learn
+matplotlib
+pyyaml
+rank_bm25
 transformers
 torch
 streamlit
+pytest
