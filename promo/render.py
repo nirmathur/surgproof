@@ -607,18 +607,30 @@ def render_shot_03_labels(shot: ShotSpec, out_mp4: Path) -> Path:
 
 
 def _load_amber_round_counts(out_dir: Path = OUT_DIR) -> List[Tuple[str, int]]:
-    """Read real per-round amber counts strictly from out/amber_rounds.jsonl (or drop if absent)."""
+    """Read real per-round held-out test amber counts strictly from out/amber_rounds.jsonl (or drop if absent)."""
     rounds_path = out_dir / "amber_rounds.jsonl"
     if not rounds_path.is_file() or rounds_path.stat().st_size == 0:
         return []
     try:
+        raw_objs = [
+            json.loads(line)
+            for line in rounds_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        # Prefer held-out CholecSeg8k test split (excl. uninformative liver) to match Shot 6 n=1400 test scope
+        test_objs = [
+            obj
+            for obj in raw_objs
+            if obj.get("split") == "test"
+            and str(obj.get("video", "")).startswith("video")
+            and obj.get("key") != "liver"
+        ]
+        target_objs = test_objs if test_objs else raw_objs
+
         seen_r1: Dict[str, str] = {}
         seen_r2: Dict[str, str] = {}
         seen_r3: Dict[str, str] = {}
-        for line in rounds_path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            obj = json.loads(line)
+        for obj in target_objs:
             lid = str(obj.get("label_id", ""))
             rd = int(obj.get("round", 0))
             verdict = str(obj.get("verdict", "")).upper()
@@ -722,7 +734,7 @@ def render_shot_04_verify(shot: ShotSpec, out_mp4: Path) -> Path:
             hdr_col = blend_with_bg(TEXT_MUTED, loop_u, BG_CARD)
             line_col = blend_with_bg(BORDER_HAIRLINE, loop_u, BG_CARD)
             draw.line((856, 376, 1144, 376), fill=line_col, width=1)
-            draw.text((856, 390), "AMBER RE-CHECK LOOP", font=f_meta, fill=hdr_col)
+            draw.text((856, 390), "AMBER RE-CHECK LOOP (TEST, n=1400)", font=f_meta, fill=hdr_col)
 
             round_times = (4.0, 4.6, 5.2, 5.8)
             for r_idx, ((r_label, r_count), rt0) in enumerate(zip(amber_rounds, round_times)):
