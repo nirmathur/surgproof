@@ -1,0 +1,19 @@
+# secrets
+.env
+.env.*
+# data, cache, outputs (CholecSeg8k is not ours to redistribute)
+raw/
+data/*
+!data/.gitkeep
+out/*
+!out/.gitkeep
+cache.sqlite
+*.sqlite
+*.npy
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.DS_Store

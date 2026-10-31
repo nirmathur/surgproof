@@ -1,0 +1,10 @@
+google-genai
+pydantic>=2
+huggingface_hub
+numpy
+pandas
+pillow
+scikit-learn
+transformers
+torch
+streamlit
