@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react'
 import { clipApi, type ClipData, type ClipSummary } from './clip'
 import Player from './Player'
 import Report from './Report'
+import FinalPass from './FinalPass'
 
-const parse = () => {
-  const [, clip, view] = window.location.hash.replace(/^#\/?/, '').split('/')
-  return { clip: clip || null, view: view === 'report' ? 'report' : 'watch' } as { clip: string | null; view: 'watch' | 'report' }
+type ViewMode = 'watch' | 'report' | 'gate'
+
+const parse = (): { clip: string | null; view: ViewMode } => {
+  const raw = window.location.hash.replace(/^#\/?/, '')
+  if (raw === 'gate' || raw === 'final-pass') return { clip: null, view: 'gate' }
+  const [, clip, view] = raw.split('/')
+  const mode: ViewMode = view === 'report' ? 'report' : view === 'gate' ? 'gate' : 'watch'
+  return { clip: clip || null, view: mode }
 }
 
 export default function App() {
@@ -24,7 +30,10 @@ export default function App() {
   }, [clipId])
   useEffect(() => { window.scrollTo({ top: 0 }) }, [route.view, clipId])
 
-  const go = (clip: string, view: 'watch' | 'report' = 'watch') => { window.location.hash = `/clip/${clip}${view === 'report' ? '/report' : ''}` }
+  const go = (clip: string, view: ViewMode = 'watch') => {
+    const suffix = view === 'report' ? '/report' : view === 'gate' ? '/gate' : ''
+    window.location.hash = `/clip/${clip}${suffix}`
+  }
   const idx = clips?.findIndex((c) => c.clip_id === clipId) ?? -1
   const next = clips && idx >= 0 && idx < clips.length - 1 ? clips[idx + 1] : undefined
 
@@ -49,16 +58,19 @@ export default function App() {
         </nav>
         {clipId && (
           <div className="flex rounded-xl bg-panel p-1 ring-1 ring-line">
-            <button onClick={() => go(clipId)} aria-pressed={route.view === 'watch'} className={`rounded-lg px-4 py-1.5 text-sm font-bold ${route.view === 'watch' ? 'bg-text text-ink' : 'text-mute'}`}>▶ Watch</button>
+            <button onClick={() => go(clipId, 'watch')} aria-pressed={route.view === 'watch'} className={`rounded-lg px-4 py-1.5 text-sm font-bold ${route.view === 'watch' ? 'bg-text text-ink' : 'text-mute'}`}>▶ Watch</button>
             <button onClick={() => go(clipId, 'report')} aria-pressed={route.view === 'report'} className={`rounded-lg px-4 py-1.5 text-sm font-bold ${route.view === 'report' ? 'bg-text text-ink' : 'text-mute'}`}>Report</button>
+            <button onClick={() => go(clipId, 'gate')} aria-pressed={route.view === 'gate'} className={`rounded-lg px-4 py-1.5 text-sm font-bold ${route.view === 'gate' ? 'bg-amber text-ink' : 'text-amber'}`}>Final Pass</button>
           </div>
         )}
       </header>
 
-      {!data ? <p className="p-10 text-mute">Loading {clipId ?? 'videos'}…</p>
-        : route.view === 'report'
-          ? <Report data={data} onWatch={() => go(data.clip_id)} next={next ? () => go(next.clip_id) : undefined} />
-          : <Player key={data.clip_id} data={data} onReport={() => go(data.clip_id, 'report')} />}
+      {route.view === 'gate'
+        ? <FinalPass defaultScope="test_5" />
+        : !data ? <p className="p-10 text-mute">Loading {clipId ?? 'videos'}…</p>
+          : route.view === 'report'
+            ? <Report data={data} onWatch={() => go(data.clip_id)} next={next ? () => go(next.clip_id) : undefined} />
+            : <Player key={data.clip_id} data={data} onReport={() => go(data.clip_id, 'report')} />}
     </div>
   )
 }

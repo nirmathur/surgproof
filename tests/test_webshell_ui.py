@@ -124,3 +124,15 @@ def test_app_js_syntax_and_zero_fabrication():
                 continue
             for pat, what in patterns:
                 assert not re.search(pat, line), f"{fname}:{lineno}: {what}: {s[:110]}"
+
+
+def test_present_mode_contract():
+    js = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    css = (WEB_DIR / "style.css").read_text(encoding="utf-8")
+
+    assert 'params.get("present")' in js
+    assert 'classList.add("present")' in js
+    assert "findNonOverlappingPillPosition" in js
+    assert "body.present" in css
+    assert "height: 75vh" in css
+
