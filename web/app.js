@@ -337,13 +337,15 @@
         const lastR = lbl.polygon_rounds[lbl.polygon_rounds.length - 1];
         if (lastR && typeof lastR.iou_pass1_pass2 === "number" && lbl.mask_iou === null) {
           lbl.mask_iou = lastR.iou_pass1_pass2;
+        } else if (lastR && typeof lastR.agree_iou === "number" && lbl.mask_iou === null) {
+          lbl.mask_iou = lastR.agree_iou;
         }
       }
       if (ann.mask_source) lbl.mask_source = String(ann.mask_source);
       if (ann.round !== undefined && ann.round !== null) lbl.loc_round = Number(ann.round);
       if (ann.status) lbl.loc_status = normStatus(ann.status);
-      if (ann.mask_url || ann.mask_path) {
-        const mp = String(ann.mask_url || ann.mask_path);
+      if (ann.mask_url || ann.mask_path || ann.final_mask_path) {
+        const mp = String(ann.mask_url || ann.mask_path || ann.final_mask_path);
         lbl.mask_url = mp;
         lbl.maskCandidates = [mp, "/" + mp.replace(/^\/+/, ""), ...lbl.maskCandidates];
       }
@@ -494,7 +496,7 @@
     }
 
     // 2. Supplement from raw /out/* files so the UI works even before web/export.py runs
-    const [resJson, locResJson, stuJson, manJson, narrJson, decText, annText, polyText] = await Promise.all([
+    const [resJson, locResJson, stuJson, manJson, narrJson, decText, annText, polyText, refineText] = await Promise.all([
       state.results ? Promise.resolve(state.results) : fetchJsonSafe(["/out/results.json", "../out/results.json", "data/results.json"]),
       state.localizeResults ? Promise.resolve(state.localizeResults) : fetchJsonSafe(["/out/localize_results.json", "../out/localize_results.json", "data/localize_results.json"]),
       state.student ? Promise.resolve(state.student) : fetchJsonSafe(["/out/student.json", "../out/student.json", "data/student.json"]),
@@ -503,6 +505,7 @@
       Object.keys(state.frameById).length > 0 ? Promise.resolve(null) : fetchTextSafe(["/out/decisions.csv", "../out/decisions.csv"]),
       fetchTextSafe(["/out/annotations.jsonl", "../out/annotations.jsonl", "/out/annotations_live.jsonl", "../out/annotations_live.jsonl"]),
       fetchTextSafe([`/out/polygons/${vid}.jsonl`, `../out/polygons/${vid}.jsonl`]),
+      fetchTextSafe([`/out/polygons/refine_${vid}.jsonl`, `../out/polygons/refine_${vid}.jsonl`]),
     ]);
 
     if (resJson) state.results = resJson;
@@ -570,6 +573,13 @@
       const polyRows = parseJsonl(polyText);
       for (const pRow of polyRows) {
         mergeAnnotationRow(pRow, false);
+      }
+    }
+
+    if (refineText) {
+      const refRows = parseJsonl(refineText);
+      for (const rRow of refRows) {
+        mergeAnnotationRow(rRow, false);
       }
     }
 
@@ -691,6 +701,41 @@
     }
   }
 
+  function easeOutCubic(t) {
+    const c = Math.max(0, Math.min(1, t));
+    return 1 - Math.pow(1 - c, 3);
+  }
+
+  function computeBoxIou(b1, b2) {
+    if (!Array.isArray(b1) || b1.length !== 4 || !Array.isArray(b2) || b2.length !== 4) return null;
+    const [y1a, x1a, y2a, x2a] = b1.map(Number);
+    const [y1b, x1b, y2b, x2b] = b2.map(Number);
+    const iy1 = Math.max(y1a, y1b);
+    const ix1 = Math.max(x1a, x1b);
+    const iy2 = Math.min(y2a, y2b);
+    const ix2 = Math.min(x2a, x2b);
+    const iw = Math.max(0, ix2 - ix1);
+    const ih = Math.max(0, iy2 - iy1);
+    const inter = iw * ih;
+    const areaA = Math.max(0, x2a - x1a) * Math.max(0, y2a - y1a);
+    const areaB = Math.max(0, x2b - x1b) * Math.max(0, y2b - y1b);
+    const union = areaA + areaB - inter;
+    return union > 0 ? inter / union : null;
+  }
+
+  function getPassAgreement(lbl) {
+    if (!lbl) return null;
+    const mIou = typeof lbl.mask_iou === "number" ? lbl.mask_iou : null;
+    const bIou =
+      lbl.pass1 && Array.isArray(lbl.pass1.box) && lbl.pass2 && Array.isArray(lbl.pass2.box)
+        ? computeBoxIou(lbl.pass1.box, lbl.pass2.box)
+        : typeof lbl.box_iou === "number"
+          ? lbl.box_iou
+          : null;
+    if (mIou !== null && bIou !== null) return Math.max(mIou, bIou);
+    return mIou !== null ? mIou : bIou;
+  }
+
   function renderTopHeadlines() {
     const accEl = document.getElementById("headline-acc");
     const nEl = document.getElementById("headline-n");
@@ -712,8 +757,28 @@
 
     if (accEl && nEl) {
       if (typeof acc === "number" && typeof cov === "number") {
-        accEl.textContent = `${fmtPct(acc, 1)} accurate on the ${fmtPct(cov, 1)} it accepted`;
-        nEl.textContent = `n = ${nLabels !== null && nLabels !== undefined ? nLabels : "pending"} held-out labels, 6 unseen videos`;
+        const targetAcc = acc;
+        const targetCov = cov;
+        const targetN = typeof nLabels === "number" ? nLabels : null;
+        if (!state._headlineAnimated && typeof requestAnimationFrame === "function") {
+          state._headlineAnimated = true;
+          const t0 = performance.now();
+          const dur = 650;
+          const step = (now) => {
+            const p = Math.min(1, (now - t0) / dur);
+            const e = easeOutCubic(p);
+            accEl.textContent = `${fmtPct(targetAcc * e, 1)} accurate on the ${fmtPct(targetCov * e, 1)} it accepted`;
+            nEl.textContent =
+              targetN !== null
+                ? `n = ${Math.round(targetN * e)} held-out labels, 6 unseen videos`
+                : `n = pending held-out labels`;
+            if (p < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        } else {
+          accEl.textContent = `${fmtPct(targetAcc, 1)} accurate on the ${fmtPct(targetCov, 1)} it accepted`;
+          nEl.textContent = `n = ${nLabels !== null && nLabels !== undefined ? nLabels : "pending"} held-out labels, 6 unseen videos`;
+        }
       } else {
         accEl.textContent = "pending";
         nEl.textContent = "n = pending held-out labels";
@@ -727,28 +792,35 @@
         const meanIou = state.localizeResults.boxes.mean_iou;
         const tipRate = state.localizeResults.tips ? state.localizeResults.tips.within_tool_mask_rate : null;
         const nScored = state.localizeResults.boxes.n_scored || state.localizeResults.n_test_annotations || "pending";
-        locEl.textContent = `Box IoU ${fmtPct(meanIou, 1)} · Tip ${fmtPct(tipRate, 0)}`;
+        locEl.textContent = `Box IoU ${fmtPct(meanIou, 1)} · Tip ${fmtPct(tipRate, 0)} vs ground truth`;
         locSub.textContent = `n = ${nScored} test annotations`;
       } else {
         locEl.textContent = "pending";
-        locSub.textContent = "spatial localization";
+        locSub.textContent = "vs ground truth";
       }
     }
 
     const stuEl = document.getElementById("headline-student");
     const stuSub = document.getElementById("headline-student-sub");
     if (stuEl && stuSub) {
-      if (state.student && state.student.mean_acc_by_source) {
-        const m = state.student.mean_acc_by_source;
-        if (typeof m.verified === "number" && typeof m.single === "number") {
-          const diff = ((m.verified - m.single) * 100).toFixed(1);
-          const sign = m.verified >= m.single ? "+" : "";
-          stuEl.textContent = `Specialist ${fmtPct(m.verified, 1)} (${sign}${diff} pp vs single)`;
-          stuSub.textContent = `n = ${state.student.n_test_frames || "pending"} test frames`;
-        }
-      } else {
-        stuEl.textContent = "pending";
-        stuSub.textContent = "specialist student";
+      const ciObj =
+        (state.student &&
+          state.student.bootstrap_ci_by_source &&
+          state.student.bootstrap_ci_by_source.verified) ||
+        (state.student &&
+          state.student.video_bootstrap_ci &&
+          state.student.video_bootstrap_ci.verified) ||
+        null;
+      const ci95 = ciObj && Array.isArray(ciObj.ci_95) && ciObj.ci_95.length === 2 ? ciObj.ci_95 : null;
+      const m = state.student ? state.student.mean_acc_by_source : null;
+
+      if (m && typeof m.verified === "number" && ci95) {
+        if (stuEl.parentElement) stuEl.parentElement.style.display = "";
+        stuEl.textContent = `Specialist ${fmtPct(m.verified, 1)} (95% CI ${fmtPct(ci95[0], 1)}–${fmtPct(ci95[1], 1)})`;
+        stuSub.textContent = `n = ${state.student.n_test_frames || "pending"} test frames`;
+      } else if (stuEl.parentElement) {
+        // Per 14:37 review #2: show Specialist only with its bootstrap CI from student.json, else drop it
+        stuEl.parentElement.style.display = "none";
       }
     }
   }
@@ -989,6 +1061,7 @@
     const container = document.getElementById("objects") || document.getElementById("inspector-cards");
     if (!container) return;
     container.innerHTML = "";
+    const scoringMode = document.getElementById("chk-show-gt") ? document.getElementById("chk-show-gt").checked : false;
 
     LABEL_KEYS.forEach((k, kIdx) => {
       const lbl = fr.labels[k];
@@ -1002,6 +1075,7 @@
 
       const card = document.createElement("div");
       card.className = `label-card st-${effStatus}` + (state.selectedKey === k ? " selected" : "");
+      card.style.setProperty("--card-idx", String(kIdx));
       card.dataset.labelKey = k;
       card.addEventListener("click", () => {
         state.selectedKey = k;
@@ -1028,45 +1102,29 @@
       badge.className = `status-badge st-${effStatus}`;
       badge.textContent = effStatus === "pending"
         ? "pending"
-        : `${effPres ? "PRESENT" : "ABSENT"} · ${effStatus}`;
+        : `${effPres ? "present" : "absent"} · ${effStatus}`;
 
       top.appendChild(title);
       top.appendChild(badge);
       card.appendChild(top);
 
+      // Single calm AI signal line (per 14:37 review #1 & #4: AI's own signals only; reduced monospace density)
       const meta = document.createElement("div");
       meta.className = "label-meta";
-      const confStr = lbl && lbl.conf !== null ? lbl.conf.toFixed(2) : "pending";
-      const pvStr = lbl && lbl.pv_match !== null ? (lbl.pv_match ? "agree" : "disagree") : "pending";
-      const pwStr = lbl && lbl.p_wrong !== null ? lbl.p_wrong.toFixed(2) : "pending";
-      meta.innerHTML =
-        `<span>conf: ${confStr}</span>` +
-        `<span>crop check: ${pvStr}</span>` +
-        `<span>critic p_wrong: ${pwStr}</span>`;
-
-      if (lbl && Array.isArray(lbl.box)) {
-        const iouVal = typeof lbl.box_iou === "number" ? lbl.box_iou : (lbl.pass2 && typeof lbl.pass2.iou === "number" ? lbl.pass2.iou : null);
-        const iouStr = typeof iouVal === "number" ? ` · IoU ${iouVal.toFixed(2)}` : "";
-        meta.innerHTML += `<span style="color:var(--accent-blue);border-color:var(--accent-blue)">box [${lbl.box.join(",")}]${iouStr}</span>`;
-      } else if (effPres) {
-        meta.innerHTML += `<span>box: pending</span>`;
+      const sigParts = [];
+      if (lbl && lbl.conf !== null) sigParts.push(`conf ${lbl.conf.toFixed(2)}`);
+      const agreeVal = getPassAgreement(lbl);
+      if (typeof agreeVal === "number") sigParts.push(`agree ${agreeVal.toFixed(2)}`);
+      if (lbl && lbl.pv_match !== null) sigParts.push(`crop ${lbl.pv_match ? "agree" : "disagree"}`);
+      if (lbl && (lbl.mask_url || lbl.mask_b64)) sigParts.push("mask");
+      if (lbl && Array.isArray(lbl.tip)) sigParts.push("tip");
+      if (scoringMode && lbl && lbl.gt_present_scoring_only !== undefined && lbl.gt_present_scoring_only !== null) {
+        sigParts.push(`Scoring (ground truth): ${lbl.gt_present_scoring_only ? "present" : "absent"}`);
       }
-
-      if (lbl && (lbl.mask_url || lbl.mask_b64)) {
-        const mIouStr = typeof lbl.mask_iou === "number" ? ` (IoU ${lbl.mask_iou.toFixed(2)})` : "";
-        meta.innerHTML += `<span style="color:var(--verdict-accept);border-color:var(--verdict-accept)">mask: localized${mIouStr}</span>`;
-      } else if (effPres) {
-        meta.innerHTML += `<span>mask: pending</span>`;
-      }
-
-      if (lbl && Array.isArray(lbl.polygon_px) && lbl.polygon_px.length >= 3) {
-        const pIouStr = typeof lbl.mask_iou === "number" ? ` · IoU ${lbl.mask_iou.toFixed(2)}` : "";
-        meta.innerHTML += `<span style="color:var(--verdict-accept);border-color:var(--verdict-accept)">polygon: ${lbl.polygon_px.length} pts${pIouStr}</span>`;
-      }
-
-      if (lbl && Array.isArray(lbl.tip)) {
-        meta.innerHTML += `<span style="color:var(--accent-blue)">tip [y=${lbl.tip[0]}, x=${lbl.tip[1]}]</span>`;
-      }
+      const sigSpan = document.createElement("span");
+      sigSpan.className = "signal-line";
+      sigSpan.textContent = sigParts.length > 0 ? sigParts.join(" · ") : "signals: pending";
+      meta.appendChild(sigSpan);
       card.appendChild(meta);
 
       const ev = document.createElement("div");
@@ -1074,16 +1132,11 @@
       ev.textContent = lbl && lbl.evidence ? lbl.evidence : "Evidence: pending";
       card.appendChild(ev);
 
-      // Double-Check & Amber-Round History
+      // Concise Double-Check & Amber-Round History
       const rDiv = document.createElement("div");
       rDiv.className = "label-rounds";
       const roundsRow = document.createElement("div");
       roundsRow.className = "round-pills";
-
-      const rhLabel = document.createElement("span");
-      rhLabel.textContent = "Double-Check & Amber Loop:";
-      rhLabel.style.marginRight = "4px";
-      roundsRow.appendChild(rhLabel);
 
       const roundsList = [];
       for (let rIdx = 0; rIdx < 4; rIdx++) {
@@ -1091,7 +1144,14 @@
         if (st) roundsList.push({ round: rIdx, status: st });
       }
 
-      if (roundsList.length > 0) {
+      const uniqueStatuses = new Set(roundsList.map((r) => r.status));
+      if (roundsList.length > 0 && uniqueStatuses.size === 1) {
+        const onlySt = roundsList[0].status;
+        const pill = document.createElement("span");
+        pill.className = `round-pill rp-${onlySt}`;
+        pill.textContent = onlySt === "AMBER" ? `R0–R${roundsList.length - 1}: AMBER` : `Double-check: ${onlySt}`;
+        roundsRow.appendChild(pill);
+      } else if (roundsList.length > 0) {
         roundsList.forEach((item, idx) => {
           const pill = document.createElement("span");
           pill.className = `round-pill rp-${item.status}`;
@@ -1111,17 +1171,10 @@
       }
       rDiv.appendChild(roundsRow);
 
-      if (lbl && lbl.critic_reason) {
-        const cr = document.createElement("div");
-        cr.style.color = "var(--text-secondary)";
-        cr.textContent = `Pass-2 Critic: ${lbl.critic_reason}`;
-        rDiv.appendChild(cr);
-      }
-
       if (lbl && lbl.argon_reason) {
         const ar = document.createElement("div");
         ar.style.color = "var(--verdict-amber)";
-        ar.textContent = `Argon Amber Loop: ${lbl.argon_reason}`;
+        ar.textContent = `Argon loop: ${lbl.argon_reason}`;
         rDiv.appendChild(ar);
       }
 
@@ -1236,8 +1289,9 @@
     const showBoxes = document.getElementById("chk-ai-boxes") ? document.getElementById("chk-ai-boxes").checked : true;
     const showDualPass = document.getElementById("chk-dual-pass") ? document.getElementById("chk-dual-pass").checked : false;
     const showTips = document.getElementById("chk-ai-tips") ? document.getElementById("chk-ai-tips").checked : true;
-    const showHud = document.getElementById("chk-hud-chips") ? document.getElementById("chk-hud-chips").checked : true;
+    const showHud = document.getElementById("chk-hud-chips") ? document.getElementById("chk-hud-chips").checked : false;
     const showGt = document.getElementById("chk-show-gt") ? document.getElementById("chk-show-gt").checked : false;
+    const maskRound = Number(document.getElementById("sel-mask-round")?.value || state.maskRound || 0);
 
     const baseImg = await loadImageWithFallback(fr.imgCandidates, state.imageCache, fr.frame_id);
 
@@ -1270,16 +1324,26 @@
       ctx.fillText("SCORING VIEW ONLY: CHOLECSEG8K GT MASK", W - 328, 24);
     }
 
-    // 2. AI Segmentation Masks Overlay (out/masks/<frame_id>_<label>.png)
+    // 2. AI Segmentation Masks Overlay (out/masks/ or self-correction out/masks_r1/ / out/masks_r2/)
     let loadedMasksCount = 0;
     if (showMasks) {
+      const rSub = maskRound > 0 ? `masks_r${maskRound}` : "masks";
       for (const k of LABEL_KEYS) {
         const lbl = fr.labels[k];
         if (!lbl || !getEffectivePresent(fr.frame_id, k, lbl)) continue;
-        const mKey = `${fr.frame_id}__${k}__mask`;
-        const cands = lbl.mask_b64
-          ? [`data:image/png;base64,${lbl.mask_b64.replace(/^data:image\/\w+;base64,/, "")}`, ...lbl.maskCandidates]
+        const mKey = `${fr.frame_id}__${k}__mask_r${maskRound}`;
+        const roundCands = maskRound > 0
+          ? [
+              `data/${rSub}/${fr.frame_id}_${k}.png`,
+              `/web/data/${rSub}/${fr.frame_id}_${k}.png`,
+              `/out/${rSub}/${fr.frame_id}_${k}.png`,
+              `../out/${rSub}/${fr.frame_id}_${k}.png`,
+              ...lbl.maskCandidates,
+            ]
           : lbl.maskCandidates;
+        const cands = lbl.mask_b64 && maskRound === 0
+          ? [`data:image/png;base64,${lbl.mask_b64.replace(/^data:image\/\w+;base64,/, "")}`, ...roundCands]
+          : roundCands;
         const maskImg = await loadImageWithFallback(cands, state.maskCache, mKey);
         if (maskImg) {
           loadedMasksCount++;
@@ -1325,7 +1389,17 @@
       polyStatusEl.textContent = activePolygonsCount > 0 ? `${activePolygonsCount} active` : "pending";
     }
 
-    // 3. AI Bounding Boxes (and optional Pass-1 vs Pass-2 Dual Boxes)
+    // 3. AI Bounding Boxes (with distinct corner-anchored pills + collision offset +22px per nir-director Fix #3)
+    const PILL_CORNERS = {
+      gallbladder: "tl",
+      l_hook: "tr",
+      liver: "br",
+      grasper: "bl",
+      cystic_duct: "tr",
+      blood: "br",
+    };
+    const placedPills = [];
+
     if (showBoxes) {
       for (const k of LABEL_KEYS) {
         const lbl = fr.labels[k];
@@ -1364,19 +1438,36 @@
           ctx.lineWidth = state.selectedKey === k ? 3.0 : 2.0;
           ctx.strokeRect(rx, ry, rw, rh);
 
-          const iouVal = typeof lbl.box_iou === "number" ? lbl.box_iou : (lbl.pass2 && typeof lbl.pass2.iou === "number" ? lbl.pass2.iou : null);
-          const iouTxt = typeof iouVal === "number" ? ` · IoU ${iouVal.toFixed(2)}` : "";
-          const tag = `${k} · ${effStatus}${iouTxt}`;
+          // Per 14:37 review #1: show AI's own signals (status + pass-1/pass-2 agreement labelled 'agree 0.xx')
+          const agreeVal = getPassAgreement(lbl);
+          const agreeTxt = typeof agreeVal === "number" ? ` · agree ${agreeVal.toFixed(2)}` : "";
+          const tag = `${k} · ${effStatus}${agreeTxt}`;
           ctx.font = "600 11px ui-monospace, monospace";
           const tw = ctx.measureText(tag).width + 14;
-          const ty = Math.max(34, ry - 22);
+          const th = 20;
+
+          const corner = PILL_CORNERS[k] || "tl";
+          let px = corner.endsWith("r") ? Math.max(8, rx + rw - tw) : rx;
+          let py = corner.startsWith("b") ? Math.min(H - th - 6, ry + rh + 4) : Math.max(34, ry - 22);
+          px = Math.max(8, Math.min(W - tw - 8, px));
+
+          // Offset colliding pills by +22px so no two pills ever overlap on the frame
+          for (let attempt = 0; attempt < 6; attempt++) {
+            const hit = placedPills.some(
+              (p) => px < p.x + p.w + 4 && px + tw + 4 > p.x && py < p.y + p.h + 2 && py + th + 2 > p.y
+            );
+            if (!hit) break;
+            py = Math.min(H - th - 6, py + 22);
+          }
+          placedPills.push({ x: px, y: py, w: tw, h: th });
+
           ctx.fillStyle = fillCol;
-          ctx.fillRect(rx, ty, tw, 20);
+          ctx.fillRect(px, py, tw, th);
           ctx.strokeStyle = col;
           ctx.lineWidth = 1;
-          ctx.strokeRect(rx, ty, tw, 20);
+          ctx.strokeRect(px, py, tw, th);
           ctx.fillStyle = col;
-          ctx.fillText(tag, rx + 7, ty + 14);
+          ctx.fillText(tag, px + 7, py + 14);
         }
       }
     }
@@ -1803,12 +1894,12 @@
       if (metaEl) metaEl.textContent = "Zero human training labels";
       if (manualBox) manualBox.open = true;
       renderManualRule(state.selectedKey);
-      applyLayerToggles({ masks: false, polygons: false, boxes: false, dualPass: false, tips: false, hud: true, gt: false });
+      applyLayerToggles({ masks: false, polygons: false, boxes: false, dualPass: false, tips: false, hud: false, gt: false });
     } else if (b === 3) {
       if (titleEl) titleEl.textContent = `Beat 3 · Labels a real frame (${fidStr}).`;
       if (descEl) descEl.textContent = "Pass-1 Gemini 3.8 Flash proposes structure presence with verbatim visual evidence.";
       if (metaEl) metaEl.textContent = "Neutral proposal before double-check";
-      applyLayerToggles({ masks: false, polygons: false, boxes: true, dualPass: false, tips: false, hud: true, gt: false });
+      applyLayerToggles({ masks: false, polygons: false, boxes: true, dualPass: false, tips: false, hud: false, gt: false });
       selectFrame(targetIdx);
     } else if (b === 4) {
       const amberLoop = (state.headline && state.headline.amber_loop) || (state.results && state.results.amber_loop);
@@ -1818,13 +1909,13 @@
       if (titleEl) titleEl.textContent = "Beat 4 · Checks itself + 4-Round Argon Amber Loop.";
       if (descEl) descEl.textContent = `3-signal verifier (conf, crop check, Pass-2 critic) + multi-round Argon re-check shrinks AMBERs: ${r5}.`;
       if (metaEl) metaEl.textContent = "Accept (#10B981) · AMBER (#F59E0B) · Reject (#EF4444)";
-      applyLayerToggles({ masks: false, polygons: false, boxes: true, dualPass: true, tips: false, hud: true, gt: false });
+      applyLayerToggles({ masks: false, polygons: false, boxes: true, dualPass: true, tips: false, hud: false, gt: false });
       selectFrame(targetIdx);
     } else if (b === 5) {
       if (titleEl) titleEl.textContent = "Beat 5 · AI draws segmentation masks, polygon outlines, boxes & tool tips.";
-      if (descEl) descEl.textContent = "Two-pass polygon segmentation (IoU >= 0.50 consensus) + bounding boxes + instrument tip crosshairs + surgical phase.";
+      if (descEl) descEl.textContent = "Two-pass polygon segmentation + self-correction rounds + bounding boxes + instrument tip crosshairs + surgical phase.";
       if (metaEl) metaEl.textContent = `out/masks/ + out/polygons/${state.video}.jsonl`;
-      applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: true, gt: false });
+      applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: false, gt: false });
       selectFrame(targetIdx);
     } else if (b === 6) {
       const ambersLeft = getResidualAmbers().length;
@@ -1839,7 +1930,7 @@
       if (titleEl) titleEl.textContent = `Beat 7 · Held-Out Proof: ${accTxt}`;
       if (descEl) descEl.textContent = `${nTxt} · Ground truth touched once at the end to score the held-out test split.`;
       if (metaEl) metaEl.textContent = "Source: out/results.json · out/student.json · out/localize_results.json";
-      applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: true, gt: false });
+      applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: false, gt: false });
       selectFrame(targetIdx);
     }
   }
@@ -1859,7 +1950,7 @@
     if (banner) banner.style.display = "none";
     const drawer = document.getElementById("final-pass-drawer");
     if (drawer) drawer.classList.remove("open");
-    applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: true, gt: false });
+    applyLayerToggles({ masks: true, polygons: true, boxes: true, dualPass: false, tips: true, hud: false, gt: false });
   }
 
   function toggleGuidedAutoplay() {
@@ -1901,6 +1992,16 @@
 
     on("sel-video", "change", (e) => {
       switchVideo(e.target.value);
+    });
+
+    on("sel-mask-round", "change", (e) => {
+      state.maskRound = Number(e.target.value) || 0;
+      const extViewer = getExternalViewer();
+      if (state.externalViewerMounted && extViewer && typeof extViewer.setMaskRound === "function") {
+        extViewer.setMaskRound(state.maskRound);
+      } else if (state.frames[state.currentFrameIdx]) {
+        renderCanvas(state.frames[state.currentFrameIdx]);
+      }
     });
 
     on("btn-guided-mode", "click", () => {
@@ -1958,6 +2059,9 @@
           });
         } else if (state.frames[state.currentFrameIdx]) {
           renderCanvas(state.frames[state.currentFrameIdx]);
+        }
+        if (id === "chk-show-gt" && state.frames[state.currentFrameIdx]) {
+          renderInspector(state.frames[state.currentFrameIdx]);
         }
       });
     });
