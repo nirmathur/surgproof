@@ -82,3 +82,18 @@ def test_fallback_and_report_saving(tmp_path: Path):
         "deep-research-max-preview-04-2026",
         "deep-research-preview-04-2026",
     ]
+
+
+def test_extract_report_from_steps_schema():
+    inter = SimpleNamespace(
+        outputs=None,
+        steps=[
+            {"type": "user_input", "content": [{"type": "text", "text": "User prompt"}]},
+            {"type": "model_output", "content": [{"type": "text", "text": "Part 1 [Ref](https://example.org/ref1)"}]},
+            {"type": "model_output", "content": [{"type": "image"}, {"type": "text", "text": "Part 2"}]},
+        ],
+    )
+    txt, sources = dr.extract_report_and_sources(inter)
+    assert "Part 1" in txt and "Part 2" in txt
+    assert "User prompt" not in txt
+    assert ("Ref", "https://example.org/ref1") in sources

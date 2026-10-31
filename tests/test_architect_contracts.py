@@ -1,4 +1,5 @@
-"""Tests for architect-owned contracts (config.py, gem.py, docs/DESIGN.md)."""
+"""Tests for architect-owned contracts (config.py, gem.py, docs/DESIGN.md, zero-GT verifier guard)."""
+import ast
 from pathlib import Path
 from PIL import Image
 
@@ -44,6 +45,9 @@ def test_design_doc_exists_and_covers_all_contracts():
     assert design_path.is_file(), "docs/DESIGN.md must exist"
     text = design_path.read_text(encoding="utf-8")
     for required in [
+        "SurgProof",
+        "AMBER",
+        "human_gate_log.jsonl",
         "index.csv",
         "features.npy",
         "manual.json",
@@ -53,3 +57,35 @@ def test_design_doc_exists_and_covers_all_contracts():
         "student.json",
     ]:
         assert required in text, f"Missing contract section for {required} in docs/DESIGN.md"
+
+
+def _check_file_for_gt_references(py_path: Path):
+    src = py_path.read_text(encoding="utf-8")
+    tree = ast.parse(src, filename=str(py_path))
+    forbidden_hits = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and (node.id == "truth" or node.id.startswith("gt_")):
+            forbidden_hits.append(f"{py_path.name}:{getattr(node, 'lineno', '?')} Name({node.id})")
+        elif isinstance(node, ast.Attribute) and (node.attr == "truth" or node.attr.startswith("gt_")):
+            forbidden_hits.append(f"{py_path.name}:{getattr(node, 'lineno', '?')} Attr(.{node.attr})")
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            val = node.value.strip()
+            if val == "truth" or val.startswith("gt_"):
+                forbidden_hits.append(f"{py_path.name}:{getattr(node, 'lineno', '?')} Str({val!r})")
+    return forbidden_hits
+
+
+def test_verifier_never_reads_gt_or_truth():
+    """Audit rule: accept.py and verify/ must NEVER read or reference `truth` or `gt_*`."""
+    root = Path(C.ROOT)
+    targets = [root / "accept.py"]
+    verify_dir = root / "verify"
+    if verify_dir.is_dir():
+        targets.extend(sorted(verify_dir.rglob("*.py")))
+    all_hits = []
+    for t in targets:
+        if t.is_file():
+            all_hits.extend(_check_file_for_gt_references(t))
+    assert not all_hits, (
+        f"Ground-truth leakage detected in verifier code! Verifier must never read truth/gt_*: {all_hits}"
+    )
