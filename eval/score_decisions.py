@@ -50,7 +50,9 @@ def score_amber_rounds(test_df: pd.DataFrame, out_dir: Path) -> list[dict]:
     df = test_df.copy()
     if "init_trust" not in df.columns:
         df["init_trust"] = [_initial_trust(r) for r in df.itertuples()]
-    if "init_status" not in df.columns:
+    if "status_round_0" in df.columns:
+        df["init_status"] = df["status_round_0"].astype(str)
+    elif "init_status" not in df.columns:
         df["init_status"] = df["init_trust"].map(_initial_status)
 
     rounds_out: list[dict] = []
@@ -68,6 +70,45 @@ def score_amber_rounds(test_df: pd.DataFrame, out_dir: Path) -> list[dict]:
         "resolved_in_round_precision": None,
         "cumulative_accepted_precision": round(float(r0_acc["correct"].mean()), 4) if len(r0_acc) else None,
     })
+
+    # If status_round_1..N columns exist directly on decisions.csv, score directly from them
+    round_cols = sorted(
+        [c for c in df.columns if c.startswith("status_round_") and c.split("_")[-1].isdigit() and int(c.split("_")[-1]) >= 1],
+        key=lambda c: int(c.split("_")[-1]),
+    )
+    if round_cols:
+        fc_col = "final_correct" if "final_correct" in df.columns else "correct"
+        prev_col = "init_status"
+        for col in round_cols:
+            r_int = int(col.split("_")[-1])
+            st_cur = df[col].astype(str)
+            st_prev = df[prev_col].astype(str)
+            r_acc = df[st_cur == "accept"]
+            r_rej = df[st_cur.isin(["reject", "escalate"])]
+            r_amb = df[st_cur.isin(["AMBER", "amber", "reanalyse"])]
+            was_amb = st_prev.isin(["AMBER", "amber", "reanalyse"])
+            now_res = st_cur.isin(["accept", "reject", "escalate"])
+            res_sub = df[was_amb & now_res]
+            res_correct = []
+            for row in res_sub.itertuples():
+                v_st = str(getattr(row, col))
+                if v_st == "accept":
+                    res_correct.append(int(getattr(row, fc_col)))
+                else:
+                    res_correct.append(int(int(row.present) != int(row.truth) or int(getattr(row, fc_col)) == 1))
+            rounds_out.append({
+                "round": r_int,
+                "stage": f"amber_loop_round_{r_int}",
+                "n_test_labels": int(len(df)),
+                "ambers_remaining": int(len(r_amb)),
+                "accepted_count": int(len(r_acc)),
+                "rejected_count": int(len(r_rej)),
+                "resolved_in_round": int(len(res_correct)),
+                "resolved_in_round_precision": round(float(np.mean(res_correct)), 4) if res_correct else None,
+                "cumulative_accepted_precision": round(float(r_acc[fc_col].mean()), 4) if len(r_acc) else None,
+            })
+            prev_col = col
+        return rounds_out
 
     amber_rounds_path = out_dir / "amber_rounds.jsonl"
     if amber_rounds_path.exists() and amber_rounds_path.stat().st_size > 0:
@@ -95,7 +136,13 @@ def score_amber_rounds(test_df: pd.DataFrame, out_dir: Path) -> list[dict]:
                             continue
                         verdict = str(getattr(row, "verdict", getattr(row, "status", "AMBER")))
                         if verdict in ("accept", "reject"):
-                            pred_pres = int(getattr(row, "present", state[lid]["present"]))
+                            pred_pres = int(
+                                getattr(
+                                    row,
+                                    "final_present",
+                                    getattr(row, "argon_present", getattr(row, "present", state[lid]["present"])),
+                                )
+                            )
                             truth_val = state[lid]["truth"]
                             is_corr = (pred_pres == truth_val) if verdict == "accept" else (state[lid]["present"] != truth_val or pred_pres == truth_val)
                             resolved_correct.append(int(is_corr))
@@ -214,15 +261,47 @@ def evaluate_decisions(data_dir: Path | None = None, out_dir: Path | None = None
     res = {
         "headline_labels": HEADLINE_LABELS,
         "excluded_uninformative_labels": sorted(UNINFORMATIVE_LABELS),
-        "n_test_labels": len(test),
+        "n_test_labels": len(test_all),
+        "n_test_labels_excl_liver": len(test),
         "n_test_labels_all_6": len(test_all),
     }
     res["single_conf"] = risk_coverage(test.correct, test.conf)
     res["system_zero_label"] = risk_coverage(test.final_correct, test.trust)
-    res["accepted"] = _accepted_summary(test)
-    res["accepted_excl_liver"] = res["accepted"]
-    res["accepted_all_6_labels"] = _accepted_summary(test_all)
+    res["accepted"] = _accepted_summary(test_all)
+    res["accepted_excl_liver"] = _accepted_summary(test)
+    res["accepted_all_6_labels"] = res["accepted"]
     res["amber_loop_by_round"] = score_amber_rounds(test, out_dir)
+    res["amber_loop_by_round_all_6"] = score_amber_rounds(test_all, out_dir)
+    res["amber_loop_by_round_all_splits"] = score_amber_rounds(d, out_dir)
+
+    if res["amber_loop_by_round"] and res["amber_loop_by_round_all_6"]:
+        r_hl = res["amber_loop_by_round"]
+        r_all6 = res["amber_loop_by_round_all_6"]
+        r_all_sp = res["amber_loop_by_round_all_splits"]
+        res["amber_loop"] = {
+            "max_rounds": max((x["round"] for x in r_hl), default=0),
+            "ambers_by_round_all": [x["ambers_remaining"] for x in r_all_sp],
+            "ambers_by_round_test": [x["ambers_remaining"] for x in r_all6],
+            "ambers_by_round_test_excl_liver": [x["ambers_remaining"] for x in r_hl],
+            "per_round_test": [
+                {
+                    "round": x6["round"],
+                    "ambers_remaining": x6["ambers_remaining"],
+                    "ambers_remaining_excl_liver": x5["ambers_remaining"],
+                    "resolved_in_round": x6["resolved_in_round"],
+                    "resolved_in_round_excl_liver": x5["resolved_in_round"],
+                    "resolved_in_round_precision": x6["resolved_in_round_precision"],
+                    "resolved_in_round_precision_excl_liver": x5["resolved_in_round_precision"],
+                    "accepted_count": x6["accepted_count"],
+                    "rejected_count": x6["rejected_count"],
+                    "accepted_count_excl_liver": x5["accepted_count"],
+                    "rejected_count_excl_liver": x5["rejected_count"],
+                    "cumulative_accepted_precision": x6["cumulative_accepted_precision"],
+                    "cumulative_accepted_precision_excl_liver": x5["cumulative_accepted_precision"],
+                }
+                for x6, x5 in zip(r_all6, r_hl)
+            ],
+        }
 
     # Baselines if available (headline excludes liver)
     blank_p = out_dir / "labels_blank.jsonl"
@@ -291,6 +370,19 @@ def evaluate_decisions(data_dir: Path | None = None, out_dir: Path | None = None
     res["per_label_accepted_acc"] = (
         acc_t_all.groupby("key").final_correct.mean().round(3).to_dict() if len(acc_t_all) else {}
     )
+    acc_t_hl = test[test.status == "accept"]
+    per_lbl = res["per_label_accepted_acc"]
+    hl_lbl_accs = [float(per_lbl[k]) for k in HEADLINE_LABELS if k in per_lbl and per_lbl[k] is not None]
+    res["accepted_5_informative"] = {
+        "n_test_labels_excl_liver": int(len(test)),
+        "n_accepted_excl_liver": int(len(acc_t_hl)),
+        "coverage": res["accepted_excl_liver"]["coverage"],
+        "accuracy": res["accepted_excl_liver"]["accuracy"],
+        "mean_per_label_accuracy": round(float(np.mean(hl_lbl_accs)), 4) if hl_lbl_accs else None,
+        "escalated_share": res["accepted_excl_liver"]["escalated_share"],
+        "amber_share": res["accepted_excl_liver"]["amber_share"],
+        "rejected_share": res["accepted_excl_liver"]["rejected_share"],
+    }
     (out_dir / "results.json").write_text(json.dumps(res, indent=2))
     print(json.dumps({k: v for k, v in res.items() if not isinstance(v, dict) or "curve" not in v}, indent=2))
     for k, v in res.items():
