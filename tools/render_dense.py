@@ -39,6 +39,19 @@ def render(clip):
         d = json.load(open(f"{R}/out/{os.environ.get('DENSE','dense')}_results.json"))["clips"].get(clip)
         if d and d.get("mean_iou") is not None: score = d
     ph = phase_for(video)
+    # temporally smoothed boxes from the AI's own per-frame masks (7-frame centred moving average)
+    fnames = [os.path.basename(f).replace("_endo.png", "") for f in frames]
+    raw = {}
+    for a in ann:
+        if a.get("present") and a.get("mask_path"):
+            mm = np.array(Image.open(a["mask_path"])) > 0; ys, xs = np.where(mm)
+            if len(xs): raw[(a["frame"], a["label"])] = (xs.min(), ys.min(), xs.max(), ys.max())
+    sbox = {}
+    for lab in {a["label"] for a in ann}:
+        for i, f in enumerate(fnames):
+            if (f, lab) not in raw: continue
+            win = [raw[(fnames[j], lab)] for j in range(max(0, i - 3), min(len(fnames), i + 4)) if (fnames[j], lab) in raw]
+            sbox[(f, lab)] = tuple(float(np.mean([w[k] for w in win])) for k in range(4))
     mono = None
     for f in ["/System/Library/Fonts/SFNSMono.ttf", "/System/Library/Fonts/Menlo.ttc"]:
         try: mono = ImageFont.truetype(f, 20); break
@@ -76,10 +89,9 @@ def render(clip):
                 d.rectangle((ox + 16, yy, ox + 28 + tw + 12, yy + 32), fill=(14, 16, 20)); d.rectangle((ox + 16, yy, ox + 20, yy + 32), fill=col)
                 d.text((ox + 30, yy + 5), line, font=mono or f_c, fill=(236, 238, 241)); yy += 40
             if pres and a.get("mask_path"):
-                mm = np.array(Image.open(a["mask_path"])) > 0
-                ys, xs = np.where(mm)
-                if len(xs):
-                    x0, y0, x1, y1 = ox + xs.min() * sx, oy + ys.min() * sy, ox + xs.max() * sx, oy + ys.max() * sy
+                bb = sbox.get((fr, a["label"]))
+                if bb:
+                    x0, y0, x1, y1 = ox + bb[0] * sx, oy + bb[1] * sy, ox + bb[2] * sx, oy + bb[3] * sy
                     d.rectangle((x0, y0, x1, y1), outline=COL[a["label"]], width=3)
                     chip = f"{NAME[a['label']]}"
                     cw = d.textlength(chip, font=f_c); cy = max(oy + 44, y0 - 32)
