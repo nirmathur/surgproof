@@ -209,11 +209,11 @@ def _load_cholec_frames() -> List[Image.Image]:
 def _load_target_frame_and_boxes(out_dir: Path = OUT_DIR) -> Tuple[Image.Image, List[Dict[str, Any]]]:
     """Load real frame video12_15750_15758, verifier statuses from decisions.csv, and boxes ONLY from out/annotations.jsonl."""
     items: List[Dict[str, Any]] = [
-        {"key": "grasper", "box": [], "status": "", "corner": "tl"},
-        {"key": "l_hook", "box": [], "status": "", "corner": "tr"},
-        {"key": "gallbladder", "box": [], "status": "", "corner": "tl"},
-        {"key": "liver", "box": [], "status": "", "corner": "br"},
-        {"key": "cystic_duct", "box": [], "status": "", "corner": "bl"},
+        {"key": "grasper", "box": [], "tip": None, "status": "", "corner": "tl"},
+        {"key": "l_hook", "box": [], "tip": None, "status": "", "corner": "tr"},
+        {"key": "gallbladder", "box": [], "tip": None, "status": "", "corner": "tl"},
+        {"key": "liver", "box": [], "tip": None, "status": "", "corner": "br"},
+        {"key": "cystic_duct", "box": [], "tip": None, "status": "", "corner": "bl"},
     ]
     frame_img: Optional[Image.Image] = None
     idx_csv = DATA_DIR / "index.csv"
@@ -237,16 +237,17 @@ def _load_target_frame_and_boxes(out_dir: Path = OUT_DIR) -> Tuple[Image.Image, 
         for item in items:
             k = item["key"]
             if k in by_key:
-                st = by_key[k].get("status_round_0") or by_key[k].get("status") or ""
+                st = by_key[k].get("status") or by_key[k].get("status_round_0") or ""
                 item["status"] = str(st)
 
-    # Strictly read boxes ONLY from out/annotations.jsonl (or out/annotations_live.jsonl) model output
+    # Strictly read boxes & tips ONLY from out/annotations.jsonl (or out/annotations_live.jsonl) model output
     for ann_name in ("annotations.jsonl", "annotations_live.jsonl"):
         ann_path = out_dir / ann_name
         if not ann_path.is_file():
             continue
         try:
             by_label: Dict[str, List[int]] = {}
+            tips_by_label: Dict[str, List[int]] = {}
             for line in ann_path.read_text(encoding="utf-8").splitlines():
                 if not line.strip():
                     continue
@@ -257,9 +258,14 @@ def _load_target_frame_and_boxes(out_dir: Path = OUT_DIR) -> Tuple[Image.Image, 
                 raw_b = obj.get("box")
                 if isinstance(raw_b, list) and len(raw_b) == 4:
                     by_label[lbl] = [int(x) for x in raw_b]
+                raw_t = obj.get("tip")
+                if isinstance(raw_t, list) and len(raw_t) == 2:
+                    tips_by_label[lbl] = [int(x) for x in raw_t]
             for item in items:
                 if item["key"] in by_label:
                     item["box"] = by_label[item["key"]]
+                if item["key"] in tips_by_label:
+                    item["tip"] = tips_by_label[item["key"]]
             if by_label:
                 break
         except Exception:
@@ -278,8 +284,9 @@ def _draw_box_with_pill(
     pill_fill: Tuple[int, int, int],
     text_color: Tuple[int, int, int],
     corner: str = "tl",
+    tip_norm: Optional[Sequence[int]] = None,
 ) -> None:
-    """Draw a 2px bounding box and crisp 6px-radius label pill ONLY when box_norm has 4 model coordinates."""
+    """Draw a 2px bounding box, crisp 6px-radius label pill, and optional tip point ONLY from model coordinates."""
     if not box_norm or len(box_norm) != 4:
         return
     rx, ry = rect_origin
@@ -296,6 +303,12 @@ def _draw_box_with_pill(
     y2 = max(y1 + 16, min(ry + rh - 2, y2))
 
     draw.rounded_rectangle((x1, y1, x2, y2), radius=4, outline=stroke_color, width=2)
+
+    if tip_norm and len(tip_norm) == 2:
+        ty, tx = tip_norm
+        px_tip = max(rx + 4, min(rx + rw - 4, rx + int((tx / 1000.0) * rw)))
+        py_tip = max(ry + 4, min(ry + rh - 4, ry + int((ty / 1000.0) * rh)))
+        draw.ellipse((px_tip - 5, py_tip - 5, px_tip + 5, py_tip + 5), fill=stroke_color, outline=TEXT_PRIMARY, width=1)
 
     font_pill = load_sf_font(14, weight=500)
     tb = draw.textbbox((0, 0), label_text, font=font_pill)
@@ -577,6 +590,7 @@ def render_shot_03_labels(shot: ShotSpec, out_mp4: Path) -> Path:
                 pfill,
                 tcol,
                 corner=item["corner"],
+                tip_norm=item.get("tip"),
             )
 
             row_y = 194 + idx * 56 + dy
@@ -593,18 +607,30 @@ def render_shot_03_labels(shot: ShotSpec, out_mp4: Path) -> Path:
 
 
 def _load_amber_round_counts(out_dir: Path = OUT_DIR) -> List[Tuple[str, int]]:
-    """Read real per-round amber counts strictly from out/amber_rounds.jsonl (or drop if absent)."""
+    """Read real per-round held-out test amber counts strictly from out/amber_rounds.jsonl (or drop if absent)."""
     rounds_path = out_dir / "amber_rounds.jsonl"
     if not rounds_path.is_file() or rounds_path.stat().st_size == 0:
         return []
     try:
+        raw_objs = [
+            json.loads(line)
+            for line in rounds_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        # Prefer held-out CholecSeg8k test split (excl. uninformative liver) to match Shot 6 n=1400 test scope
+        test_objs = [
+            obj
+            for obj in raw_objs
+            if obj.get("split") == "test"
+            and str(obj.get("video", "")).startswith("video")
+            and obj.get("key") != "liver"
+        ]
+        target_objs = test_objs if test_objs else raw_objs
+
         seen_r1: Dict[str, str] = {}
         seen_r2: Dict[str, str] = {}
         seen_r3: Dict[str, str] = {}
-        for line in rounds_path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            obj = json.loads(line)
+        for obj in target_objs:
             lid = str(obj.get("label_id", ""))
             rd = int(obj.get("round", 0))
             verdict = str(obj.get("verdict", "")).upper()
@@ -685,6 +711,7 @@ def render_shot_04_verify(shot: ShotSpec, out_mp4: Path) -> Path:
                 cur_fill,
                 cur_text,
                 corner=item["corner"],
+                tip_norm=item.get("tip"),
             )
 
             row_y = 158 + idx * 42
@@ -707,7 +734,7 @@ def render_shot_04_verify(shot: ShotSpec, out_mp4: Path) -> Path:
             hdr_col = blend_with_bg(TEXT_MUTED, loop_u, BG_CARD)
             line_col = blend_with_bg(BORDER_HAIRLINE, loop_u, BG_CARD)
             draw.line((856, 376, 1144, 376), fill=line_col, width=1)
-            draw.text((856, 390), "AMBER RE-CHECK LOOP", font=f_meta, fill=hdr_col)
+            draw.text((856, 390), "AMBER RE-CHECK LOOP (TEST, n=1400)", font=f_meta, fill=hdr_col)
 
             round_times = (4.0, 4.6, 5.2, 5.8)
             for r_idx, ((r_label, r_count), rt0) in enumerate(zip(amber_rounds, round_times)):
@@ -789,6 +816,7 @@ def render_shot_05_gate(shot: ShotSpec, out_mp4: Path) -> Path:
             cur_fill,
             TEXT_PRIMARY,
             corner="br",
+            tip_norm=amber_item.get("tip"),
         )
 
         # Right inside: structure name, status badge, Approve / Reject, and Release dataset button
@@ -853,6 +881,7 @@ def load_real_result_card(out_dir: Path = OUT_DIR) -> Optional[Dict[str, str]]:
     acc: Optional[float] = None
     cov: Optional[float] = None
     n_labels = n_test
+    source_key = ""
 
     for key_name in ("accepted_5_informative", "accepted_excl_liver", "accepted"):
         block = data.get(key_name)
@@ -862,6 +891,7 @@ def load_real_result_card(out_dir: Path = OUT_DIR) -> Optional[Dict[str, str]]:
             if isinstance(a_val, (int, float)) and isinstance(c_val, (int, float)):
                 acc = float(a_val)
                 cov = float(c_val)
+                source_key = f"out/results.json:{key_name}.accuracy"
                 if isinstance(block.get("n_test_labels_excl_liver"), int):
                     n_labels = int(block["n_test_labels_excl_liver"])
                 break
@@ -869,12 +899,13 @@ def load_real_result_card(out_dir: Path = OUT_DIR) -> Optional[Dict[str, str]]:
     if acc is None or cov is None:
         return None
 
-    acc_str = f"{acc * 100.0:.1f}%"
-    cov_str = f"{cov * 100.0:.0f}%"
+    acc_str = f"{round(acc * 100.0 + 1e-9, 1):.1f}%"
+    cov_str = f"{round(cov * 100.0 + 1e-9, 1):.1f}%"
     return {
         "headline": f"{acc_str} accurate on the {cov_str} it accepted",
         "subtext": f"n = {n_labels} held-out labels, 6 unseen videos",
         "acc_pct": acc_str,
+        "source": source_key,
     }
 
 
@@ -1072,18 +1103,35 @@ def run_pipeline(
             continue
 
         hero_num: Optional[str] = None
+        hero_src: Optional[str] = None
+        shown_labels: Optional[List[Dict[str, str]]] = None
         if shot.index == 1:
             render_shot_01_raw_frame(shot, out_mp4)
         elif shot.index == 2:
             render_shot_02_manual(shot, out_mp4, out_dir=out_dir)
         elif shot.index == 3:
             render_shot_03_labels(shot, out_mp4)
+            _, items_3 = _load_target_frame_and_boxes(out_dir=out_dir)
+            shown_labels = [
+                {"frame_id": "video12_15750_15758", "key": it["key"], "status": it["status"]}
+                for it in items_3
+                if it.get("status")
+            ]
         elif shot.index == 4:
             render_shot_04_verify(shot, out_mp4)
+            _, items_4 = _load_target_frame_and_boxes(out_dir=out_dir)
+            shown_labels = [
+                {"frame_id": "video12_15750_15758", "key": it["key"], "status": it["status"]}
+                for it in items_4
+                if it.get("status")
+            ]
         elif shot.index == 5:
             render_shot_05_gate(shot, out_mp4)
         elif shot.index == 6:
             _, hero_num = render_shot_06_result(shot, out_mp4, out_dir=out_dir)
+            card_6 = load_real_result_card(out_dir=out_dir)
+            if card_6:
+                hero_src = card_6.get("source")
         elif shot.index == 7:
             render_shot_07_end(shot, out_mp4)
 
@@ -1094,6 +1142,8 @@ def run_pipeline(
             "caption": shot.caption,
             "word_count": shot.word_count,
             "hero_number": hero_num,
+            "hero_number_source": hero_src,
+            "shown_labels": shown_labels,
         }
         print(f"[promo] Rendered {shot.filename} ({meta.get('duration_sec', 0.0):.1f}s)", flush=True)
 
