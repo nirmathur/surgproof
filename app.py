@@ -1252,9 +1252,9 @@ def render_loop():
     acc = res.get("accepted", {}) if isinstance(res.get("accepted"), dict) else {}
     trk = res.get("tracker_recheck", {}) if isinstance(res.get("tracker_recheck"), dict) else {}
     rounds = [
-        {"round": "0 · raw VLM labels (Flash + manual)", "coverage": 1.0 if "manual_raw_acc" in res else None,
+        {"round": "0 · raw VLM labels (all 6 labels)", "coverage": 1.0 if "manual_raw_acc" in res else None,
          "accuracy_of_kept": res.get("manual_raw_acc"), "source": "results.json: manual_raw_acc"},
-        {"round": "1 · agent self-check (accept only)", "coverage": acc.get("coverage"),
+        {"round": "1 · after double-check + amber loop (accepted, all 6)", "coverage": acc.get("coverage"),
          "accuracy_of_kept": acc.get("accuracy"), "source": "results.json: accepted"},
         {"round": "2 · tracker-flagged recheck", "coverage": trk.get("coverage"),
          "accuracy_of_kept": trk.get("accuracy"), "source": "results.json: tracker_recheck"},
@@ -1264,6 +1264,30 @@ def render_loop():
         c.metric(r["round"], _pct(r["accuracy_of_kept"]), f"coverage {_pct(r['coverage'])}" if r["coverage"] is not None else None)
     if not res:
         st.warning("**[PLACEHOLDER — Awaiting `out/results.json`]** Round metrics show `PENDING`; no numbers are invented.")
+    else:
+        n_lab = res.get("n_test_labels")
+        a5 = res.get("accepted_5_informative") or {}
+        st.caption(
+            f"Rounds 0–1 score all 6 labels incl. liver on n = {n_lab if n_lab is not None else '?'} held-out test labels. "
+            + (f"Headline (5 informative labels, liver excluded): {_pct(a5.get('accuracy'))} accurate on the "
+               f"{_pct(a5.get('coverage'))} accepted (n = {a5.get('n_test_labels_excl_liver', '?')})." if a5 else "")
+        )
+        if isinstance(n_lab, int) and n_lab < 1000:
+            st.warning(f"**Interim smoke run:** only {n_lab} test labels scored. The full verifier run replaces these numbers automatically.")
+    amber = res.get("amber_loop") if isinstance(res.get("amber_loop"), dict) else None
+    if amber and amber.get("ambers_by_round_test"):
+        st.subheader("Argon amber loop: AMBERs left after each round (test split)")
+        per = amber.get("per_round_test") or []
+        ac = st.columns(len(amber["ambers_by_round_test"]))
+        for i_r, n_amb in enumerate(amber["ambers_by_round_test"]):
+            pr = per[i_r] if i_r < len(per) and isinstance(per[i_r], dict) else {}
+            ac[i_r].metric(
+                "initial double-check" if i_r == 0 else f"after Argon round {i_r}",
+                f"{n_amb} AMBER",
+                f"{pr.get('accepted_count', '?')} accepted · {pr.get('rejected_count', '?')} rejected" if pr else None,
+                delta_color="off",
+            )
+        st.caption(f"Up to {amber.get('max_rounds', '?')} Argon rounds; what is still AMBER goes to the human final pass. Source: results.json `amber_loop`.")
     pts = pd.DataFrame([r for r in rounds if r["coverage"] is not None and r["accuracy_of_kept"] is not None])
     if len(pts) >= 2:
         st.subheader("Accuracy of kept labels vs coverage, per round")
@@ -1365,6 +1389,69 @@ def render_loop():
         tc.caption(f"Recheck queue: {len(queue)} items total ({int(queue['is_control'].sum())} random controls).")
 
 
+NARRATOR_OUT = C.ROOT / "narrator" / "out"
+NARRATOR_LAYERS = ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "P"]
+
+
+def narrator_claim_status(row) -> str:
+    """narrator verdict -> UI tag. speak = verified; drop with a failed check layer = contradicted; else unsupported."""
+    v = str(getattr(row, "verdict", "")).lower()
+    if v == "speak":
+        return "verified"
+    if v == "drop" and any(str(getattr(row, l, "")) == "fail" for l in NARRATOR_LAYERS):
+        return "contradicted"
+    return "unsupported"
+
+
+def _json_list(v) -> list:
+    if isinstance(v, (list, tuple, np.ndarray)):
+        return list(v)
+    try:
+        out = json.loads(v) if isinstance(v, str) and v else []
+        return out if isinstance(out, list) else []
+    except Exception:
+        return []
+
+
+def render_narrator_claims() -> bool:
+    """Render narrator/out/claims.parquet (coordination/contracts/narrator_outputs.md). Returns False if absent."""
+    claims = load_parquet_fresh(NARRATOR_OUT / "claims.parquet")
+    if claims is None or claims.empty:
+        return False
+    if "source" in claims.columns and set(claims["source"].unique()) <= {"mock"}:
+        st.info("Narrator output exists but is built on **mock** labels (ground truth + noise). It is hidden until it runs on Gemini labels.")
+        return True
+    claims = claims[claims["source"] != "mock"] if "source" in claims.columns else claims
+    c1, c2 = st.columns([1, 1])
+    modes = sorted(claims["mode"].dropna().unique()) if "mode" in claims.columns else []
+    mode = c1.radio("Narration mode", modes, index=modes.index("grounded") if "grounded" in modes else 0,
+                    horizontal=True, key="narr_mode") if modes else None
+    cl = claims[claims["mode"] == mode] if mode else claims
+    clip = c2.selectbox("Clip", sorted(cl["clip_id"].unique()), key="narr_clip")
+    cl = cl[cl["clip_id"] == clip].sort_values(["t_start", "claim_id"]).copy()
+    cl["status"] = [narrator_claim_status(r) for r in cl.itertuples()]
+    if (cl["source"] == "injected").any() if "source" in cl.columns else False:
+        st.caption("Includes `injected` claims: deliberately wrong claims used to test the checker.")
+    k1, k2, k3 = st.columns(3)
+    for col, status in zip((k1, k2, k3), CLAIM_COL):
+        col.metric(f"{status} claims", int((cl["status"] == status).sum()))
+    st.markdown("**Final narration (verified claims only)**")
+    final = cl[cl["status"] == "verified"]["text"].tolist()
+    st.success(" ".join(final) if final else "No verified claims for this clip.")
+    ev_index = load_json(NARRATOR_OUT / "evidence" / "index.json", {}) or {}
+    with st.expander("All claims with evidence frames", expanded=True):
+        for r in cl.head(60).itertuples():
+            a, b = st.columns([3, 2])
+            failed = [l for l in NARRATOR_LAYERS if str(getattr(r, l, "")) == "fail"]
+            meta = f"`{r.claim_id}` · frames {r.t_start}–{r.t_end} · verdict `{r.verdict}`" + (f" · failed {', '.join(failed)}" if failed else "")
+            a.markdown(claims_html([{"text": r.text, "status": r.status}]) + f"<br><small>{meta}</small>", unsafe_allow_html=True)
+            ev = [C.ROOT / e["path"] for e in ev_index.get(r.claim_id, [])[:3] if isinstance(e, dict) and e.get("path")]
+            ev = [x for x in ev if x.is_file()] or [x for x in [cholec_frame_path(r.video_id, r.clip_id, r.t_start)] if x.is_file()]
+            if ev:
+                b.image([str(x) for x in ev], width=160)
+    return True
+
+
 def render_narration():
     st.subheader("Grounded narration: every claim tagged")
     st.markdown(
@@ -1374,9 +1461,11 @@ def render_narration():
         ),
         unsafe_allow_html=True,
     )
+    if render_narrator_claims():
+        return
     files = sorted(O.glob("narration_*.json")) + sorted((COORD_ARTIFACTS).glob("narration_*.json"))
     if not files:
-        st.info("**[PLACEHOLDER — Awaiting `out/narration_<video>.json` from `narrate.py`]**")
+        st.info("**[PLACEHOLDER — Awaiting `narrator/out/claims.parquet` (narrator lane) or `out/narration_<video>.json` (narrate.py)]**")
         return
     pick = st.selectbox("Narration file", files, format_func=lambda p: p.name, key="narr_file")
     raw_narr = load_json(pick, []) or []

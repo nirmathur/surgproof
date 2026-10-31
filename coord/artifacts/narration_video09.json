@@ -1,0 +1,481 @@
+{
+  "video": "video09",
+  "sentences": [
+    {
+      "frame_id": "video09_00832_832",
+      "narration": "The liver is visible within the subhepatic space, providing anatomical orientation. We are not yet confident in definitively identifying the gallbladder amid the surrounding tissue and fat.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_832",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_832",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_832",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_832",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_832",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver is visible within the subhepatic space, providing anatomical orientation. We are not yet confident in definitively identifying the gallbladder amid the surrounding tissue and fat.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_832"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00832_832"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00832_840",
+      "narration": "The liver remains clearly exposed within the upper abdomen during initial inspection. We are not yet confident in confirming the position of the gallbladder amid the surrounding fatty attachments.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_840",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_840",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_840",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_840",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_840",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_840",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver remains clearly exposed within the upper abdomen during initial inspection. We are not yet confident in confirming the position of the gallbladder amid the surrounding fatty attachments.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_840"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00832_848",
+      "narration": "The liver is prominently visualized with its smooth capsular surface arching across the upper abdomen. Careful diagnostic inspection of the peritoneal cavity continues as exposure is established.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_848",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_848",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_848",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_848",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_848",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_848",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver is prominently visualized with its smooth capsular surface arching across the upper abdomen. Careful diagnostic inspection of the peritoneal cavity continues as exposure is established.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_848"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00832_856",
+      "narration": "The liver remains clearly visible as laparoscopic visualization and orientation within the peritoneal cavity continue. No surgical instruments or bleeding are present in the operative field.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_856",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_856",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_856",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_856",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_856",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_856",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver remains clearly visible as laparoscopic visualization and orientation within the peritoneal cavity continue. No surgical instruments or bleeding are present in the operative field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_856"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00832_864",
+      "narration": "The liver parenchyma remains clearly visible as anatomical orientation is maintained within the peritoneal cavity. No surgical instruments or extravasated blood are observed in the operative view.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_864",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_864",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_864",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_864",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_864",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_864",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma remains clearly visible as anatomical orientation is maintained within the peritoneal cavity. No surgical instruments or extravasated blood are observed in the operative view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_864"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00832_872",
+      "narration": "The liver parenchyma remains clearly visualized across the operative field without evidence of bleeding or active instrument engagement. We are not yet confident in definitively delineating the gallbladder margins at this stage.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_872",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_872",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_872",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_872",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_872",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma remains clearly visualized across the operative field without evidence of bleeding or active instrument engagement. We are not yet confident in definitively delineating the gallbladder margins at this stage.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_872"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00832_872"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00832_880",
+      "narration": "The liver is clearly visible across the central upper field with intact, glistening hepatic parenchyma. The operative area remains free of active bleeding and without instrument intervention.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_880",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_880",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_880",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_880",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_880",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_880",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver is clearly visible across the central upper field with intact, glistening hepatic parenchyma. The operative area remains free of active bleeding and without instrument intervention.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_880"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00832_888",
+      "narration": "The liver parenchyma is visible across the central field under laparoscopic visualization. While adjacent tissue is in view, we are not yet confident in confirming the gallbladder without clearer identification.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_888",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_888",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_888",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_888",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_888",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma is visible across the central field under laparoscopic visualization. While adjacent tissue is in view, we are not yet confident in confirming the gallbladder without clearer identification.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_888"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00832_888"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00832_896",
+      "narration": "The hepatic parenchyma remains clearly visualized as the surgical field and surrounding peritoneal attachments are surveyed. At this stage, we are not yet confident in identifying the gallbladder until proper exposure is achieved.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_896",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_896",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_896",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_896",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_896",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_896",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The hepatic parenchyma remains clearly visualized as the surgical field and surrounding peritoneal attachments are surveyed. At this stage, we are not yet confident in identifying the gallbladder until proper exposure is achieved.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_896"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00832_904",
+      "narration": "The liver is clearly visualized as the peritoneal cavity and surrounding tissues are surveyed during initial exploration. No laparoscopic instruments or target biliary structures have been engaged in the field yet.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00832_904",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_904",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_904",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00832_904",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_904",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00832_904",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver is clearly visualized as the peritoneal cavity and surrounding tissues are surveyed during initial exploration. No laparoscopic instruments or target biliary structures have been engaged in the field yet.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00832_904"
+          ]
+        }
+      ]
+    }
+  ]
+}

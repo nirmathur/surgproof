@@ -78,6 +78,7 @@ def test_pydantic_schemas_and_validate_manual():
     )
     assert len(vl.rules) == 1
     assert len(vl.moments) == 1
+    assert '"additionalProperties":' not in json.dumps(med_school._ManualResponseSchema.model_json_schema())
 
 
 def test_build_manual_mocked(monkeypatch):

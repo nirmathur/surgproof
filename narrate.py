@@ -83,7 +83,10 @@ async def main(video: str, limit: int = 0):
     lines, prev = [], ""
     for f in frames:
         rows = dec[dec["frame_id"] == f]
-        verified = {r.key: bool(r.final_present) for r in rows.itertuples() if r.status == "accept"}
+        acc_rows = [r for r in rows.itertuples() if r.status == "accept"]
+        if not acc_rows:
+            continue
+        verified = {r.key: bool(r.final_present) for r in acc_rows}
         unsure = [r.key for r in rows.itertuples() if r.status != "accept"]
         img_path = _resolve_image_path(f, rows, idx)
         images = [gem.img_part(img_path)] if img_path is not None else []
@@ -95,30 +98,43 @@ async def main(video: str, limit: int = 0):
             f"safety (e.g. critical view of safety). Previous line: {prev!r}\nManual: {json.dumps(manual)}",
             images=images, schema=Line, temperature=0.3, tag="narrate")
         prev = out["narration"]
-        evidence_list = [
+        evidence = [
             {"frame_id": str(f), "key": str(r.key), "present": bool(r.final_present)}
-            for r in rows.itertuples()
-            if r.status == "accept"
+            for r in acc_rows
         ]
-        unsure_list = out.get("unsure_about", unsure)
-        claims_list = [
-            {"text": out["narration"], "status": "verified", "evidence_frames": [str(f)]}
+        claims = [
+            {
+                "text": out["narration"],
+                "status": "verified",
+                "evidence_frames": [str(f)],
+            }
         ]
-        for u in unsure_list:
-            claims_list.append({"text": f"{u} (withheld: not verified)", "status": "unsupported", "evidence_frames": []})
+        for r in rows.itertuples():
+            if r.status != "accept":
+                st_str = str(r.status).strip().lower()
+                c_status = "contradicted" if st_str in ("reject", "escalate") else "unsupported"
+                claims.append({
+                    "text": f"{r.key} ({'rejected' if c_status == 'contradicted' else 'AMBER / unverified'} — withheld from narration)",
+                    "status": c_status,
+                    "evidence_frames": [str(f)],
+                })
         rec = {
-            "frame_id": f,
+            "frame_id": str(f),
             "narration": out["narration"],
-            "unsure_about": unsure_list,
-            "evidence": evidence_list,
-            "claims": claims_list,
+            "unsure_about": out.get("unsure_about", unsure),
+            "evidence": evidence,
+            "claims": claims,
         }
         lines.append(rec)
         gem.trace("flash", f"Narrated {f}: {prev[:120]}")
         print(f, "-", prev)
 
     out_path = C.OUT_DIR / f"narration_{video}.json"
-    out_path.write_text(json.dumps({"video": video, "sentences": lines}, indent=2))
+    payload = {"video": video, "sentences": lines}
+    out_path.write_text(json.dumps(payload, indent=2))
+    coord_dir = C.ROOT / "coord" / "artifacts"
+    if C.OUT_DIR.resolve() == (C.ROOT / "out").resolve() and coord_dir.is_dir():
+        (coord_dir / f"narration_{video}.json").write_text(json.dumps(payload, indent=2))
     return lines
 
 
