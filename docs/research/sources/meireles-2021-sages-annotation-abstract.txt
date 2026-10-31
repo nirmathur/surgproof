@@ -1,0 +1,10 @@
+SOURCE_URL: https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=EXT_ID:34231065&format=json&resultType=core
+PUBMED_URL: https://pubmed.ncbi.nlm.nih.gov/34231065/
+DOI: 10.1007/s00464-021-08578-9
+TITLE: SAGES consensus recommendations on an annotation framework for surgical video.
+AUTHORS: Meireles OR, Rosman G, Altieri MS, Carin L, Hager G, Madani A, Padoy N, Pugh CM, Sylla P, Ward TM, Hashimoto DA, SAGES Video Annotation for AI Working Groups.
+JOURNAL: Surgical endoscopy (2021), Vol 35, Pages 4918-4929
+NOTE: Official abstract fetched verbatim from Europe PMC / PubMed.
+
+ABSTRACT:
+<h4>Background</h4>The growing interest in analysis of surgical video through machine learning has led to increased research efforts; however, common methods of annotating video data are lacking. There is a need to establish recommendations on the annotation of surgical video data to enable assessment of algorithms and multi-institutional collaboration.<h4>Methods</h4>Four working groups were formed from a pool of participants that included clinicians, engineers, and data scientists. The working groups were focused on four themes: (1) temporal models, (2) actions and tasks, (3) tissue characteristics and general anatomy, and (4) software and data structure. A modified Delphi process was utilized to create a consensus survey based on suggested recommendations from each of the working groups.<h4>Results</h4>After three Delphi rounds, consensus was reached on recommendations for annotation within each of these domains. A hierarchy for annotation of temporal events in surgery was established.<h4>Conclusions</h4>While additional work remains to achieve accepted standards for video annotation in surgery, the consensus recommendations on a general framework for annotation presented here lay the foundation for standardization. This type of framework is critical to enabling diverse datasets, performance benchmarks, and collaboration.
