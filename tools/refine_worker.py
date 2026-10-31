@@ -11,15 +11,62 @@ usage: python3 tools/refine_worker.py --video video55 --rounds 2 [--workers 8]
 reads:  out/polygons/<video>.jsonl (round-0 masks from polygon_worker.py)
 writes: out/polygons/refine_<video>.jsonl, out/masks_r<k>/<frame>_<label>.png
 """
-import argparse, concurrent.futures as cf, io, json, os, threading
+import argparse, concurrent.futures as cf, io, json, os, re, threading
 import numpy as np
 from PIL import Image, ImageDraw
+from scipy.ndimage import distance_transform_edt
 
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from polygon_worker import NAMES, R, call, iou, poly_mask  # same API + model as round 0
 
 lock = threading.Lock()
+
+
+def sdf_fuse_masks(m1: np.ndarray, m2: np.ndarray, w1: float = 0.54) -> np.ndarray:
+    """Fuse two binary masks via Signed Distance Field zero-level-set consensus (avoids m1 & m2 erosion)."""
+    b1 = m1.astype(bool)
+    b2 = m2.astype(bool)
+    if not b1.any():
+        return b2
+    if not b2.any():
+        return b1
+    sdf1 = distance_transform_edt(b1) - distance_transform_edt(~b1)
+    sdf2 = distance_transform_edt(b2) - distance_transform_edt(~b2)
+    return (w1 * sdf1 + (1.0 - w1) * sdf2) >= 0.0
+
+
+def _safe_parse_polygon(raw: str) -> list:
+    """Parse polygon list from Gemini JSON response, resilient to trailing text or code fences."""
+    if not raw:
+        return []
+    txt = raw.strip()
+    if txt.startswith("```"):
+        txt = re.sub(r"^```(?:json)?\s*|\s*```$", "", txt, flags=re.DOTALL).strip()
+    try:
+        obj = json.loads(txt)
+        if isinstance(obj, dict):
+            return obj.get("polygon", []) or []
+    except Exception:
+        pass
+    pairs = re.findall(r"\[\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\]", txt)
+    return [[float(y), float(x)] for y, x in pairs]
+
+
+def _load_mask_2d(path: str, size: tuple[int, int]) -> np.ndarray:
+    """Load a 2D boolean mask from grayscale or RGBA PNG."""
+    W, H = size
+    if not path or not os.path.isfile(path):
+        return np.zeros((H, W), dtype=bool)
+    im = Image.open(path)
+    if im.size != (W, H):
+        im = im.resize((W, H), Image.Resampling.NEAREST)
+    arr = np.array(im)
+    if arr.ndim == 3 and arr.shape[2] == 4:
+        return arr[..., 3] > 0
+    if arr.ndim == 3:
+        return arr.max(axis=2) > 0
+    return arr > 0
 
 
 def overlay_crop(im, poly_px, pad=60):
@@ -49,14 +96,16 @@ def correct(crop_overlay, label, phrasing):
                   f'{{"polygon":[[y,x],...]}}: 12-40 ordered points, [y,x] normalised 0-1000 to this image.')
         w = 896
     raw = call(jpeg(crop_overlay, w), prompt)
-    return json.loads(raw).get("polygon", []), raw
+    return _safe_parse_polygon(raw), raw
 
 
 def job(rec, rounds, video):
     fp = rec["frame_path"]; label = rec["label"]; fr = rec["frame_id"]
     im = Image.open(fp).convert("RGB")
     poly = [tuple(p) for p in rec["polygon_px"]]
-    cur_mask = np.array(Image.open(rec["mask_path"])) > 0
+    cur_mask = _load_mask_2d(rec.get("mask_path", ""), im.size)
+    if not cur_mask.any() and len(poly) > 2:
+        cur_mask, _ = poly_mask([[p[1] * 1000.0 / im.size[1], p[0] * 1000.0 / im.size[0]] for p in poly], (0, 0, im.size[0], im.size[1]), im.size)
     hist = []
     for r in range(1, rounds + 1):
         crop_ov, _, box = overlay_crop(im, poly)
@@ -69,7 +118,7 @@ def job(rec, rounds, video):
         with lock, open(f"{R}/out/polygons/refine_raw_{video}.jsonl", "a") as f:
             f.write(json.dumps({"frame_id": fr, "label": label, "round": r, "box": box, "raw1": raw1, "raw2": raw2}) + "\n")
         if agree >= 0.6 and m1.sum() > 0:
-            cur_mask, poly, st = m1, px1, "corrected"
+            cur_mask, poly, st = sdf_fuse_masks(m1, m2), px1, "corrected"
         else:
             st = "held"
         hist.append({"round": r, "status": st, "agree_iou": round(agree, 4), "iou_vs_previous": round(moved, 4)})
@@ -90,9 +139,21 @@ def main():
     ap.add_argument("--workers", type=int, default=8); a = ap.parse_args()
     import csv
     paths = {r["frame_id"]: r["frame_path"] for r in csv.DictReader(open(f"{R}/out/decisions.csv"))}
+    done = set()
+    ref_file = f"{R}/out/polygons/refine_{a.video}.jsonl"
+    if os.path.exists(ref_file):
+        for l in open(ref_file):
+            if l.strip():
+                try:
+                    j = json.loads(l)
+                    done.add((j["frame_id"], j["label"]))
+                except Exception:
+                    pass
     recs = []
     for l in open(f"{R}/out/polygons/{a.video}.jsonl"):
         j = json.loads(l)
+        if (j.get("frame_id"), j.get("label")) in done:
+            continue
         if j.get("status") == "accept" and j.get("polygon_px") and len(j["polygon_px"]) > 2:
             fp = paths.get(j["frame_id"]); fp = fp if fp and os.path.isabs(fp) else os.path.join(R, fp or "")
             recs.append({**j, "frame_path": fp})
