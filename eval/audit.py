@@ -205,6 +205,8 @@ def audit_gt_separation_in_label_files(out_dir: Path, coord_dir: Path) -> dict:
         list(out_dir.glob("labels_*.jsonl"))
         + list(coord_dir.glob("labels_*.jsonl"))
         + list(out_dir.glob("amber_rounds*.jsonl"))
+        + list(out_dir.glob("annotations*.jsonl"))
+        + list(out_dir.glob("localize_rounds*.jsonl"))
     )
     for p in sorted(set(candidates)):
         if not p.exists() or p.stat().st_size == 0:
@@ -801,6 +803,25 @@ def format_markdown_report(res: dict) -> str:
                         for k, v in raw_ev.get("per_label", {}).items()
                     )
                     lines.append(f"    - Per-label: {per_l}")
+            ver_ev = ds_info.get("verifier_eval", {})
+            vh5 = ver_ev.get("headline_5_labels", {})
+            if vh5 and vh5.get("accepted_acc"):
+                aa = vh5["accepted_acc"]
+                ac = vh5["accepted_coverage"]
+                ad = vh5.get("accepted_minus_raw_acc_delta")
+                ar = ver_ev.get("amber_loop_by_round", [])
+                ar_str = (
+                    " -> ".join(f"R{r['round']}:{r['ambers_remaining']}" for r in ar)
+                    if ar
+                    else "n/a"
+                )
+                lines.append(
+                    f"  - **3-Round Argon Verifier (`decisions_{ds_name}.csv`)**: "
+                    f"accepted_acc = `{aa['point']:.4f}` (95% video CI `{aa['ci95']}`), "
+                    f"coverage = `{ac['point']:.4f}` (`{ac['ci95']}`), "
+                    f"delta vs raw = `{ad['point']:+.4f}` (`{ad['ci95']}`), "
+                    f"Amber loop shrinkage = `[{ar_str}]`"
+                )
     else:
         lines.append("- *No external datasets found.*")
 
