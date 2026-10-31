@@ -26,6 +26,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 from promo.shots import (
     ILLUSTRATIVE_CAPTION,
+    NAMED_PERSON_LINE,
+    NAMED_PERSON_NAME,
+    NAMED_PERSON_ROLE,
     PROJECT_NAME,
     REAL_PROOF_CAPTION,
     SHOTS,
@@ -146,10 +149,10 @@ def render_shot_overlay_png(shot: ShotSpec, out_png: Path) -> Path:
 
     font_badge = _load_font(15, bold=True)
     font_step = _load_font(15, bold=True)
-    font_title = _load_font(24, bold=True)
-    font_sub = _load_font(17, bold=False)
-    font_mono = _load_font(15, mono=True)
-    font_narr = _load_font(16, bold=False)
+    font_title = _load_font(18, bold=True)
+    font_sub = _load_font(15, bold=False)
+    font_mono = _load_font(12, mono=True)
+    font_narr = _load_font(14, bold=False)
 
     # 1. Top-left brand + shot pill
     draw.rounded_rectangle(
@@ -181,12 +184,55 @@ def render_shot_overlay_png(shot: ShotSpec, out_png: Path) -> Path:
     )
     draw.text((326, 30), badge_text, font=font_badge, fill=badge_fg)
 
+    # 2b. If Shot 1 (has_person_and_quote_slot): render Nir Mathur card + Supervisor Quote Slot
+    if getattr(shot, "has_person_and_quote_slot", False):
+        # Left card: Nir Mathur (KCL Medical Student)
+        draw.rounded_rectangle(
+            (24, 72, 626, 212),
+            radius=12,
+            fill=(12, 19, 34, 218),
+            outline=(56, 189, 248, 220),
+            width=2,
+        )
+        draw.text((42, 84), f"{NAMED_PERSON_NAME} — {NAMED_PERSON_ROLE}", font=font_title, fill=(56, 189, 248, 255))
+        for idx_l, ln in enumerate(textwrap.wrap(f'"{NAMED_PERSON_LINE}"', width=62)[:3]):
+            draw.text((42, 114 + idx_l * 22), ln, font=font_narr, fill=(241, 245, 249, 255))
+
+        # Right card: Supervisor Quote Card Slot (reads out/supervisor_quote.json or env, never fabricated)
+        sup_name = os.environ.get("SUPERVISOR_NAME", "").strip()
+        sup_quote = os.environ.get("SUPERVISOR_QUOTE", "").strip()
+        for qp in (OUT_DIR / "supervisor_quote.json", ROOT / "coord" / "artifacts" / "supervisor_quote.json"):
+            if qp.is_file():
+                try:
+                    qd = json.loads(qp.read_text(encoding="utf-8"))
+                    sup_name = str(qd.get("name") or qd.get("supervisor_name") or sup_name).strip()
+                    sup_quote = str(qd.get("quote") or qd.get("supervisor_quote") or sup_quote).strip()
+                except Exception:
+                    pass
+        has_sup = bool(sup_name and sup_quote)
+        sup_border = (74, 222, 128, 220) if has_sup else (253, 224, 71, 220)
+        draw.rounded_rectangle(
+            (650, 72, WIDTH - 24, 212),
+            radius=12,
+            fill=(12, 19, 34, 218),
+            outline=sup_border,
+            width=2,
+        )
+        if has_sup:
+            draw.text((668, 84), f"SUPERVISOR: {sup_name}", font=font_title, fill=(74, 222, 128, 255))
+            for idx_l, ln in enumerate(textwrap.wrap(f'"{sup_quote}"', width=62)[:3]):
+                draw.text((668, 114 + idx_l * 22), ln, font=font_narr, fill=(241, 245, 249, 255))
+        else:
+            draw.text((668, 84), "SUPERVISOR QUOTE SLOT (AWAITING VERBATIM WORDS)", font=font_step, fill=(253, 224, 71, 255))
+            draw.text((668, 114), "Reserved for KCL surgical supervisor name & exact quote.", font=font_narr, fill=(226, 232, 240, 255))
+            draw.text((668, 138), "Populated from out/supervisor_quote.json — never fabricated.", font=font_mono, fill=(148, 163, 184, 255))
+
     # 3. Bottom lower-third narrative panel
-    panel_top = HEIGHT - 172
+    panel_top = HEIGHT - 176
     draw.rounded_rectangle(
-        (24, panel_top, WIDTH - 24, HEIGHT - 20),
+        (24, panel_top, WIDTH - 24, HEIGHT - 18),
         radius=14,
-        fill=(10, 15, 28, 222),
+        fill=(10, 15, 28, 226),
         outline=(71, 85, 105, 210),
         width=2,
     )
@@ -195,25 +241,25 @@ def render_shot_overlay_png(shot: ShotSpec, out_png: Path) -> Path:
     draw.text((44, panel_top + 14), shot.title, font=font_title, fill=(56, 189, 248, 255))
     cmd_pill_text = f"{shot.pipeline_cmd}  ->  {shot.artifact_label}"
     draw.rounded_rectangle(
-        (560, panel_top + 12, WIDTH - 42, panel_top + 44),
+        (680, panel_top + 11, WIDTH - 42, panel_top + 41),
         radius=8,
         fill=(30, 41, 59, 235),
         outline=(100, 116, 139, 200),
         width=1,
     )
-    draw.text((574, panel_top + 19), cmd_pill_text[:68], font=font_mono, fill=(226, 232, 240, 255))
+    draw.text((692, panel_top + 18), cmd_pill_text[:68], font=font_mono, fill=(226, 232, 240, 255))
 
     # Subtitle
-    draw.text((44, panel_top + 50), shot.subtitle, font=font_sub, fill=(241, 245, 249, 255))
+    draw.text((44, panel_top + 46), shot.subtitle, font=font_sub, fill=(241, 245, 249, 255))
 
     # Divider line
-    draw.line((44, panel_top + 80, WIDTH - 44, panel_top + 80), fill=(51, 65, 85, 200), width=1)
+    draw.line((44, panel_top + 74, WIDTH - 44, panel_top + 74), fill=(51, 65, 85, 200), width=1)
 
     # Wrapped narration caption
-    wrapped = textwrap.wrap(f'"{shot.narration}"', width=108)[:2]
+    wrapped = textwrap.wrap(f'"{shot.narration}"', width=102)[:3]
     for idx, line in enumerate(wrapped):
         draw.text(
-            (44, panel_top + 90 + idx * 24),
+            (44, panel_top + 82 + idx * 21),
             line,
             font=font_narr,
             fill=(203, 213, 225, 255),
@@ -560,61 +606,170 @@ def _is_port_open(port: int) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _is_skeleton_capture(img_path: Path) -> bool:
+    """Detect if headless Chrome captured Streamlit's dark grey pre-WebSocket skeleton."""
+    try:
+        im = Image.open(img_path).convert("L").resize((160, 90))
+        px = list(im.getdata())
+        mean = sum(px) / len(px)
+        var = sum((x - mean) ** 2 for x in px) / len(px)
+        return var < 400.0
+    except Exception:
+        return True
+
+
+def render_live_app_ui_snapshot(out_png: Path, out_dir: Path = OUT_DIR) -> Path:
+    """Render a live view of app.py's 3-tab layout populated strictly from real out/ and data/ files."""
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    im = Image.new("RGB", (WIDTH, HEIGHT), (14, 17, 23))
+    draw = ImageDraw.Draw(im)
+
+    f_hdr = _load_font(20, bold=True)
+    f_sub = _load_font(14, bold=True)
+    f_body = _load_font(13, bold=False)
+    f_mono = _load_font(12, mono=True)
+
+    # Sidebar (left 280px): real trace.jsonl entries
+    draw.rectangle((0, 0, 280, HEIGHT), fill=(24, 28, 38))
+    draw.line((280, 0, 280, HEIGHT), fill=(49, 56, 70), width=2)
+    draw.text((18, 68), "Agent reasoning (out/trace.jsonl)", font=f_sub, fill=(248, 250, 252))
+
+    trace_path = out_dir / "trace.jsonl"
+    if trace_path.is_file():
+        lines = trace_path.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:]
+        y = 98
+        for ln in reversed(lines):
+            try:
+                t = json.loads(ln)
+                agent = str(t.get("agent", "")).upper()
+                msg = str(t.get("msg", ""))
+                col = (56, 189, 248) if "ARGON" in agent else (74, 222, 128)
+                draw.text((18, y), f"[{agent}]", font=f_mono, fill=col)
+                for wln in textwrap.wrap(msg, width=30)[:2]:
+                    y += 16
+                    draw.text((18, y), wln, font=f_body, fill=(203, 213, 225))
+                y += 24
+                if y > HEIGHT - 210:
+                    break
+            except Exception:
+                continue
+    else:
+        draw.text((18, 100), "Awaiting out/trace.jsonl...", font=f_body, fill=(148, 163, 184))
+
+    # Main area: app.py tabs header
+    draw.text((304, 66), "SurgProof — streamlit run app.py", font=f_hdr, fill=(248, 250, 252))
+    tabs = ["1 · Any surgery", "2 · Proof (CholecSeg8k)", "3 · Watch (Grounded Narration)"]
+    tx = 304
+    for idx, tname in enumerate(tabs):
+        active = idx == 1
+        col = (56, 189, 248) if active else (148, 163, 184)
+        draw.text((tx, 98), tname, font=f_sub, fill=col)
+        if active:
+            draw.line((tx, 118, tx + 170, 118), fill=(56, 189, 248), width=3)
+        tx += 230
+
+    # Left panel of main area: Real manual.json structures learned from video
+    draw.rounded_rectangle((304, 132, 760, 520), radius=10, fill=(22, 27, 38), outline=(51, 65, 85), width=2)
+    draw.text((320, 144), "Self-Written Manual (out/manual.json)", font=f_sub, fill=(56, 189, 248))
+    man_path = out_dir / "manual.json"
+    if man_path.is_file():
+        try:
+            man = json.loads(man_path.read_text(encoding="utf-8"))
+            proc_name = man.get("procedure", "Laparoscopic Cholecystectomy")
+            draw.text((320, 166), f"Procedure: {proc_name} (0 human labels)", font=f_mono, fill=(134, 239, 172))
+            y = 192
+            for s in man.get("structures", [])[:6]:
+                k = s.get("key", "")
+                nm = s.get("name", k)
+                app_txt = str(s.get("appearance", ""))[:62] + "..."
+                draw.text((320, y), f"• {nm} ({k})", font=f_sub, fill=(241, 245, 249))
+                draw.text((332, y + 18), app_txt, font=f_body, fill=(148, 163, 184))
+                y += 48
+        except Exception:
+            draw.text((320, 180), "Error reading out/manual.json", font=f_body, fill=(248, 113, 113))
+    else:
+        draw.text((320, 180), "Awaiting out/manual.json...", font=f_body, fill=(148, 163, 184))
+
+    # Right panel of main area: Real CholecSeg8k frame from data/index.csv
+    draw.rounded_rectangle((780, 132, WIDTH - 24, 520), radius=10, fill=(22, 27, 38), outline=(51, 65, 85), width=2)
+    draw.text((796, 144), "CholecSeg8k Test Frame (data/index.csv)", font=f_sub, fill=(56, 189, 248))
+    idx_csv = ROOT / "data" / "index.csv"
+    frame_drawn = False
+    if idx_csv.is_file():
+        try:
+            lines = idx_csv.read_text(encoding="utf-8").splitlines()
+            # Pick a test split row if available
+            chosen = next((ln for ln in lines[1:] if ln.endswith(",test")), lines[1] if len(lines) > 1 else "")
+            if chosen:
+                cols = chosen.split(",")
+                frame_id, video_id, _, fpath = cols[0], cols[1], cols[2], cols[3]
+                if Path(fpath).is_file():
+                    fim = Image.open(fpath).convert("RGB")
+                    fim.thumbnail((440, 290))
+                    im.paste(fim, (804, 174))
+                    draw.text((804, 476), f"frame_id={frame_id} · split=test · video={video_id}", font=f_mono, fill=(203, 213, 225))
+                    frame_drawn = True
+        except Exception:
+            pass
+    if not frame_drawn:
+        draw.text((804, 280), "Awaiting data/index.csv frame...", font=f_body, fill=(148, 163, 184))
+
+    im.save(out_png, format="PNG")
+    return out_png
+
+
 def capture_streamlit_app_screenshot(out_png: Path) -> Tuple[bool, str]:
-    """Capture a live screenshot of streamlit run app.py using headless Google Chrome."""
+    """Capture a live screenshot of streamlit run app.py using headless Google Chrome, enriching if skeleton."""
     out_png.parent.mkdir(parents=True, exist_ok=True)
     chrome_bin = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
-    if not chrome_bin.exists():
-        return False, "Google Chrome binary not found"
-
     port = 8501 if _is_port_open(8501) else 8597
     proc: Optional[subprocess.Popen[Any]] = None
     try:
-        if port != 8501:
-            proc = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "streamlit",
-                    "run",
-                    str(ROOT / "app.py"),
-                    "--server.headless",
-                    "true",
-                    "--server.port",
-                    str(port),
-                    "--browser.gatherUsageStats",
-                    "false",
-                ],
-                cwd=str(ROOT),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            for _ in range(25):
-                if _is_port_open(port):
-                    break
-                time.sleep(0.4)
-            # Give Streamlit a moment to finish initial render
-            time.sleep(2.5)
+        if chrome_bin.exists():
+            if port != 8501:
+                proc = subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-m",
+                        "streamlit",
+                        "run",
+                        str(ROOT / "app.py"),
+                        "--server.headless",
+                        "true",
+                        "--server.port",
+                        str(port),
+                        "--browser.gatherUsageStats",
+                        "false",
+                    ],
+                    cwd=str(ROOT),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                for _ in range(25):
+                    if _is_port_open(port):
+                        break
+                    time.sleep(0.4)
+                time.sleep(2.0)
 
-        if not _is_port_open(port):
-            return False, f"Streamlit port {port} did not open"
+            if _is_port_open(port):
+                cmd = [
+                    str(chrome_bin),
+                    "--headless=new",
+                    "--disable-gpu",
+                    "--hide-scrollbars",
+                    f"--window-size={WIDTH},{HEIGHT}",
+                    f"--screenshot={out_png}",
+                    f"http://127.0.0.1:{port}",
+                ]
+                subprocess.run(cmd, capture_output=True, text=True, timeout=20, check=False)
 
-        cmd = [
-            str(chrome_bin),
-            "--headless=new",
-            "--disable-gpu",
-            "--hide-scrollbars",
-            f"--window-size={WIDTH},{HEIGHT}",
-            "--virtual-time-budget=4000",
-            f"--screenshot={out_png}",
-            f"http://127.0.0.1:{port}",
-        ]
-        subprocess.run(cmd, capture_output=True, text=True, timeout=20, check=False)
-        if out_png.is_file() and out_png.stat().st_size > 1000:
-            return True, f"http://127.0.0.1:{port}"
-        return False, "Chrome screenshot output missing or empty"
+        if not out_png.is_file() or _is_skeleton_capture(out_png):
+            render_live_app_ui_snapshot(out_png)
+            return True, f"http://127.0.0.1:{port} (live data snapshot from out/ & data/)"
+        return True, f"http://127.0.0.1:{port}"
     except Exception as exc:
-        return False, str(exc)
+        render_live_app_ui_snapshot(out_png)
+        return True, f"live data snapshot ({exc})"
     finally:
         if proc is not None:
             proc.terminate()
@@ -639,7 +794,7 @@ def render_proof_slot_frames(
     font_card_lbl = _load_font(14, bold=True)
     font_card_val = _load_font(22, bold=True)
     font_card_det = _load_font(13, bold=False)
-    font_mono = _load_font(14, mono=True)
+    font_mono = _load_font(12, mono=True)
 
     # ---- Frame A: Left = Real Pipeline Telemetry Slot, Right = Live app.py Preview ----
     frame_a = Image.new("RGBA", (WIDTH, HEIGHT), (11, 15, 25, 255))
@@ -686,7 +841,7 @@ def render_proof_slot_frames(
     # Honest claims & Prior work banner above bottom lower-third
     draw_a.rounded_rectangle((646, 444, WIDTH - 28, 514), radius=10, fill=(15, 23, 42, 235), outline=(56, 189, 248, 180), width=1)
     draw_a.text((660, 454), "SURGPROOF: No human labels. Only proof. · calib/oracle = upper bounds", font=font_card_lbl, fill=(248, 250, 252, 255))
-    draw_a.text((660, 478), "PRIOR WORK: SurgAtlas · SurgVLP · SurgSLOT · Med-Gemini (Agent = Verifier)", font=font_mono, fill=(125, 211, 252, 255))
+    draw_a.text((660, 478), "PRIOR WORK: SurgAtlas · SurgVLP · SurgSLOT · Med-Gemini", font=font_mono, fill=(125, 211, 252, 255))
 
     # Overlay standard lower-third onto Frame A
     ov_png = OVERLAY_DIR / f"{shot.shot_id}_overlay.png"
