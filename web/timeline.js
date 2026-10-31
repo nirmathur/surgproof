@@ -638,11 +638,17 @@
     return map;
   }
 
-  function ensureFramesInitialized(count) {
+  function ensureFramesInitialized(count, exactLength) {
     var target = Math.max(1, Number(count) || state.nFrames || DEFAULT_FRAME_COUNT);
     state.nFrames = target;
     while (state.frames.length < target) {
       state.frames.push(createEmptyFrame(state.frames.length, state.video));
+    }
+    if (exactLength && state.frames.length > target) {
+      state.frames.length = target;
+      if (state.currentFrame >= target) {
+        state.currentFrame = Math.max(0, target - 1);
+      }
     }
     rebuildFrameIndexMap();
   }
@@ -662,7 +668,7 @@
     var v = normalizeVerdict(cell);
     var hasBox = Array.isArray(cell.box) && cell.box.length === 4 ? "B" : "";
     var hasTip = Array.isArray(cell.tip) && cell.tip.length === 2 ? "T" : "";
-    var hasMask = cell.mask || cell.mask_url || cell.mask_path || cell.mask_b64 ? "M" : "";
+    var hasMask = cell.mask || cell.mask_url || cell.mask_path || cell.mask_b64 || (Array.isArray(cell.polygon_px) && cell.polygon_px.length >= 3) ? "M" : "";
     var r = cell.round !== undefined ? String(cell.round) : (cell.loc_round !== undefined ? String(cell.loc_round) : "");
     return [v, hasBox, hasTip, hasMask, r].join(":");
   }
@@ -787,16 +793,28 @@
     }
 
     if (typeof data === "object") {
-      if (data.video) state.video = data.video;
+      if (data.video && data.video !== state.video) {
+        state.video = data.video;
+        state.frames = [];
+        state.frameIndexById = {};
+        state.cellSignatures = {};
+        state.freshCells = {};
+        state.currentFrame = 0;
+        state.waveActiveUntil = Date.now() + 900;
+        isInitialLoad = true;
+      } else if (data.video) {
+        state.video = data.video;
+      }
       var incomingLabels = data.labels || data.label_keys;
       if (Array.isArray(incomingLabels) && incomingLabels.length > 0) {
         state.labels = incomingLabels.slice();
       }
+      var hasExplicitCount = Boolean(Number(data.n_frames));
       var frameCount = Number(data.n_frames) ||
         (Array.isArray(data.frames) && data.frames.length) ||
         state.nFrames ||
         DEFAULT_FRAME_COUNT;
-      ensureFramesInitialized(frameCount);
+      ensureFramesInitialized(frameCount, hasExplicitCount);
 
       if (Array.isArray(data.frames)) {
         for (var k = 0; k < data.frames.length; k++) {
@@ -1159,7 +1177,7 @@
         var hasSpatial = cellObj && (
           (Array.isArray(cellObj.box) && cellObj.box.length === 4) ||
           (Array.isArray(cellObj.tip) && cellObj.tip.length === 2) ||
-          Boolean(cellObj.mask || cellObj.mask_url || cellObj.mask_path || cellObj.mask_b64)
+          Boolean(cellObj.mask || cellObj.mask_url || cellObj.mask_path || cellObj.mask_b64 || (Array.isArray(cellObj.polygon_px) && cellObj.polygon_px.length >= 3))
         );
 
         var isWave = now < state.waveActiveUntil;

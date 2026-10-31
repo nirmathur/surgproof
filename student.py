@@ -265,7 +265,7 @@ def main():
     models_by_key_source, const_by_key_source = {}, {}
     for key in C.LABELS:
         yte = te_idx[f"gt_{key}"].values
-        is_informative = (key not in UNINFORMATIVE_LABELS) and (len(np.unique(yte)) == 2)
+        is_informative = key not in UNINFORMATIVE_LABELS
         t = tr[tr.key == key]
         acc_mask = t.status.astype(str).str.lower().isin(["accept", "accepted"])
         sources = {
@@ -329,11 +329,69 @@ def main():
         if accs_all6:
             summary_all6_non_headline[name] = round(float(np.mean(accs_all6)), 4)
 
+    # Video-level cluster bootstrap 95% CIs (2,000 resamples across unseen test videos)
+    bootstrap_ci_by_source = {}
+    paired_bootstrap_vs_single = {}
+    if "video" in te_idx.columns and len(te_idx) > 0:
+        vids = list(pd.unique(te_idx.video))
+        n_v = len(vids)
+        vid_masks = [te_idx.video.values == v for v in vids]
+        vid_counts = np.array([int(m.sum()) for m in vid_masks], dtype=float)
+        rng = np.random.default_rng(C.SEED)
+        draws = rng.integers(0, n_v, size=(2000, n_v))
+        denom = vid_counts[draws].sum(axis=1)  # shape (2000,)
+
+        boot_headline_draws = {}
+        for name in [s for s in SOURCE_ORDER if s in summary]:
+            per_k_draws = []
+            for k in HEADLINE_LABELS:
+                col = f"{k}__{name}"
+                if col not in probs or not results.get(k, {}).get(name):
+                    continue
+                pred_k = (np.asarray(probs[col]) >= 0.5).astype(int)
+                yte_k = te_idx[f"gt_{k}"].values.astype(int)
+                corr_k = (pred_k == yte_k).astype(float)
+                v_corr = np.array([float(corr_k[m].sum()) for m in vid_masks])
+                k_draws = v_corr[draws].sum(axis=1) / np.maximum(denom, 1.0)
+                per_k_draws.append(k_draws)
+                results[k][name]["acc_ci_95"] = [
+                    round(float(np.percentile(k_draws, 2.5)), 4),
+                    round(float(np.percentile(k_draws, 97.5)), 4),
+                ]
+            if per_k_draws:
+                mean_draws = np.mean(np.stack(per_k_draws, axis=0), axis=0)
+                boot_headline_draws[name] = mean_draws
+                bootstrap_ci_by_source[name] = {
+                    "mean_acc": summary[name],
+                    "ci_95": [
+                        round(float(np.percentile(mean_draws, 2.5)), 4),
+                        round(float(np.percentile(mean_draws, 97.5)), 4),
+                    ],
+                    "n_bootstrap": 2000,
+                    "cluster_unit": "video",
+                    "n_clusters": int(n_v),
+                }
+        if "verified" in boot_headline_draws and "single" in boot_headline_draws:
+            diff_draws = boot_headline_draws["verified"] - boot_headline_draws["single"]
+            paired_bootstrap_vs_single = {
+                "delta_mean_acc": round(float(summary["verified"] - summary["single"]), 4),
+                "ci_95": [
+                    round(float(np.percentile(diff_draws, 2.5)), 4),
+                    round(float(np.percentile(diff_draws, 97.5)), 4),
+                ],
+                "p_verified_gt_single": round(float((diff_draws > 0).mean()), 4),
+                "n_bootstrap": 2000,
+                "cluster_unit": "video",
+            }
+
     out = {
         "mean_acc_by_source": summary,
         "mean_f1_by_source": summary_f1,
         "mean_auroc_by_source": summary_auroc,
         "mean_n_train_by_source": summary_n_train,
+        "bootstrap_ci_by_source": bootstrap_ci_by_source,
+        "video_bootstrap_ci": bootstrap_ci_by_source,
+        "paired_bootstrap_verified_vs_single": paired_bootstrap_vs_single,
         "core_balanced_3_labels": CORE_BALANCED_LABELS,
         "core_balanced_3_mean_acc_by_source": summary_core3_acc,
         "core_balanced_3_mean_f1_by_source": summary_core3_f1,

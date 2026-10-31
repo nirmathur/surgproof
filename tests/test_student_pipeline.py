@@ -187,3 +187,72 @@ def test_student_leak_free_decisions_with_amber_and_external_eval(tmp_path, monk
     ext_ev = out["external_test_evaluation"]["endoscapes2023"]
     assert ext_ev["scorable_labels"] == ["cystic_duct", "gallbladder"]
     assert ext_ev["mean_acc_by_source"]["verified"] > ext_ev["mean_acc_by_source"]["single"]
+
+
+def test_web_export_video_bundle_merges_decisions_annotations_and_mask_shards(tmp_path):
+    """Verify web/export.py exports video12.json and live.json from real files and leaves missing fields as None."""
+    from web.export import export_video_bundle
+
+    data_dir = tmp_path / "data"
+    out_dir = tmp_path / "out"
+    web_data_dir = tmp_path / "web" / "data"
+    masks_dir = out_dir / "masks"
+    data_dir.mkdir(parents=True)
+    masks_dir.mkdir(parents=True)
+
+    img1 = tmp_path / "f1.png"
+    img2 = tmp_path / "f2.png"
+    img1.write_bytes(b"PNG1")
+    img2.write_bytes(b"PNG2")
+    mask1 = masks_dir / "video12_001_grasper.png"
+    mask1.write_bytes(b"MASKPNG")
+
+    pd.DataFrame([
+        {"frame_id": "video12_001", "video": "video12", "clip": "c1", "frame": 1, "split": "test", "img_path": str(img1), "mask_path": "", "gt_grasper": 1},
+        {"frame_id": "video12_002", "video": "video12", "clip": "c1", "frame": 2, "split": "test", "img_path": str(img2), "mask_path": "", "gt_grasper": 0},
+    ]).to_csv(data_dir / "index.csv", index=False)
+
+    pd.DataFrame([
+        {"frame_id": "video12_001", "video": "video12", "split": "test", "key": "grasper", "present": 1, "final_present": 1, "conf": 0.96, "status": "accept", "evidence": "metallic jaws visible"},
+    ]).to_csv(out_dir / "decisions.csv", index=False)
+
+    (out_dir / "annotations.jsonl").write_text(
+        json.dumps({"frame_id": "video12_001", "video": "video12", "label": "grasper", "box": [10, 20, 30, 40], "tip": [15, 25], "phase": "Dissection", "phase_conf": 0.92}) + "\n"
+    )
+    (out_dir / "annotations_masks2.jsonl").write_text(
+        json.dumps({"frame_id": "video12_001", "video": "video12", "label": "grasper", "mask_path": str(mask1), "mask_iou": 0.78}) + "\n"
+    )
+    poly_dir = out_dir / "polygons"
+    poly_dir.mkdir(parents=True, exist_ok=True)
+    (poly_dir / "video12.jsonl").write_text(
+        json.dumps({
+            "frame_id": "video12_001",
+            "video": "video12",
+            "label": "grasper",
+            "status": "accept",
+            "rounds": [{"round": 0, "iou_pass1_pass2": 0.81}],
+            "mask_source": "gemini-3.8-flash polygon, 2 independent passes, IoU>=0.5",
+            "mask_path": str(mask1),
+            "polygon_px": [[12.0, 22.0], [28.0, 22.0], [28.0, 38.0]],
+        }) + "\n"
+    )
+
+    bundle = export_video_bundle("video12", data_dir=data_dir, out_dir=out_dir, web_data_dir=web_data_dir)
+    assert (web_data_dir / "video12.json").exists()
+    assert (web_data_dir / "live.json").exists()
+    assert bundle["n_frames"] == 2
+    assert bundle["n_frames_with_boxes"] == 1
+    assert bundle["n_frames_with_masks"] == 1
+    assert bundle["n_frames_with_polygons"] == 1
+
+    f0 = bundle["frames"][0]
+    assert f0["img_url"] == "data/frames/video12_001.png"
+    assert f0["labels"]["grasper"]["mask_url"] == "data/masks/video12_001_grasper.png"
+    assert f0["labels"]["grasper"]["polygon_px"] == [[12.0, 22.0], [28.0, 22.0], [28.0, 38.0]]
+    assert f0["labels"]["grasper"]["evidence"] == "metallic jaws visible"
+    # Second frame has no annotations -> fields are None (never fabricated)
+    f1 = bundle["frames"][1]
+    assert f1["labels"]["grasper"]["box"] is None
+    assert f1["labels"]["grasper"]["mask_url"] is None
+    assert f1["labels"]["grasper"]["polygon_px"] is None
+

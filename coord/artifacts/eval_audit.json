@@ -111,10 +111,6 @@
         "n_rows": 240,
         "forbidden_gt_cols": []
       },
-      "amber_rounds.jsonl": {
-        "n_rows": 180,
-        "forbidden_gt_cols": []
-      },
       "labels_blank.jsonl": {
         "n_rows": 1680,
         "forbidden_gt_cols": []
@@ -204,10 +200,6 @@
       "n_videos": 6,
       "p_boot_gt_0": 1.0
     },
-    "headline_5_positive_claim_precision": 0.8634,
-    "headline_5_double_checked_pos_precision": null,
-    "headline_5_verified_trust_70_acc": null,
-    "headline_5_verified_trust_70_coverage": 0.0,
     "headline_5_risk_coverage": {
       "coverage_at_95": 0.9257,
       "acc_at_60": 0.9726,
@@ -219,10 +211,6 @@
         "n_frames": 280,
         "n_pos_gt": 201,
         "pred_pos_rate": 0.7179,
-        "positive_claim_precision": 0.9453,
-        "double_checked_pos_precision": null,
-        "verified_trust_70_acc": null,
-        "verified_trust_70_coverage": 0.0,
         "acc": {
           "point": 0.9214,
           "se": 0.0335,
@@ -239,10 +227,6 @@
         "n_frames": 280,
         "n_pos_gt": 92,
         "pred_pos_rate": 0.2964,
-        "positive_claim_precision": 0.9639,
-        "double_checked_pos_precision": null,
-        "verified_trust_70_acc": null,
-        "verified_trust_70_coverage": 0.0,
         "acc": {
           "point": 0.9464,
           "se": 0.0304,
@@ -259,10 +243,6 @@
         "n_frames": 280,
         "n_pos_gt": 280,
         "pred_pos_rate": 0.9929,
-        "positive_claim_precision": 1.0,
-        "double_checked_pos_precision": null,
-        "verified_trust_70_acc": null,
-        "verified_trust_70_coverage": 0.0,
         "acc": {
           "point": 0.9929,
           "se": 0.0058,
@@ -279,10 +259,6 @@
         "n_frames": 280,
         "n_pos_gt": 194,
         "pred_pos_rate": 0.6964,
-        "positive_claim_precision": 0.9487,
-        "double_checked_pos_precision": null,
-        "verified_trust_70_acc": null,
-        "verified_trust_70_coverage": 0.0,
         "acc": {
           "point": 0.9321,
           "se": 0.024,
@@ -299,10 +275,6 @@
         "n_frames": 280,
         "n_pos_gt": 1,
         "pred_pos_rate": 0.05,
-        "positive_claim_precision": 0.0,
-        "double_checked_pos_precision": null,
-        "verified_trust_70_acc": null,
-        "verified_trust_70_coverage": 0.0,
         "acc": {
           "point": 0.9464,
           "se": 0.0268,
@@ -319,10 +291,6 @@
         "n_frames": 280,
         "n_pos_gt": 0,
         "pred_pos_rate": 0.1214,
-        "positive_claim_precision": 0.0,
-        "double_checked_pos_precision": null,
-        "verified_trust_70_acc": null,
-        "verified_trust_70_coverage": 0.0,
         "acc": {
           "point": 0.8786,
           "se": 0.0542,
@@ -378,19 +346,6 @@
       "n_videos": 6,
       "p_boot_gt_0": 1.0
     },
-    "headline_5_positive_claim_precision": 0.8696,
-    "headline_5_double_checked_pos_precision": 0.9309,
-    "headline_5_verified_trust_70_acc": {
-      "point": 0.967,
-      "se": 0.0144,
-      "ci95": [
-        0.9403,
-        0.9942
-      ],
-      "n_videos": 6,
-      "p_boot_gt_0": 1.0
-    },
-    "headline_5_verified_trust_70_coverage": 0.8664,
     "headline_5_risk_coverage": {
       "coverage_at_95": 0.8643,
       "acc_at_60": 0.969,
@@ -402,10 +357,6 @@
         "n_frames": 280,
         "n_pos_gt": 201,
         "pred_pos_rate": 0.675,
-        "positive_claim_precision": 0.9577,
-        "double_checked_pos_precision": 0.9805,
-        "verified_trust_70_acc": 0.9561,
-        "verified_trust_70_coverage": 0.8143,
         "acc": {
           "point": 0.9,
           "se": 0.0531,
@@ -422,10 +373,6 @@
         "n_frames": 280,
         "n_pos_gt": 92,
         "pred_pos_rate": 0.3214,
-        "positive_claim_precision": 0.9,
-        "double_checked_pos_precision": 0.962,
-        "verified_trust_70_acc": 0.9478,
-        "verified_trust_70_coverage": 0.9571,
         "acc": {
           "point": 0.9286,
           "se": 0.0258,
@@ -442,10 +389,6 @@
         "n_frames": 280,
         "n_pos_gt": 280,
         "pred_pos_rate": 0.9964,
-        "positive_claim_precision": 1.0,
-        "double_checked_pos_precision": 1.0,
-        "verified_trust_70_acc": 1.0,
-        "verified_trust_70_coverage": 0.5607,
         "acc": {
           "point": 0.9964,
           "se": 0.0029,
@@ -462,10 +405,6 @@
         "n_frames": 280,
         "n_pos_gt": 194,
         "pred_pos_rate": 0.8036,
-        "positive_claim_precision": 0.8222,
-        "double_checked_pos_precision": 0.8985,
-        "verified_trust_70_acc": 0.944,
-        "verified_trust_70_coverage": 0.8286,
         "acc": {
           "point": 0.825,
           "se": 0.0675,
@@ -482,10 +421,6 @@
         "n_frames": 280,
         "n_pos_gt": 1,
         "pred_pos_rate": 0.0179,
-        "positive_claim_precision": 0.0,
-        "double_checked_pos_precision": 0.0,
-        "verified_trust_70_acc": 0.9923,
-        "verified_trust_70_coverage": 0.925,
         "acc": {
           "point": 0.9786,
           "se": 0.0131,
@@ -502,10 +437,6 @@
         "n_frames": 280,
         "n_pos_gt": 0,
         "pred_pos_rate": 0.0179,
-        "positive_claim_precision": 0.0,
-        "double_checked_pos_precision": 0.0,
-        "verified_trust_70_acc": 0.9956,
-        "verified_trust_70_coverage": 0.8071,
         "acc": {
           "point": 0.9821,
           "se": 0.0043,
@@ -529,92 +460,46 @@
         "blood"
       ],
       "single_raw_acc": {
-        "point": 0.9067,
-        "se": 0.0177,
+        "point": 0.9229,
+        "se": 0.0149,
         "ci95": [
-          0.875,
-          0.9429
+          0.8933,
+          0.9556
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
       },
       "accepted_acc": {
-        "point": 0.9853,
-        "se": 0.0129,
+        "point": 0.9655,
+        "se": 0.0147,
         "ci95": [
-          0.9577,
-          1.0
+          0.9384,
+          0.9943
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
       },
       "accepted_coverage": {
-        "point": 0.9067,
-        "se": 0.0177,
+        "point": 0.9321,
+        "se": 0.015,
         "ci95": [
-          0.875,
-          0.9429
+          0.9085,
+          0.9661
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
       },
       "accepted_minus_raw_acc_delta": {
-        "point": 0.0786,
-        "se": 0.0162,
+        "point": 0.0427,
+        "se": 0.0113,
         "ci95": [
-          0.0451,
-          0.1107
+          0.0209,
+          0.0649
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
       }
     },
-    "amber_loop_by_round": [
-      {
-        "round": 0,
-        "stage": "initial_double_check",
-        "n_test_labels": 75,
-        "ambers_remaining": 8,
-        "accepted_count": 62,
-        "rejected_count": 5,
-        "resolved_in_round": 0,
-        "resolved_in_round_precision": null,
-        "cumulative_accepted_precision": 0.9839
-      },
-      {
-        "round": 1,
-        "stage": "amber_loop_round_1",
-        "n_test_labels": 75,
-        "ambers_remaining": 6,
-        "accepted_count": 64,
-        "rejected_count": 5,
-        "resolved_in_round": 2,
-        "resolved_in_round_precision": 1.0,
-        "cumulative_accepted_precision": 0.9844
-      },
-      {
-        "round": 2,
-        "stage": "amber_loop_round_2",
-        "n_test_labels": 75,
-        "ambers_remaining": 3,
-        "accepted_count": 66,
-        "rejected_count": 6,
-        "resolved_in_round": 3,
-        "resolved_in_round_precision": 1.0,
-        "cumulative_accepted_precision": 0.9848
-      },
-      {
-        "round": 3,
-        "stage": "amber_loop_round_3",
-        "n_test_labels": 75,
-        "ambers_remaining": 1,
-        "accepted_count": 68,
-        "rejected_count": 6,
-        "resolved_in_round": 2,
-        "resolved_in_round_precision": 1.0,
-        "cumulative_accepted_precision": 0.9853
-      }
-    ],
     "core_3_balanced_labels": {
       "labels": [
         "grasper",
@@ -622,74 +507,74 @@
         "gallbladder"
       ],
       "single_raw_acc": {
-        "point": 0.9111,
-        "se": 0.0374,
+        "point": 0.8845,
+        "se": 0.0231,
         "ci95": [
-          0.8429,
-          0.9778
+          0.8378,
+          0.9315
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
       },
       "accepted_acc": {
-        "point": 0.9762,
-        "se": 0.021,
+        "point": 0.9472,
+        "se": 0.0216,
         "ci95": [
-          0.9302,
-          1.0
+          0.9055,
+          0.9901
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
       },
       "accepted_coverage": {
-        "point": 0.9333,
-        "se": 0.026,
+        "point": 0.925,
+        "se": 0.0189,
         "ci95": [
-          0.881,
-          0.9792
+          0.887,
+          0.9639
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
       },
       "accepted_minus_raw_acc_delta": {
-        "point": 0.0651,
-        "se": 0.025,
+        "point": 0.0627,
+        "se": 0.0201,
         "ci95": [
-          0.0208,
-          0.1131
+          0.0245,
+          0.1037
         ],
         "n_videos": 6,
-        "p_boot_gt_0": 0.985
+        "p_boot_gt_0": 0.999
       }
     },
     "all_6_labels_non_headline": {
       "note": "Includes liver (100% prevalence); shown for completeness only, not headline.",
       "single_raw_acc": {
-        "point": 0.9111,
-        "se": 0.0189,
+        "point": 0.9351,
+        "se": 0.0123,
         "ci95": [
-          0.875,
-          0.9524
+          0.9111,
+          0.9628
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
       },
       "accepted_acc": {
-        "point": 0.9878,
-        "se": 0.0106,
+        "point": 0.9692,
+        "se": 0.0133,
         "ci95": [
-          0.9651,
-          1.0
+          0.9445,
+          0.9949
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
       },
       "accepted_coverage": {
-        "point": 0.9111,
-        "se": 0.0189,
+        "point": 0.8702,
+        "se": 0.0118,
         "ci95": [
-          0.875,
-          0.9524
+          0.8494,
+          0.8939
         ],
         "n_videos": 6,
         "p_boot_gt_0": 1.0
@@ -698,32 +583,32 @@
     "per_label": {
       "grasper": {
         "informative": true,
-        "n_pos_test_gt": 10,
+        "n_pos_test_gt": 201,
         "raw_acc": {
-          "point": 0.9333,
-          "se": 0.0576,
+          "point": 0.9,
+          "se": 0.0531,
           "ci95": [
-            0.8125,
+            0.8,
             1.0
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_acc": {
-          "point": 0.9333,
-          "se": 0.0576,
+          "point": 0.9464,
+          "se": 0.0325,
           "ci95": [
-            0.8125,
+            0.871,
             1.0
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_coverage": {
-          "point": 1.0,
-          "se": 0.0,
+          "point": 0.9321,
+          "se": 0.0347,
           "ci95": [
-            1.0,
+            0.8733,
             1.0
           ],
           "n_videos": 6,
@@ -732,33 +617,33 @@
       },
       "l_hook": {
         "informative": true,
-        "n_pos_test_gt": 3,
+        "n_pos_test_gt": 92,
         "raw_acc": {
-          "point": 0.9333,
-          "se": 0.0576,
+          "point": 0.9286,
+          "se": 0.0258,
           "ci95": [
-            0.8125,
-            1.0
+            0.8842,
+            0.9773
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_acc": {
-          "point": 1.0,
-          "se": 0.0,
+          "point": 0.9487,
+          "se": 0.0284,
           "ci95": [
-            1.0,
-            1.0
+            0.895,
+            0.9958
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_coverage": {
-          "point": 0.9333,
-          "se": 0.0576,
+          "point": 0.975,
+          "se": 0.0093,
           "ci95": [
-            0.8125,
-            1.0
+            0.956,
+            0.9913
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
@@ -766,12 +651,12 @@
       },
       "liver": {
         "informative": false,
-        "n_pos_test_gt": 15,
+        "n_pos_test_gt": 280,
         "raw_acc": {
-          "point": 0.9333,
-          "se": 0.0668,
+          "point": 0.9964,
+          "se": 0.0029,
           "ci95": [
-            0.7692,
+            0.9903,
             1.0
           ],
           "n_videos": 6,
@@ -788,11 +673,11 @@
           "p_boot_gt_0": 1.0
         },
         "accepted_coverage": {
-          "point": 0.9333,
-          "se": 0.0668,
+          "point": 0.5607,
+          "se": 0.0644,
           "ci95": [
-            0.7692,
-            1.0
+            0.4222,
+            0.6653
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
@@ -800,33 +685,33 @@
       },
       "gallbladder": {
         "informative": true,
-        "n_pos_test_gt": 10,
+        "n_pos_test_gt": 194,
         "raw_acc": {
-          "point": 0.8667,
-          "se": 0.079,
+          "point": 0.825,
+          "se": 0.0675,
           "ci95": [
-            0.6923,
-            1.0
+            0.6864,
+            0.9441
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_acc": {
-          "point": 1.0,
-          "se": 0.0,
+          "point": 0.9465,
+          "se": 0.0285,
           "ci95": [
-            1.0,
-            1.0
+            0.8792,
+            0.9882
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_coverage": {
-          "point": 0.8667,
-          "se": 0.079,
+          "point": 0.8679,
+          "se": 0.0718,
           "ci95": [
-            0.6923,
-            1.0
+            0.7174,
+            0.9909
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
@@ -834,32 +719,32 @@
       },
       "cystic_duct": {
         "informative": true,
-        "n_pos_test_gt": 0,
+        "n_pos_test_gt": 1,
         "raw_acc": {
-          "point": 0.8667,
-          "se": 0.1157,
+          "point": 0.9786,
+          "se": 0.0131,
           "ci95": [
-            0.625,
+            0.9545,
             1.0
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_acc": {
-          "point": 1.0,
-          "se": 0.0,
+          "point": 0.9891,
+          "se": 0.0058,
           "ci95": [
-            1.0,
+            0.9785,
             1.0
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_coverage": {
-          "point": 0.8667,
-          "se": 0.1157,
+          "point": 0.9821,
+          "se": 0.0137,
           "ci95": [
-            0.625,
+            0.9559,
             1.0
           ],
           "n_videos": 6,
@@ -870,31 +755,31 @@
         "informative": true,
         "n_pos_test_gt": 0,
         "raw_acc": {
-          "point": 0.9333,
-          "se": 0.065,
+          "point": 0.9821,
+          "se": 0.0043,
           "ci95": [
-            0.7853,
-            1.0
+            0.975,
+            0.9913
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_acc": {
-          "point": 1.0,
-          "se": 0.0,
+          "point": 0.996,
+          "se": 0.0039,
           "ci95": [
-            1.0,
+            0.9868,
             1.0
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
         },
         "accepted_coverage": {
-          "point": 0.8667,
-          "se": 0.0786,
+          "point": 0.9036,
+          "se": 0.0555,
           "ci95": [
-            0.7059,
-            1.0
+            0.797,
+            0.99
           ],
           "n_videos": 6,
           "p_boot_gt_0": 1.0
@@ -1014,197 +899,6 @@
         "grasper": 83,
         "l_hook": 76
       },
-      "label_files_eval": {
-        "labels_cholect50_blank.jsonl": {
-          "file": "labels_cholect50_blank.jsonl",
-          "scorable_keys": [
-            "grasper",
-            "l_hook"
-          ],
-          "n_test_rows": 240,
-          "n_test_videos": 40,
-          "headline_5_labels_acc": {
-            "point": 0.9125,
-            "se": 0.0171,
-            "ci95": [
-              0.8792,
-              0.9458
-            ],
-            "n_videos": 40,
-            "p_boot_gt_0": 1.0
-          },
-          "core_3_balanced_labels_acc": {
-            "point": 0.9125,
-            "se": 0.0171,
-            "ci95": [
-              0.8792,
-              0.9458
-            ],
-            "n_videos": 40,
-            "p_boot_gt_0": 1.0
-          },
-          "all_6_labels_non_headline_acc": {
-            "point": 0.9125,
-            "se": 0.0171,
-            "ci95": [
-              0.8792,
-              0.9458
-            ],
-            "n_videos": 40,
-            "p_boot_gt_0": 1.0
-          },
-          "headline_5_positive_claim_precision": 0.9423,
-          "headline_5_double_checked_pos_precision": null,
-          "headline_5_verified_trust_70_acc": null,
-          "headline_5_verified_trust_70_coverage": 0.0,
-          "headline_5_risk_coverage": {
-            "coverage_at_95": 0.1792,
-            "acc_at_60": 0.9375,
-            "aurc": 0.0726
-          },
-          "per_label": {
-            "grasper": {
-              "informative": true,
-              "n_frames": 120,
-              "n_pos_gt": 83,
-              "pred_pos_rate": 0.6917,
-              "positive_claim_precision": 0.9277,
-              "double_checked_pos_precision": null,
-              "verified_trust_70_acc": null,
-              "verified_trust_70_coverage": 0.0,
-              "acc": {
-                "point": 0.9,
-                "se": 0.024,
-                "ci95": [
-                  0.85,
-                  0.95
-                ],
-                "n_videos": 40,
-                "p_boot_gt_0": 1.0
-              }
-            },
-            "l_hook": {
-              "informative": true,
-              "n_frames": 120,
-              "n_pos_gt": 76,
-              "pred_pos_rate": 0.6083,
-              "positive_claim_precision": 0.9589,
-              "double_checked_pos_precision": null,
-              "verified_trust_70_acc": null,
-              "verified_trust_70_coverage": 0.0,
-              "acc": {
-                "point": 0.925,
-                "se": 0.0305,
-                "ci95": [
-                  0.8583,
-                  0.9752
-                ],
-                "n_videos": 40,
-                "p_boot_gt_0": 1.0
-              }
-            }
-          }
-        },
-        "labels_cholect50_manual.jsonl": {
-          "file": "labels_cholect50_manual.jsonl",
-          "scorable_keys": [
-            "grasper",
-            "l_hook"
-          ],
-          "n_test_rows": 240,
-          "n_test_videos": 40,
-          "headline_5_labels_acc": {
-            "point": 0.8958,
-            "se": 0.0182,
-            "ci95": [
-              0.8583,
-              0.9292
-            ],
-            "n_videos": 40,
-            "p_boot_gt_0": 1.0
-          },
-          "core_3_balanced_labels_acc": {
-            "point": 0.8958,
-            "se": 0.0182,
-            "ci95": [
-              0.8583,
-              0.9292
-            ],
-            "n_videos": 40,
-            "p_boot_gt_0": 1.0
-          },
-          "all_6_labels_non_headline_acc": {
-            "point": 0.8958,
-            "se": 0.0182,
-            "ci95": [
-              0.8583,
-              0.9292
-            ],
-            "n_videos": 40,
-            "p_boot_gt_0": 1.0
-          },
-          "headline_5_positive_claim_precision": 0.9408,
-          "headline_5_double_checked_pos_precision": 0.9677,
-          "headline_5_verified_trust_70_acc": {
-            "point": 0.9126,
-            "se": 0.0175,
-            "ci95": [
-              0.8768,
-              0.9461
-            ],
-            "n_videos": 40,
-            "p_boot_gt_0": 1.0
-          },
-          "headline_5_verified_trust_70_coverage": 0.8583,
-          "headline_5_risk_coverage": {
-            "coverage_at_95": 0.4458,
-            "acc_at_60": 0.9167,
-            "aurc": 0.0575
-          },
-          "per_label": {
-            "grasper": {
-              "informative": true,
-              "n_frames": 120,
-              "n_pos_gt": 83,
-              "pred_pos_rate": 0.6583,
-              "positive_claim_precision": 0.9494,
-              "double_checked_pos_precision": 0.9545,
-              "verified_trust_70_acc": 0.9029,
-              "verified_trust_70_coverage": 0.8583,
-              "acc": {
-                "point": 0.9,
-                "se": 0.0271,
-                "ci95": [
-                  0.8417,
-                  0.95
-                ],
-                "n_videos": 40,
-                "p_boot_gt_0": 1.0
-              }
-            },
-            "l_hook": {
-              "informative": true,
-              "n_frames": 120,
-              "n_pos_gt": 76,
-              "pred_pos_rate": 0.6083,
-              "positive_claim_precision": 0.9315,
-              "double_checked_pos_precision": 0.9828,
-              "verified_trust_70_acc": 0.9223,
-              "verified_trust_70_coverage": 0.8583,
-              "acc": {
-                "point": 0.8917,
-                "se": 0.0327,
-                "ci95": [
-                  0.825,
-                  0.95
-                ],
-                "n_videos": 40,
-                "p_boot_gt_0": 1.0
-              }
-            }
-          }
-        }
-      },
       "raw_labels_eval": {
         "file": "labels_cholect50_manual.jsonl",
         "scorable_keys": [
@@ -1243,19 +937,6 @@
           "n_videos": 40,
           "p_boot_gt_0": 1.0
         },
-        "headline_5_positive_claim_precision": 0.9408,
-        "headline_5_double_checked_pos_precision": 0.9677,
-        "headline_5_verified_trust_70_acc": {
-          "point": 0.9126,
-          "se": 0.0175,
-          "ci95": [
-            0.8768,
-            0.9461
-          ],
-          "n_videos": 40,
-          "p_boot_gt_0": 1.0
-        },
-        "headline_5_verified_trust_70_coverage": 0.8583,
         "headline_5_risk_coverage": {
           "coverage_at_95": 0.4458,
           "acc_at_60": 0.9167,
@@ -1267,10 +948,6 @@
             "n_frames": 120,
             "n_pos_gt": 83,
             "pred_pos_rate": 0.6583,
-            "positive_claim_precision": 0.9494,
-            "double_checked_pos_precision": 0.9545,
-            "verified_trust_70_acc": 0.9029,
-            "verified_trust_70_coverage": 0.8583,
             "acc": {
               "point": 0.9,
               "se": 0.0271,
@@ -1287,10 +964,6 @@
             "n_frames": 120,
             "n_pos_gt": 76,
             "pred_pos_rate": 0.6083,
-            "positive_claim_precision": 0.9315,
-            "double_checked_pos_precision": 0.9828,
-            "verified_trust_70_acc": 0.9223,
-            "verified_trust_70_coverage": 0.8583,
             "acc": {
               "point": 0.8917,
               "se": 0.0327,
@@ -1354,52 +1027,6 @@
             "p_boot_gt_0": 0.99
           }
         },
-        "amber_loop_by_round": [
-          {
-            "round": 0,
-            "stage": "initial_double_check",
-            "n_test_labels": 240,
-            "ambers_remaining": 29,
-            "accepted_count": 206,
-            "rejected_count": 5,
-            "resolved_in_round": 0,
-            "resolved_in_round_precision": null,
-            "cumulative_accepted_precision": 0.9126
-          },
-          {
-            "round": 1,
-            "stage": "amber_loop_round_1",
-            "n_test_labels": 240,
-            "ambers_remaining": 28,
-            "accepted_count": 207,
-            "rejected_count": 5,
-            "resolved_in_round": 1,
-            "resolved_in_round_precision": 1.0,
-            "cumulative_accepted_precision": 0.913
-          },
-          {
-            "round": 2,
-            "stage": "amber_loop_round_2",
-            "n_test_labels": 240,
-            "ambers_remaining": 13,
-            "accepted_count": 222,
-            "rejected_count": 5,
-            "resolved_in_round": 15,
-            "resolved_in_round_precision": 1.0,
-            "cumulative_accepted_precision": 0.9189
-          },
-          {
-            "round": 3,
-            "stage": "amber_loop_round_3",
-            "n_test_labels": 240,
-            "ambers_remaining": 3,
-            "accepted_count": 228,
-            "rejected_count": 9,
-            "resolved_in_round": 10,
-            "resolved_in_round_precision": 0.5,
-            "cumulative_accepted_precision": 0.9123
-          }
-        ],
         "core_3_balanced_labels": {
           "labels": [
             "grasper",
@@ -1563,197 +1190,6 @@
         "gallbladder": 466,
         "cystic_duct": 374
       },
-      "label_files_eval": {
-        "labels_endoscapes2023_blank.jsonl": {
-          "file": "labels_endoscapes2023_blank.jsonl",
-          "scorable_keys": [
-            "cystic_duct",
-            "gallbladder"
-          ],
-          "n_test_rows": 148,
-          "n_test_videos": 10,
-          "headline_5_labels_acc": {
-            "point": 0.7365,
-            "se": 0.0355,
-            "ci95": [
-              0.6463,
-              0.7826
-            ],
-            "n_videos": 10,
-            "p_boot_gt_0": 1.0
-          },
-          "core_3_balanced_labels_acc": {
-            "point": 0.973,
-            "se": 0.0128,
-            "ci95": [
-              0.95,
-              1.0
-            ],
-            "n_videos": 10,
-            "p_boot_gt_0": 1.0
-          },
-          "all_6_labels_non_headline_acc": {
-            "point": 0.7365,
-            "se": 0.0355,
-            "ci95": [
-              0.6463,
-              0.7826
-            ],
-            "n_videos": 10,
-            "p_boot_gt_0": 1.0
-          },
-          "headline_5_positive_claim_precision": 0.9865,
-          "headline_5_double_checked_pos_precision": null,
-          "headline_5_verified_trust_70_acc": null,
-          "headline_5_verified_trust_70_coverage": 0.0,
-          "headline_5_risk_coverage": {
-            "coverage_at_95": 0.5743,
-            "acc_at_60": 0.9432,
-            "aurc": 0.0728
-          },
-          "per_label": {
-            "gallbladder": {
-              "informative": true,
-              "n_frames": 74,
-              "n_pos_gt": 58,
-              "pred_pos_rate": 0.7838,
-              "positive_claim_precision": 0.9828,
-              "double_checked_pos_precision": null,
-              "verified_trust_70_acc": null,
-              "verified_trust_70_coverage": 0.0,
-              "acc": {
-                "point": 0.973,
-                "se": 0.0128,
-                "ci95": [
-                  0.95,
-                  1.0
-                ],
-                "n_videos": 10,
-                "p_boot_gt_0": 1.0
-              }
-            },
-            "cystic_duct": {
-              "informative": true,
-              "n_frames": 74,
-              "n_pos_gt": 53,
-              "pred_pos_rate": 0.2162,
-              "positive_claim_precision": 1.0,
-              "double_checked_pos_precision": null,
-              "verified_trust_70_acc": null,
-              "verified_trust_70_coverage": 0.0,
-              "acc": {
-                "point": 0.5,
-                "se": 0.0804,
-                "ci95": [
-                  0.2927,
-                  0.6042
-                ],
-                "n_videos": 10,
-                "p_boot_gt_0": 1.0
-              }
-            }
-          }
-        },
-        "labels_endoscapes2023_manual.jsonl": {
-          "file": "labels_endoscapes2023_manual.jsonl",
-          "scorable_keys": [
-            "cystic_duct",
-            "gallbladder"
-          ],
-          "n_test_rows": 148,
-          "n_test_videos": 10,
-          "headline_5_labels_acc": {
-            "point": 0.6757,
-            "se": 0.052,
-            "ci95": [
-              0.561,
-              0.7435
-            ],
-            "n_videos": 10,
-            "p_boot_gt_0": 1.0
-          },
-          "core_3_balanced_labels_acc": {
-            "point": 0.973,
-            "se": 0.0179,
-            "ci95": [
-              0.9342,
-              1.0
-            ],
-            "n_videos": 10,
-            "p_boot_gt_0": 1.0
-          },
-          "all_6_labels_non_headline_acc": {
-            "point": 0.6757,
-            "se": 0.052,
-            "ci95": [
-              0.561,
-              0.7435
-            ],
-            "n_videos": 10,
-            "p_boot_gt_0": 1.0
-          },
-          "headline_5_positive_claim_precision": 1.0,
-          "headline_5_double_checked_pos_precision": 1.0,
-          "headline_5_verified_trust_70_acc": {
-            "point": 0.7257,
-            "se": 0.0426,
-            "ci95": [
-              0.6226,
-              0.774
-            ],
-            "n_videos": 10,
-            "p_boot_gt_0": 1.0
-          },
-          "headline_5_verified_trust_70_coverage": 0.7635,
-          "headline_5_risk_coverage": {
-            "coverage_at_95": 0.2905,
-            "acc_at_60": 0.8977,
-            "aurc": 0.1297
-          },
-          "per_label": {
-            "gallbladder": {
-              "informative": true,
-              "n_frames": 74,
-              "n_pos_gt": 58,
-              "pred_pos_rate": 0.7568,
-              "positive_claim_precision": 1.0,
-              "double_checked_pos_precision": 1.0,
-              "verified_trust_70_acc": 0.9833,
-              "verified_trust_70_coverage": 0.8108,
-              "acc": {
-                "point": 0.973,
-                "se": 0.0179,
-                "ci95": [
-                  0.9342,
-                  1.0
-                ],
-                "n_videos": 10,
-                "p_boot_gt_0": 1.0
-              }
-            },
-            "cystic_duct": {
-              "informative": true,
-              "n_frames": 74,
-              "n_pos_gt": 53,
-              "pred_pos_rate": 0.0946,
-              "positive_claim_precision": 1.0,
-              "double_checked_pos_precision": 1.0,
-              "verified_trust_70_acc": 0.434,
-              "verified_trust_70_coverage": 0.7162,
-              "acc": {
-                "point": 0.3784,
-                "se": 0.0951,
-                "ci95": [
-                  0.1562,
-                  0.4951
-                ],
-                "n_videos": 10,
-                "p_boot_gt_0": 1.0
-              }
-            }
-          }
-        }
-      },
       "raw_labels_eval": {
         "file": "labels_endoscapes2023_manual.jsonl",
         "scorable_keys": [
@@ -1792,19 +1228,6 @@
           "n_videos": 10,
           "p_boot_gt_0": 1.0
         },
-        "headline_5_positive_claim_precision": 1.0,
-        "headline_5_double_checked_pos_precision": 1.0,
-        "headline_5_verified_trust_70_acc": {
-          "point": 0.7257,
-          "se": 0.0426,
-          "ci95": [
-            0.6226,
-            0.774
-          ],
-          "n_videos": 10,
-          "p_boot_gt_0": 1.0
-        },
-        "headline_5_verified_trust_70_coverage": 0.7635,
         "headline_5_risk_coverage": {
           "coverage_at_95": 0.2905,
           "acc_at_60": 0.8977,
@@ -1816,10 +1239,6 @@
             "n_frames": 74,
             "n_pos_gt": 58,
             "pred_pos_rate": 0.7568,
-            "positive_claim_precision": 1.0,
-            "double_checked_pos_precision": 1.0,
-            "verified_trust_70_acc": 0.9833,
-            "verified_trust_70_coverage": 0.8108,
             "acc": {
               "point": 0.973,
               "se": 0.0179,
@@ -1836,10 +1255,6 @@
             "n_frames": 74,
             "n_pos_gt": 53,
             "pred_pos_rate": 0.0946,
-            "positive_claim_precision": 1.0,
-            "double_checked_pos_precision": 1.0,
-            "verified_trust_70_acc": 0.434,
-            "verified_trust_70_coverage": 0.7162,
             "acc": {
               "point": 0.3784,
               "se": 0.0951,
@@ -1903,52 +1318,6 @@
             "p_boot_gt_0": 0.9965
           }
         },
-        "amber_loop_by_round": [
-          {
-            "round": 0,
-            "stage": "initial_double_check",
-            "n_test_labels": 148,
-            "ambers_remaining": 28,
-            "accepted_count": 113,
-            "rejected_count": 7,
-            "resolved_in_round": 0,
-            "resolved_in_round_precision": null,
-            "cumulative_accepted_precision": 0.7257
-          },
-          {
-            "round": 1,
-            "stage": "amber_loop_round_1",
-            "n_test_labels": 148,
-            "ambers_remaining": 28,
-            "accepted_count": 113,
-            "rejected_count": 7,
-            "resolved_in_round": 0,
-            "resolved_in_round_precision": null,
-            "cumulative_accepted_precision": 0.7257
-          },
-          {
-            "round": 2,
-            "stage": "amber_loop_round_2",
-            "n_test_labels": 148,
-            "ambers_remaining": 6,
-            "accepted_count": 135,
-            "rejected_count": 7,
-            "resolved_in_round": 22,
-            "resolved_in_round_precision": 0.5455,
-            "cumulative_accepted_precision": 0.6963
-          },
-          {
-            "round": 3,
-            "stage": "amber_loop_round_3",
-            "n_test_labels": 148,
-            "ambers_remaining": 2,
-            "accepted_count": 139,
-            "rejected_count": 7,
-            "resolved_in_round": 4,
-            "resolved_in_round_precision": 1.0,
-            "cumulative_accepted_precision": 0.705
-          }
-        ],
         "core_3_balanced_labels": {
           "labels": [
             "grasper",
