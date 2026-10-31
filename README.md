@@ -1,4 +1,4 @@
-# Surgical Atlas
+# SurgProof
 
 An autonomous Gemini agent that teaches itself a surgery from public sources, labels surgical video,
 checks its own labels so no human has to, trains a specialist only on what it verified, and narrates

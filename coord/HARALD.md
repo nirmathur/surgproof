@@ -1,6 +1,6 @@
 # Harald: getting your agents running
 
-1. Accept the GitHub invite, then `git clone https://github.com/nirmathur/surgatlas && cd surgatlas`.
+1. Accept the GitHub invite, then `git clone https://github.com/nirmathur/surgproof && cd surgatlas`.
 2. Read README.md, GEMINI.md (rules for every agent), coord/README.md (how notes work) and coord/OWNERSHIP.md (your lanes: demo, narrate, atlas, eval).
 3. One git worktree per lane: `git worktree add -b harald/<lane> ../surgatlas-<lane> main`.
 4. Start one Antigravity agent per lane in its worktree:
