@@ -96,7 +96,7 @@ def job(fr, label, frame_path, video):
         if not u.any():
             status = "absent_by_both"; break
         ys, xs = np.where(u); pad = 40
-        region = (max(0, xs.min() - pad), max(0, ys.min() - pad), min(W, xs.max() + pad), min(H, ys.max() + pad))
+        region = (int(max(0, xs.min() - pad)), int(max(0, ys.min() - pad)), int(min(W, xs.max() + pad)), int(min(H, ys.max() + pad)))
     rec = {"frame_id": fr, "video": video, "label": label, "status": status, "rounds": rounds,
            "mask_source": f"{MODEL} polygon, 2 independent passes, IoU>=0.5", "ts": time.time()}
     if final is not None:
