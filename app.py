@@ -205,27 +205,40 @@ def draw_pixel_boxes(img: Image.Image, boxes: pd.DataFrame) -> Image.Image:
 
 
 def draw(path, rows: pd.DataFrame, reveal: bool, frame_id: str = "", raw_blue: bool = False) -> Image.Image:
-    """Render frame image with verification-status (or raw / ground-truth reveal) bounding boxes."""
+    """Render frame image with model-output bounding boxes (if present) and per-structure status HUD pills."""
     im = resolve_frame_image(path, frame_id=frame_id)
     w, h = im.size
     d = ImageDraw.Draw(im)
     if rows is None or rows.empty:
         return im
+
+    hud_y = 8
     for r in rows.itertuples():
+        key_name = str(getattr(r, "key", getattr(r, "label", "")))
         box = parse_box(getattr(r, "box", None))
         pres_attr = "present" if raw_blue else "final_present"
         final_present = bool(getattr(r, pres_attr, getattr(r, "present", 0)))
+        if raw_blue:
+            colour = "#3b82f6" if final_present else "#475569"
+            status_lbl = "PRESENT" if final_present else "absent"
+        else:
+            status_val = str(getattr(r, "status", "AMBER"))
+            status_norm = normalize_status(status_val) if status_val != "raw" else "raw"
+            colour = COL.get(status_norm, "#d69e2e")
+            if reveal and hasattr(r, "final_correct") and pd.notna(getattr(r, "final_correct", None)):
+                colour = "#1f9d55" if getattr(r, "final_correct", 0) else "#e53e3e"
+            status_lbl = f"{'PRESENT' if final_present else 'absent'} · {status_norm}"
+
         if final_present and box is not None:
             y0, x0, y1, x1 = box
-            if raw_blue:
-                colour = "#3b82f6"
-            else:
-                status_val = getattr(r, "status", "AMBER")
-                colour = COL.get(status_val, "#d69e2e")
-                if reveal and hasattr(r, "final_correct") and pd.notna(getattr(r, "final_correct", None)):
-                    colour = "#1f9d55" if getattr(r, "final_correct", 0) else "#e53e3e"
             d.rectangle([x0 * w / 1000, y0 * h / 1000, x1 * w / 1000, y1 * h / 1000], outline=colour, width=4)
-            d.text((x0 * w / 1000 + 4, y0 * h / 1000 + 4), str(getattr(r, "key", "")), fill=colour)
+            d.text((x0 * w / 1000 + 4, y0 * h / 1000 + 4), key_name, fill=colour)
+        elif key_name and hud_y + 20 < h:
+            pill_text = f"{key_name}: {status_lbl}"
+            pw = max(130, len(pill_text) * 7 + 12)
+            d.rectangle([8, hud_y, min(w - 8, 8 + pw), hud_y + 18], fill=colour)
+            d.text((14, hud_y + 2), pill_text, fill="white")
+            hud_y += 22
     return im
 
 
@@ -366,6 +379,31 @@ def compute_amber_loop_progression(
         if out:
             return out
 
+    # Support results.json['amber_loop']['per_round_test'] + ambers_by_round_all
+    if res_dict and isinstance(res_dict.get("amber_loop"), dict):
+        al = res_dict["amber_loop"]
+        per_r = al.get("per_round_test")
+        all_arr = al.get("ambers_by_round_all", [])
+        if isinstance(per_r, list) and per_r:
+            out = []
+            for idx_r, r in enumerate(per_r):
+                if isinstance(r, dict):
+                    rn = r.get("round", idx_r)
+                    na_test = int(r.get("ambers_remaining", 0))
+                    na_all = int(all_arr[idx_r]) if idx_r < len(all_arr) else na_test
+                    lbl = "Round 0 · Initial Double-Check" if int(rn) == 0 else f"Round {rn} · Argon Amber Loop"
+                    out.append({
+                        "round": lbl,
+                        "ambers_remaining": na_test,
+                        "n_amber": na_test,
+                        "ambers_all_splits": na_all,
+                        "resolved_count": int(r.get("resolved_in_round", 0)),
+                        "resolved_precision": r.get("resolved_in_round_precision"),
+                        "cumulative_accepted_precision": r.get("cumulative_accepted_precision"),
+                    })
+            if out:
+                return out
+
     # Support summary-level round dicts in amber_rounds (e.g. {"round": 0, "n_amber": 2, ...})
     if amber_rounds and all(isinstance(r, dict) and ("n_amber" in r or "ambers_remaining" in r) and "frame_id" not in r for r in amber_rounds):
         out = []
@@ -389,6 +427,27 @@ def compute_amber_loop_progression(
         tdf = dec_df.copy()
     if idx_df is not None:
         tdf = join_ground_truth_for_reveal(tdf, idx_df)
+
+    # Support status_round_0..3 columns written directly by accept.py
+    round_cols = [c for c in ("status_round_0", "status_round_1", "status_round_2", "status_round_3") if c in tdf.columns]
+    if len(round_cols) >= 2:
+        out = []
+        prev_amber = None
+        for idx_c, col_name in enumerate(round_cols):
+            na_test = int((tdf[col_name].map(normalize_status) == "AMBER").sum())
+            na_all = int((dec_df[col_name].map(normalize_status) == "AMBER").sum())
+            res_cnt = max(0, prev_amber - na_test) if prev_amber is not None else 0
+            prev_amber = na_test
+            lbl = "Round 0 · Initial Double-Check" if idx_c == 0 else f"Round {idx_c} · Argon Amber Loop"
+            out.append({
+                "round": lbl,
+                "ambers_remaining": na_test,
+                "n_amber": na_test,
+                "ambers_all_splits": na_all,
+                "resolved_count": res_cnt,
+                "resolved_precision": None,
+            })
+        return out
 
     # Filter amber_rounds.jsonl to test frame_ids if present
     test_fids = set(tdf["frame_id"].astype(str))
@@ -907,12 +966,16 @@ def render_end_to_end_pipeline():
         st.subheader("7 · Held-Out Proof")
         if res:
             acc5 = res.get("accepted_5_informative") or res.get("accepted") or {}
+            acc_v = acc5.get("accuracy")
+            cov_v = acc5.get("coverage")
+            n_t = res.get("n_test_labels_excl_liver") or res.get("n_test_labels") or 0
             st.metric(
-                "Verified label accuracy (held-out test)",
-                _pct(acc5.get("accuracy")),
-                f"coverage {_pct(acc5.get('coverage'))} · 0 human labels",
+                f"{_pct(acc_v)} accurate on the {_pct(cov_v)} it accepted",
+                _pct(acc_v),
+                f"coverage {_pct(cov_v)} · 0 human labels",
             )
-            st.caption("Scored strictly on held-out CholecSeg8k test videos (`split == 'test'`).")
+            interim_tag = " [INTERIM SMOKE RUN — awaiting full 1,680-label verifier run]" if (isinstance(n_t, int) and 0 < n_t < 1000) else ""
+            st.caption(f"n = {n_t} held-out labels, 6 unseen videos (`split == 'test'`).{interim_tag}")
         else:
             st.metric("Verified label accuracy [PLACEHOLDER]", "PENDING")
 
@@ -1520,11 +1583,18 @@ with tab_proof:
         c3.metric("Sent to surgeon (AMBER/escalated) [PLACEHOLDER]", "PENDING")
         c4.metric("Self-written manual vs blank [PLACEHOLDER]", "PENDING")
     else:
-        a = res.get("accepted", {})
+        a = res.get("accepted_5_informative") or res.get("accepted", {})
         c1, c2, c3, c4 = st.columns(4)
         acc_val = a.get("accuracy")
         cov_val = a.get("coverage")
         esc_val = a.get("escalated_share", a.get("amber_share"))
+        n_test_eval = res.get("n_test_labels_excl_liver") or res.get("n_test_labels") or 0
+        if isinstance(acc_val, (int, float)) and isinstance(cov_val, (int, float)):
+            interim_note = " *(interim 15-frame smoke subset — full 1,680-label verifier run in progress)*" if (0 < n_test_eval < 1000) else ""
+            st.markdown(
+                f"### **{acc_val * 100:.1f}% accurate on the {cov_val * 100:.0f}% it accepted**\n"
+                f"`n = {n_test_eval} held-out labels, 6 unseen videos`{interim_note}"
+            )
         c1.metric("Accuracy on accepted labels", f"{acc_val * 100:.1f}%" if isinstance(acc_val, (int, float)) else "n/a")
         c2.metric("Labels accepted (coverage)", f"{cov_val * 100:.0f}%" if isinstance(cov_val, (int, float)) else "n/a")
         c3.metric("Sent to surgeon", f"{esc_val * 100:.0f}%" if isinstance(esc_val, (int, float)) else "n/a")
