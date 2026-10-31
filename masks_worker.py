@@ -842,7 +842,7 @@ Strictly enforces the zero-leakage rule:
   records to `out/annotations_masks3.jsonl` (and atomically syncs into `out/annotations.jsonl`
   and `out/annotations_live.jsonl`).
 """
-from __future__ import annotations
+# from __future__ import annotations
 
 import argparse
 import asyncio
