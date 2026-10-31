@@ -2,13 +2,16 @@ PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo 
 PORT ?= 8600
 SRC ?= gt_corrupted
 
-.PHONY: all setup run demo gt corrupted eval recheck render test clean-tracker
+.PHONY: all setup demo run gt corrupted eval recheck render test clean-tracker
 
 all: gt corrupted eval recheck render
 
 setup:
 	$(PY) -m pip install -r requirements.txt -r web/requirements.txt || $(PY) -m pip install --break-system-packages -r requirements.txt -r web/requirements.txt
 	@if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi
+
+demo:
+	./run.sh
 
 run:
 	./run.sh

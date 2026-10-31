@@ -97,7 +97,7 @@ def _index_frame_map(index_csv_str: str) -> dict[str, str]:
 
 
 def artifact(name: str) -> Path | None:
-    for base in (OUT, COORD):
+    for base in (OUT, COORD, ROOT / "web" / "data"):
         p = base / name
         if p.exists():
             return p
@@ -157,6 +157,9 @@ def frame_png(frame_id: str) -> Path | None:
             p = root_dir / parts[0] / f"{parts[0]}_{parts[1]}" / f"frame_{int(parts[2])}_endo.png"
             if p.is_file():
                 return p
+            p_jpg = p.with_suffix(".jpg")
+            if p_jpg.is_file():
+                return p_jpg
     # Fallback to data/index.csv path column
     idx_map = _index_frame_map(str(ROOT / "data" / "index.csv"))
     mapped = idx_map.get(frame_id)
@@ -167,6 +170,20 @@ def frame_png(frame_id: str) -> Path | None:
         rel = ROOT / mapped.lstrip("/")
         if rel.is_file():
             return rel
+    # Fallback to committed demo bundle in web/data/frames and web/data/dense
+    wdata = ROOT / "web" / "data"
+    for ext in (".jpg", ".png"):
+        cand_f = wdata / "frames" / f"{frame_id}{ext}"
+        if cand_f.is_file():
+            return cand_f
+    if len(parts) == 3 and parts[2].isdigit():
+        clip_id = f"{parts[0]}_{parts[1]}"
+        fnum = int(parts[2])
+        for base_d in (wdata / "dense" / clip_id, OUT / "dense" / clip_id):
+            for ext in (".jpg", ".png"):
+                cand_d = base_d / f"frame_{fnum}_endo{ext}"
+                if cand_d.is_file():
+                    return cand_d
     return None
 
 
@@ -329,6 +346,28 @@ def _clip_frames(clip_id: str) -> list[int]:
                             out.append(int(tail))
         except Exception:
             pass
+        if out:
+            return sorted(set(out))
+    # Fallback to committed demo bundle in web/data/dense and web/data/frames
+    wdata = ROOT / "web" / "data"
+    for base_d in (wdata / "dense" / clip_id, OUT / "dense" / clip_id):
+        if base_d.is_dir():
+            out = []
+            for pat in ("frame_*_endo.jpg", "frame_*_endo.png"):
+                for f in base_d.glob(pat):
+                    try:
+                        out.append(int(f.name.split("_")[1]))
+                    except ValueError:
+                        pass
+            if out:
+                return sorted(set(out))
+    if (wdata / "frames").is_dir():
+        out = []
+        for pat in (f"{clip_id}_*.jpg", f"{clip_id}_*.png"):
+            for f in (wdata / "frames").glob(pat):
+                tail = f.stem.split("_")[-1]
+                if tail.isdigit():
+                    out.append(int(tail))
         if out:
             return sorted(set(out))
     return []
@@ -548,21 +587,45 @@ def spa(path: str):
         if (DIST / "index.html").is_file():
             return FileResponse(DIST / "index.html")
     clean_rel = path.lstrip("/")
+    if clean_rel.startswith("web/"):
+        clean_rel = clean_rel[len("web/") :]
     # 1. Direct match inside web/ (index.html, watch.html, app.js, viewer.js, timeline.js, gate.js, style.css, data/*)
     cand_web = (WEB_DIR / clean_rel).resolve()
-    if str(cand_web).startswith(str(WEB_DIR.resolve())) and cand_web.is_file():
-        return FileResponse(cand_web)
+    if str(cand_web).startswith(str(WEB_DIR.resolve())):
+        if cand_web.is_file():
+            return FileResponse(cand_web)
+        if cand_web.suffix == ".png" and cand_web.with_suffix(".jpg").is_file():
+            return FileResponse(cand_web.with_suffix(".jpg"))
     # 2. Match inside web/dist/
     if DIST.exists():
         cand_dist = (DIST / clean_rel).resolve()
         if str(cand_dist).startswith(str(DIST.resolve())) and cand_dist.is_file():
             return FileResponse(cand_dist)
-    # 3. Safe fallback to repo root for out/, data/, raw/, coord/
+    # 3. Safe fallback to repo root for out/, data/, raw/, coord/ and committed web/data bundle
     for allowed_prefix in ("out/", "data/", "raw/", "coord/"):
         if clean_rel.startswith(allowed_prefix):
             cand_repo = (ROOT / clean_rel).resolve()
             if cand_repo.is_file():
                 return FileResponse(cand_repo)
+            if cand_repo.suffix == ".png" and cand_repo.with_suffix(".jpg").is_file():
+                return FileResponse(cand_repo.with_suffix(".jpg"))
+    if clean_rel.startswith("out/"):
+        sub_out = clean_rel[len("out/") :]
+        for fb_base in (WEB_DIR / "data", COORD):
+            cand_fb = (fb_base / sub_out).resolve()
+            if cand_fb.is_file():
+                return FileResponse(cand_fb)
+            if cand_fb.suffix == ".png" and cand_fb.with_suffix(".jpg").is_file():
+                return FileResponse(cand_fb.with_suffix(".jpg"))
+    if clean_rel.startswith("raw/CholecSeg8k/"):
+        parts = clean_rel.split("/")
+        if len(parts) >= 5:
+            clip_id, fname = parts[3], parts[4]
+            cand_dense = WEB_DIR / "data" / "dense" / clip_id / fname
+            if cand_dense.is_file():
+                return FileResponse(cand_dense)
+            if cand_dense.suffix == ".png" and cand_dense.with_suffix(".jpg").is_file():
+                return FileResponse(cand_dense.with_suffix(".jpg"))
     if (DIST / "index.html").is_file():
         return FileResponse(DIST / "index.html")
     if (WEB_DIR / "index.html").is_file():

@@ -1,0 +1,2062 @@
+{
+  "video": "video17",
+  "sentences": [
+    {
+      "frame_id": "video17_01563_1563",
+      "narration": "A laparoscopic grasper is used to provide traction on the gallbladder, elevating it to expose the operative field beneath the liver. Dissection has not yet exposed the cystic duct, and the hepatocystic region remains under initial mobilization.",
+      "sentence": "A laparoscopic grasper is used to provide traction on the gallbladder, elevating it to expose the operative field beneath the liver. Dissection has not yet exposed the cystic duct, and the hepatocystic region remains under initial mobilization.",
+      "text": "A laparoscopic grasper is used to provide traction on the gallbladder, elevating it to expose the operative field beneath the liver. Dissection has not yet exposed the cystic duct, and the hepatocystic region remains under initial mobilization.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1563",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1563",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1563",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1563",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1563",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1563",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "A laparoscopic grasper is used to provide traction on the gallbladder, elevating it to expose the operative field beneath the liver. Dissection has not yet exposed the cystic duct, and the hepatocystic region remains under initial mobilization.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1563"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01563_1571",
+      "narration": "The liver and gallbladder are prominently visualized during initial exposure, though the cystic duct has not yet been isolated or identified. We are not yet confident in confirming the presence of an L-hook electrocautery or extravasated blood in the current field.",
+      "sentence": "The liver and gallbladder are prominently visualized during initial exposure, though the cystic duct has not yet been isolated or identified. We are not yet confident in confirming the presence of an L-hook electrocautery or extravasated blood in the current field.",
+      "text": "The liver and gallbladder are prominently visualized during initial exposure, though the cystic duct has not yet been isolated or identified. We are not yet confident in confirming the presence of an L-hook electrocautery or extravasated blood in the current field.",
+      "unsure_about": [
+        "l_hook",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1571",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1571",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1571",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1571",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver and gallbladder are prominently visualized during initial exposure, though the cystic duct has not yet been isolated or identified. We are not yet confident in confirming the presence of an L-hook electrocautery or extravasated blood in the current field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1571"
+          ]
+        },
+        {
+          "text": "l_hook (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01563_1571"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01563_1571"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01563_1579",
+      "narration": "A laparoscopic grasper is actively retracting the gallbladder to display the surgical field, while the cystic duct remains unexposed. We are not yet confident in characterizing the adjacent liver tissue, and neither electrocautery nor free blood is seen.",
+      "sentence": "A laparoscopic grasper is actively retracting the gallbladder to display the surgical field, while the cystic duct remains unexposed. We are not yet confident in characterizing the adjacent liver tissue, and neither electrocautery nor free blood is seen.",
+      "text": "A laparoscopic grasper is actively retracting the gallbladder to display the surgical field, while the cystic duct remains unexposed. We are not yet confident in characterizing the adjacent liver tissue, and neither electrocautery nor free blood is seen.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1579",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1579",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1579",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1579",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1579",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "A laparoscopic grasper is actively retracting the gallbladder to display the surgical field, while the cystic duct remains unexposed. We are not yet confident in characterizing the adjacent liver tissue, and neither electrocautery nor free blood is seen.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1579"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01563_1579"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01563_1587",
+      "narration": "The gallbladder and adjacent liver tissue are clearly identified, while the cystic duct has not yet been skeletonized. We are not yet confident in identifying a grasper, and no electrocautery hook or extravasated blood is observed.",
+      "sentence": "The gallbladder and adjacent liver tissue are clearly identified, while the cystic duct has not yet been skeletonized. We are not yet confident in identifying a grasper, and no electrocautery hook or extravasated blood is observed.",
+      "text": "The gallbladder and adjacent liver tissue are clearly identified, while the cystic duct has not yet been skeletonized. We are not yet confident in identifying a grasper, and no electrocautery hook or extravasated blood is observed.",
+      "unsure_about": [
+        "grasper"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1587",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1587",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1587",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1587",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1587",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The gallbladder and adjacent liver tissue are clearly identified, while the cystic duct has not yet been skeletonized. We are not yet confident in identifying a grasper, and no electrocautery hook or extravasated blood is observed.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1587"
+          ]
+        },
+        {
+          "text": "grasper (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01563_1587"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01563_1595",
+      "narration": "The liver parenchyma and gallbladder remain clearly exposed during initial mobilization. The cystic duct has not yet been skeletonized, and neither graspers, an electrocautery hook, nor active bleeding is present in the field.",
+      "sentence": "The liver parenchyma and gallbladder remain clearly exposed during initial mobilization. The cystic duct has not yet been skeletonized, and neither graspers, an electrocautery hook, nor active bleeding is present in the field.",
+      "text": "The liver parenchyma and gallbladder remain clearly exposed during initial mobilization. The cystic duct has not yet been skeletonized, and neither graspers, an electrocautery hook, nor active bleeding is present in the field.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1595",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1595",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1595",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1595",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1595",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1595",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma and gallbladder remain clearly exposed during initial mobilization. The cystic duct has not yet been skeletonized, and neither graspers, an electrocautery hook, nor active bleeding is present in the field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1595"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01563_1603",
+      "narration": "The liver and gallbladder remain exposed in the operative field, with some localized blood evident on the adjacent tissue surface. The cystic duct has not been skeletonized, no L-hook electrocautery is present, and we are not yet confident identifying grasper placement.",
+      "sentence": "The liver and gallbladder remain exposed in the operative field, with some localized blood evident on the adjacent tissue surface. The cystic duct has not been skeletonized, no L-hook electrocautery is present, and we are not yet confident identifying grasper placement.",
+      "text": "The liver and gallbladder remain exposed in the operative field, with some localized blood evident on the adjacent tissue surface. The cystic duct has not been skeletonized, no L-hook electrocautery is present, and we are not yet confident identifying grasper placement.",
+      "unsure_about": [
+        "grasper"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1603",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1603",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1603",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1603",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1603",
+          "key": "blood",
+          "present": true
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver and gallbladder remain exposed in the operative field, with some localized blood evident on the adjacent tissue surface. The cystic duct has not been skeletonized, no L-hook electrocautery is present, and we are not yet confident identifying grasper placement.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1603"
+          ]
+        },
+        {
+          "text": "grasper (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01563_1603"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01563_1611",
+      "narration": "The distended gallbladder remains clearly exposed, without an L-hook electrocautery, graspers, or an isolated cystic duct present in the field. We are not yet confident regarding the definitive boundaries of the liver or traces of extravasated blood in this view.",
+      "sentence": "The distended gallbladder remains clearly exposed, without an L-hook electrocautery, graspers, or an isolated cystic duct present in the field. We are not yet confident regarding the definitive boundaries of the liver or traces of extravasated blood in this view.",
+      "text": "The distended gallbladder remains clearly exposed, without an L-hook electrocautery, graspers, or an isolated cystic duct present in the field. We are not yet confident regarding the definitive boundaries of the liver or traces of extravasated blood in this view.",
+      "unsure_about": [
+        "liver",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1611",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1611",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1611",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1611",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The distended gallbladder remains clearly exposed, without an L-hook electrocautery, graspers, or an isolated cystic duct present in the field. We are not yet confident regarding the definitive boundaries of the liver or traces of extravasated blood in this view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1611"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01563_1611"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01563_1611"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01563_1619",
+      "narration": "The liver and distended gallbladder are clearly visualized in the operative view, while no isolated cystic duct or L-hook electrocautery is present. We are not yet confident regarding the presence of a laparoscopic grasper or any extravasated blood.",
+      "sentence": "The liver and distended gallbladder are clearly visualized in the operative view, while no isolated cystic duct or L-hook electrocautery is present. We are not yet confident regarding the presence of a laparoscopic grasper or any extravasated blood.",
+      "text": "The liver and distended gallbladder are clearly visualized in the operative view, while no isolated cystic duct or L-hook electrocautery is present. We are not yet confident regarding the presence of a laparoscopic grasper or any extravasated blood.",
+      "unsure_about": [
+        "grasper",
+        "blood"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1619",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1619",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1619",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1619",
+          "key": "cystic_duct",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver and distended gallbladder are clearly visualized in the operative view, while no isolated cystic duct or L-hook electrocautery is present. We are not yet confident regarding the presence of a laparoscopic grasper or any extravasated blood.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1619"
+          ]
+        },
+        {
+          "text": "grasper (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01563_1619"
+          ]
+        },
+        {
+          "text": "blood (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01563_1619"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01563_1627",
+      "narration": "The hepatic parenchyma of the liver is distinctly visible, with no active electrocautery hook, isolated cystic duct, or extravasated blood identified in the operative field. We are not yet confident in confirming the presence of the gallbladder or a laparoscopic grasper.",
+      "sentence": "The hepatic parenchyma of the liver is distinctly visible, with no active electrocautery hook, isolated cystic duct, or extravasated blood identified in the operative field. We are not yet confident in confirming the presence of the gallbladder or a laparoscopic grasper.",
+      "text": "The hepatic parenchyma of the liver is distinctly visible, with no active electrocautery hook, isolated cystic duct, or extravasated blood identified in the operative field. We are not yet confident in confirming the presence of the gallbladder or a laparoscopic grasper.",
+      "unsure_about": [
+        "grasper",
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1627",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1627",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1627",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1627",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The hepatic parenchyma of the liver is distinctly visible, with no active electrocautery hook, isolated cystic duct, or extravasated blood identified in the operative field. We are not yet confident in confirming the presence of the gallbladder or a laparoscopic grasper.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1627"
+          ]
+        },
+        {
+          "text": "grasper (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01563_1627"
+          ]
+        },
+        {
+          "text": "gallbladder (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01563_1627"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01563_1635",
+      "narration": "The gallbladder is clearly visualized within the operative field, with no laparoscopic grasper, L-hook electrocautery, isolated cystic duct, or active bleeding identified. At this stage, we are not yet confident in confirming the liver.",
+      "sentence": "The gallbladder is clearly visualized within the operative field, with no laparoscopic grasper, L-hook electrocautery, isolated cystic duct, or active bleeding identified. At this stage, we are not yet confident in confirming the liver.",
+      "text": "The gallbladder is clearly visualized within the operative field, with no laparoscopic grasper, L-hook electrocautery, isolated cystic duct, or active bleeding identified. At this stage, we are not yet confident in confirming the liver.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01563_1635",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1635",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1635",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01563_1635",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01563_1635",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The gallbladder is clearly visualized within the operative field, with no laparoscopic grasper, L-hook electrocautery, isolated cystic duct, or active bleeding identified. At this stage, we are not yet confident in confirming the liver.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01563_1635"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01563_1635"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1643",
+      "narration": "The gallbladder remains prominently displayed in the surgical field without graspers, L-hook electrocautery, an isolated cystic duct, or free blood present. We are not yet confident in confirming the liver parenchyma from this perspective.",
+      "sentence": "The gallbladder remains prominently displayed in the surgical field without graspers, L-hook electrocautery, an isolated cystic duct, or free blood present. We are not yet confident in confirming the liver parenchyma from this perspective.",
+      "text": "The gallbladder remains prominently displayed in the surgical field without graspers, L-hook electrocautery, an isolated cystic duct, or free blood present. We are not yet confident in confirming the liver parenchyma from this perspective.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1643",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1643",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1643",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1643",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1643",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The gallbladder remains prominently displayed in the surgical field without graspers, L-hook electrocautery, an isolated cystic duct, or free blood present. We are not yet confident in confirming the liver parenchyma from this perspective.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1643"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01643_1643"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1651",
+      "narration": "The gallbladder remains visible in the operative field without the presence of graspers, L-hook electrocautery, an isolated cystic duct, or free blood. We are not yet confident in identifying the liver parenchyma from this angle.",
+      "sentence": "The gallbladder remains visible in the operative field without the presence of graspers, L-hook electrocautery, an isolated cystic duct, or free blood. We are not yet confident in identifying the liver parenchyma from this angle.",
+      "text": "The gallbladder remains visible in the operative field without the presence of graspers, L-hook electrocautery, an isolated cystic duct, or free blood. We are not yet confident in identifying the liver parenchyma from this angle.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1651",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1651",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1651",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1651",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1651",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The gallbladder remains visible in the operative field without the presence of graspers, L-hook electrocautery, an isolated cystic duct, or free blood. We are not yet confident in identifying the liver parenchyma from this angle.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1651"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01643_1651"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1659",
+      "narration": "The gallbladder is clearly visualized within the operative view, with no graspers, L-hook electrocautery, isolated cystic duct, or free blood present. We are not yet confident in confirming the margins of the liver parenchyma.",
+      "sentence": "The gallbladder is clearly visualized within the operative view, with no graspers, L-hook electrocautery, isolated cystic duct, or free blood present. We are not yet confident in confirming the margins of the liver parenchyma.",
+      "text": "The gallbladder is clearly visualized within the operative view, with no graspers, L-hook electrocautery, isolated cystic duct, or free blood present. We are not yet confident in confirming the margins of the liver parenchyma.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1659",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1659",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1659",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1659",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1659",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The gallbladder is clearly visualized within the operative view, with no graspers, L-hook electrocautery, isolated cystic duct, or free blood present. We are not yet confident in confirming the margins of the liver parenchyma.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1659"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01643_1659"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1667",
+      "narration": "The gallbladder and liver parenchyma are clearly visualized within the surgical field, with no L-hook electrocautery, isolated cystic duct, or free blood observed. We are not yet confident in confirming the presence of a laparoscopic grasper.",
+      "sentence": "The gallbladder and liver parenchyma are clearly visualized within the surgical field, with no L-hook electrocautery, isolated cystic duct, or free blood observed. We are not yet confident in confirming the presence of a laparoscopic grasper.",
+      "text": "The gallbladder and liver parenchyma are clearly visualized within the surgical field, with no L-hook electrocautery, isolated cystic duct, or free blood observed. We are not yet confident in confirming the presence of a laparoscopic grasper.",
+      "unsure_about": [
+        "grasper"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1667",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1667",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1667",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1667",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1667",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The gallbladder and liver parenchyma are clearly visualized within the surgical field, with no L-hook electrocautery, isolated cystic duct, or free blood observed. We are not yet confident in confirming the presence of a laparoscopic grasper.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1667"
+          ]
+        },
+        {
+          "text": "grasper (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01643_1667"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1675",
+      "narration": "The gallbladder remains visible in the operative field without active L-hook electrocautery, skeletonized cystic duct, or free blood. We are not yet confident in confirming the liver margins or the presence of a laparoscopic grasper.",
+      "sentence": "The gallbladder remains visible in the operative field without active L-hook electrocautery, skeletonized cystic duct, or free blood. We are not yet confident in confirming the liver margins or the presence of a laparoscopic grasper.",
+      "text": "The gallbladder remains visible in the operative field without active L-hook electrocautery, skeletonized cystic duct, or free blood. We are not yet confident in confirming the liver margins or the presence of a laparoscopic grasper.",
+      "unsure_about": [
+        "grasper",
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1675",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1675",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1675",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1675",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The gallbladder remains visible in the operative field without active L-hook electrocautery, skeletonized cystic duct, or free blood. We are not yet confident in confirming the liver margins or the presence of a laparoscopic grasper.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1675"
+          ]
+        },
+        {
+          "text": "grasper (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01643_1675"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01643_1675"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1683",
+      "narration": "The gallbladder remains visible, with no laparoscopic grasper applied, no skeletonized cystic duct, and no free blood in the field. We are not yet confident in delineating the liver parenchyma or confirming the presence of an L-hook electrocautery instrument.",
+      "sentence": "The gallbladder remains visible, with no laparoscopic grasper applied, no skeletonized cystic duct, and no free blood in the field. We are not yet confident in delineating the liver parenchyma or confirming the presence of an L-hook electrocautery instrument.",
+      "text": "The gallbladder remains visible, with no laparoscopic grasper applied, no skeletonized cystic duct, and no free blood in the field. We are not yet confident in delineating the liver parenchyma or confirming the presence of an L-hook electrocautery instrument.",
+      "unsure_about": [
+        "l_hook",
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1683",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1683",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1683",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1683",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The gallbladder remains visible, with no laparoscopic grasper applied, no skeletonized cystic duct, and no free blood in the field. We are not yet confident in delineating the liver parenchyma or confirming the presence of an L-hook electrocautery instrument.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1683"
+          ]
+        },
+        {
+          "text": "l_hook (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01643_1683"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01643_1683"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1691",
+      "narration": "A laparoscopic grasper is visible near the distended gallbladder, while no L-hook electrocautery, skeletonized cystic duct, or free blood is present in the field. We are not yet confident in confirming the borders of the liver parenchyma.",
+      "sentence": "A laparoscopic grasper is visible near the distended gallbladder, while no L-hook electrocautery, skeletonized cystic duct, or free blood is present in the field. We are not yet confident in confirming the borders of the liver parenchyma.",
+      "text": "A laparoscopic grasper is visible near the distended gallbladder, while no L-hook electrocautery, skeletonized cystic duct, or free blood is present in the field. We are not yet confident in confirming the borders of the liver parenchyma.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1691",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1691",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1691",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1691",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1691",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "A laparoscopic grasper is visible near the distended gallbladder, while no L-hook electrocautery, skeletonized cystic duct, or free blood is present in the field. We are not yet confident in confirming the borders of the liver parenchyma.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1691"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01643_1691"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1699",
+      "narration": "The liver and distended gallbladder are clearly visualized in the operative field, with no L-hook electrocautery, skeletonized cystic duct, or extravasated blood observed. We are not yet confident in confirming the presence or identity of a laparoscopic grasper.",
+      "sentence": "The liver and distended gallbladder are clearly visualized in the operative field, with no L-hook electrocautery, skeletonized cystic duct, or extravasated blood observed. We are not yet confident in confirming the presence or identity of a laparoscopic grasper.",
+      "text": "The liver and distended gallbladder are clearly visualized in the operative field, with no L-hook electrocautery, skeletonized cystic duct, or extravasated blood observed. We are not yet confident in confirming the presence or identity of a laparoscopic grasper.",
+      "unsure_about": [
+        "grasper"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1699",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1699",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1699",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1699",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1699",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver and distended gallbladder are clearly visualized in the operative field, with no L-hook electrocautery, skeletonized cystic duct, or extravasated blood observed. We are not yet confident in confirming the presence or identity of a laparoscopic grasper.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1699"
+          ]
+        },
+        {
+          "text": "grasper (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01643_1699"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1707",
+      "narration": "The gallbladder and adjacent liver tissue are clearly displayed, without any visible skeletonized cystic duct or extravasated blood. At this stage, we are not yet confident in confirming the presence or identity of an L-hook electrocautery or a laparoscopic grasper.",
+      "sentence": "The gallbladder and adjacent liver tissue are clearly displayed, without any visible skeletonized cystic duct or extravasated blood. At this stage, we are not yet confident in confirming the presence or identity of an L-hook electrocautery or a laparoscopic grasper.",
+      "text": "The gallbladder and adjacent liver tissue are clearly displayed, without any visible skeletonized cystic duct or extravasated blood. At this stage, we are not yet confident in confirming the presence or identity of an L-hook electrocautery or a laparoscopic grasper.",
+      "unsure_about": [
+        "grasper",
+        "l_hook"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1707",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1707",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1707",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1707",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The gallbladder and adjacent liver tissue are clearly displayed, without any visible skeletonized cystic duct or extravasated blood. At this stage, we are not yet confident in confirming the presence or identity of an L-hook electrocautery or a laparoscopic grasper.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1707"
+          ]
+        },
+        {
+          "text": "grasper (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01643_1707"
+          ]
+        },
+        {
+          "text": "l_hook (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video17_01643_1707"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01643_1715",
+      "narration": "A laparoscopic grasper is actively engaging tissue to aid exposure of the gallbladder against the liver parenchyma. No L-hook electrocautery, skeletonized cystic duct, or free blood is observed in the operative field.",
+      "sentence": "A laparoscopic grasper is actively engaging tissue to aid exposure of the gallbladder against the liver parenchyma. No L-hook electrocautery, skeletonized cystic duct, or free blood is observed in the operative field.",
+      "text": "A laparoscopic grasper is actively engaging tissue to aid exposure of the gallbladder against the liver parenchyma. No L-hook electrocautery, skeletonized cystic duct, or free blood is observed in the operative field.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01643_1715",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1715",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1715",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1715",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01643_1715",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01643_1715",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "A laparoscopic grasper is actively engaging tissue to aid exposure of the gallbladder against the liver parenchyma. No L-hook electrocautery, skeletonized cystic duct, or free blood is observed in the operative field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01643_1715"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1803",
+      "narration": "A laparoscopic grasper maintains firm retraction on the gallbladder to display its relationship to the underlying liver. The dissection has not exposed the cystic duct, and no L-hook electrocautery or active bleeding is present.",
+      "sentence": "A laparoscopic grasper maintains firm retraction on the gallbladder to display its relationship to the underlying liver. The dissection has not exposed the cystic duct, and no L-hook electrocautery or active bleeding is present.",
+      "text": "A laparoscopic grasper maintains firm retraction on the gallbladder to display its relationship to the underlying liver. The dissection has not exposed the cystic duct, and no L-hook electrocautery or active bleeding is present.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1803",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1803",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1803",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1803",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1803",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1803",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "A laparoscopic grasper maintains firm retraction on the gallbladder to display its relationship to the underlying liver. The dissection has not exposed the cystic duct, and no L-hook electrocautery or active bleeding is present.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1803"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1811",
+      "narration": "A laparoscopic grasper continues to manipulate the gallbladder, though we are not yet confident in confirming the surrounding liver. The cystic duct is not currently exposed, and neither an L-hook electrocautery nor active bleeding is present.",
+      "sentence": "A laparoscopic grasper continues to manipulate the gallbladder, though we are not yet confident in confirming the surrounding liver. The cystic duct is not currently exposed, and neither an L-hook electrocautery nor active bleeding is present.",
+      "text": "A laparoscopic grasper continues to manipulate the gallbladder, though we are not yet confident in confirming the surrounding liver. The cystic duct is not currently exposed, and neither an L-hook electrocautery nor active bleeding is present.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1811",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1811",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1811",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1811",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1811",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "A laparoscopic grasper continues to manipulate the gallbladder, though we are not yet confident in confirming the surrounding liver. The cystic duct is not currently exposed, and neither an L-hook electrocautery nor active bleeding is present.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1811"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01803_1811"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1819",
+      "narration": "A laparoscopic grasper is used to elevate and retract the gallbladder, though we are not yet confident in confirming the adjacent liver margin. The cystic duct has not been dissected into view, and there is neither an L-hook electrocautery nor any active bleeding present.",
+      "sentence": "A laparoscopic grasper is used to elevate and retract the gallbladder, though we are not yet confident in confirming the adjacent liver margin. The cystic duct has not been dissected into view, and there is neither an L-hook electrocautery nor any active bleeding present.",
+      "text": "A laparoscopic grasper is used to elevate and retract the gallbladder, though we are not yet confident in confirming the adjacent liver margin. The cystic duct has not been dissected into view, and there is neither an L-hook electrocautery nor any active bleeding present.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1819",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1819",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1819",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1819",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1819",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "A laparoscopic grasper is used to elevate and retract the gallbladder, though we are not yet confident in confirming the adjacent liver margin. The cystic duct has not been dissected into view, and there is neither an L-hook electrocautery nor any active bleeding present.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1819"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01803_1819"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1827",
+      "narration": "The laparoscopic grasper continues to retract the distended gallbladder to establish operative exposure, though we are not yet confident in identifying the precise margins of the adjacent liver. Dissection has not commenced to reveal the cystic duct, with no L-hook electrocautery deployed and no signs of bleeding in the field.",
+      "sentence": "The laparoscopic grasper continues to retract the distended gallbladder to establish operative exposure, though we are not yet confident in identifying the precise margins of the adjacent liver. Dissection has not commenced to reveal the cystic duct, with no L-hook electrocautery deployed and no signs of bleeding in the field.",
+      "text": "The laparoscopic grasper continues to retract the distended gallbladder to establish operative exposure, though we are not yet confident in identifying the precise margins of the adjacent liver. Dissection has not commenced to reveal the cystic duct, with no L-hook electrocautery deployed and no signs of bleeding in the field.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1827",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1827",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1827",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1827",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1827",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscopic grasper continues to retract the distended gallbladder to establish operative exposure, though we are not yet confident in identifying the precise margins of the adjacent liver. Dissection has not commenced to reveal the cystic duct, with no L-hook electrocautery deployed and no signs of bleeding in the field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1827"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01803_1827"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1835",
+      "narration": "The laparoscopic grasper maintains retraction on the gallbladder to optimize visualization, though we are not yet confident in defining the adjacent liver boundaries. Dissection within Calot's triangle has not begun, leaving the cystic duct unexposed, with no L-hook electrocautery in use and no blood observed.",
+      "sentence": "The laparoscopic grasper maintains retraction on the gallbladder to optimize visualization, though we are not yet confident in defining the adjacent liver boundaries. Dissection within Calot's triangle has not begun, leaving the cystic duct unexposed, with no L-hook electrocautery in use and no blood observed.",
+      "text": "The laparoscopic grasper maintains retraction on the gallbladder to optimize visualization, though we are not yet confident in defining the adjacent liver boundaries. Dissection within Calot's triangle has not begun, leaving the cystic duct unexposed, with no L-hook electrocautery in use and no blood observed.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1835",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1835",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1835",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1835",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1835",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscopic grasper maintains retraction on the gallbladder to optimize visualization, though we are not yet confident in defining the adjacent liver boundaries. Dissection within Calot's triangle has not begun, leaving the cystic duct unexposed, with no L-hook electrocautery in use and no blood observed.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1835"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01803_1835"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1843",
+      "narration": "The laparoscopic grasper applies retraction to the gallbladder against the adjacent liver, exposing the organ for initial inspection. Dissection has not commenced, leaving the cystic duct unexposed, with no L-hook electrocautery deployed and no blood visualized.",
+      "sentence": "The laparoscopic grasper applies retraction to the gallbladder against the adjacent liver, exposing the organ for initial inspection. Dissection has not commenced, leaving the cystic duct unexposed, with no L-hook electrocautery deployed and no blood visualized.",
+      "text": "The laparoscopic grasper applies retraction to the gallbladder against the adjacent liver, exposing the organ for initial inspection. Dissection has not commenced, leaving the cystic duct unexposed, with no L-hook electrocautery deployed and no blood visualized.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1843",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1843",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1843",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1843",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1843",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1843",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscopic grasper applies retraction to the gallbladder against the adjacent liver, exposing the organ for initial inspection. Dissection has not commenced, leaving the cystic duct unexposed, with no L-hook electrocautery deployed and no blood visualized.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1843"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1851",
+      "narration": "The laparoscopic grasper maintains traction on the gallbladder to facilitate initial exposure, while the cystic duct is not yet exposed, no L-hook electrocautery is in use, and no bleeding is observed. At this stage, we are not yet confident in definitively identifying the surrounding liver margins.",
+      "sentence": "The laparoscopic grasper maintains traction on the gallbladder to facilitate initial exposure, while the cystic duct is not yet exposed, no L-hook electrocautery is in use, and no bleeding is observed. At this stage, we are not yet confident in definitively identifying the surrounding liver margins.",
+      "text": "The laparoscopic grasper maintains traction on the gallbladder to facilitate initial exposure, while the cystic duct is not yet exposed, no L-hook electrocautery is in use, and no bleeding is observed. At this stage, we are not yet confident in definitively identifying the surrounding liver margins.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1851",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1851",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1851",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1851",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1851",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscopic grasper maintains traction on the gallbladder to facilitate initial exposure, while the cystic duct is not yet exposed, no L-hook electrocautery is in use, and no bleeding is observed. At this stage, we are not yet confident in definitively identifying the surrounding liver margins.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1851"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01803_1851"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1859",
+      "narration": "A laparoscopic grasper is actively engaging the fundus of the gallbladder to provide cephalad retraction, while the cystic duct has not yet been skeletonized and no L-hook electrocautery or active bleeding is seen. We are not yet confident in confirming the exact boundaries of the adjacent liver tissue.",
+      "sentence": "A laparoscopic grasper is actively engaging the fundus of the gallbladder to provide cephalad retraction, while the cystic duct has not yet been skeletonized and no L-hook electrocautery or active bleeding is seen. We are not yet confident in confirming the exact boundaries of the adjacent liver tissue.",
+      "text": "A laparoscopic grasper is actively engaging the fundus of the gallbladder to provide cephalad retraction, while the cystic duct has not yet been skeletonized and no L-hook electrocautery or active bleeding is seen. We are not yet confident in confirming the exact boundaries of the adjacent liver tissue.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1859",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1859",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1859",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1859",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1859",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "A laparoscopic grasper is actively engaging the fundus of the gallbladder to provide cephalad retraction, while the cystic duct has not yet been skeletonized and no L-hook electrocautery or active bleeding is seen. We are not yet confident in confirming the exact boundaries of the adjacent liver tissue.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1859"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01803_1859"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1867",
+      "narration": "The laparoscopic grasper maintains upward traction on the fundus of the gallbladder to elevate it and expose the surgical field, with no L-hook electrocautery in use, no skeletonized cystic duct visible, and no free blood present. We are not yet confident in definitively delineating the surrounding liver parenchyma.",
+      "sentence": "The laparoscopic grasper maintains upward traction on the fundus of the gallbladder to elevate it and expose the surgical field, with no L-hook electrocautery in use, no skeletonized cystic duct visible, and no free blood present. We are not yet confident in definitively delineating the surrounding liver parenchyma.",
+      "text": "The laparoscopic grasper maintains upward traction on the fundus of the gallbladder to elevate it and expose the surgical field, with no L-hook electrocautery in use, no skeletonized cystic duct visible, and no free blood present. We are not yet confident in definitively delineating the surrounding liver parenchyma.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1867",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1867",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1867",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1867",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1867",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscopic grasper maintains upward traction on the fundus of the gallbladder to elevate it and expose the surgical field, with no L-hook electrocautery in use, no skeletonized cystic duct visible, and no free blood present. We are not yet confident in definitively delineating the surrounding liver parenchyma.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1867"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01803_1867"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01803_1875",
+      "narration": "The laparoscopic grasper continues to retract the gallbladder fundus to provide necessary exposure, while neither an L-hook electrocautery, skeletonized cystic duct, nor free blood is observed. We are not yet confident in confirming the exact boundaries of the adjacent liver tissue.",
+      "sentence": "The laparoscopic grasper continues to retract the gallbladder fundus to provide necessary exposure, while neither an L-hook electrocautery, skeletonized cystic duct, nor free blood is observed. We are not yet confident in confirming the exact boundaries of the adjacent liver tissue.",
+      "text": "The laparoscopic grasper continues to retract the gallbladder fundus to provide necessary exposure, while neither an L-hook electrocautery, skeletonized cystic duct, nor free blood is observed. We are not yet confident in confirming the exact boundaries of the adjacent liver tissue.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01803_1875",
+          "key": "grasper",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1875",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1875",
+          "key": "gallbladder",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01803_1875",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01803_1875",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscopic grasper continues to retract the gallbladder fundus to provide necessary exposure, while neither an L-hook electrocautery, skeletonized cystic duct, nor free blood is observed. We are not yet confident in confirming the exact boundaries of the adjacent liver tissue.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01803_1875"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01803_1875"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_1963",
+      "narration": "The laparoscope visualizes the peritoneal cavity where the liver parenchyma is identifiable along the inferior edge of the view. No surgical instruments such as a grasper or L-hook are currently in the field, and neither the gallbladder, cystic duct, nor free blood is visible.",
+      "sentence": "The laparoscope visualizes the peritoneal cavity where the liver parenchyma is identifiable along the inferior edge of the view. No surgical instruments such as a grasper or L-hook are currently in the field, and neither the gallbladder, cystic duct, nor free blood is visible.",
+      "text": "The laparoscope visualizes the peritoneal cavity where the liver parenchyma is identifiable along the inferior edge of the view. No surgical instruments such as a grasper or L-hook are currently in the field, and neither the gallbladder, cystic duct, nor free blood is visible.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_1963",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1963",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1963",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01963_1963",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1963",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1963",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscope visualizes the peritoneal cavity where the liver parenchyma is identifiable along the inferior edge of the view. No surgical instruments such as a grasper or L-hook are currently in the field, and neither the gallbladder, cystic duct, nor free blood is visible.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_1963"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_1971",
+      "narration": "The laparoscope continues to display the peritoneal cavity, with a portion of the liver visible along the inferior aspect. No instruments are present in the field, and the gallbladder, cystic duct, and blood remain absent from view.",
+      "sentence": "The laparoscope continues to display the peritoneal cavity, with a portion of the liver visible along the inferior aspect. No instruments are present in the field, and the gallbladder, cystic duct, and blood remain absent from view.",
+      "text": "The laparoscope continues to display the peritoneal cavity, with a portion of the liver visible along the inferior aspect. No instruments are present in the field, and the gallbladder, cystic duct, and blood remain absent from view.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_1971",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1971",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1971",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01963_1971",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1971",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1971",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscope continues to display the peritoneal cavity, with a portion of the liver visible along the inferior aspect. No instruments are present in the field, and the gallbladder, cystic duct, and blood remain absent from view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_1971"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_1979",
+      "narration": "A view within the peritoneal cavity shows the abdominal wall and adjacent adipose tissue, with the dark edge of the liver visible in the lower portion of the frame. No surgical instruments or gallbladder structures are currently in view.",
+      "sentence": "A view within the peritoneal cavity shows the abdominal wall and adjacent adipose tissue, with the dark edge of the liver visible in the lower portion of the frame. No surgical instruments or gallbladder structures are currently in view.",
+      "text": "A view within the peritoneal cavity shows the abdominal wall and adjacent adipose tissue, with the dark edge of the liver visible in the lower portion of the frame. No surgical instruments or gallbladder structures are currently in view.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_1979",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1979",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1979",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01963_1979",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1979",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1979",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "A view within the peritoneal cavity shows the abdominal wall and adjacent adipose tissue, with the dark edge of the liver visible in the lower portion of the frame. No surgical instruments or gallbladder structures are currently in view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_1979"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_1987",
+      "narration": "The laparoscope provides an initial survey of the peritoneal cavity, showing the abdominal wall, preperitoneal fat, and the edge of the liver. No instruments or gallbladder structures are visible in this field.",
+      "sentence": "The laparoscope provides an initial survey of the peritoneal cavity, showing the abdominal wall, preperitoneal fat, and the edge of the liver. No instruments or gallbladder structures are visible in this field.",
+      "text": "The laparoscope provides an initial survey of the peritoneal cavity, showing the abdominal wall, preperitoneal fat, and the edge of the liver. No instruments or gallbladder structures are visible in this field.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_1987",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1987",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1987",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01963_1987",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1987",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1987",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The laparoscope provides an initial survey of the peritoneal cavity, showing the abdominal wall, preperitoneal fat, and the edge of the liver. No instruments or gallbladder structures are visible in this field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_1987"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_1995",
+      "narration": "Continuing the diagnostic survey of the peritoneal cavity, the vascularized anterior abdominal wall and preperitoneal fat dominate the view, with the liver parenchyma visible in the lower right. No laparoscopic instruments or the gallbladder are present in the current frame.",
+      "sentence": "Continuing the diagnostic survey of the peritoneal cavity, the vascularized anterior abdominal wall and preperitoneal fat dominate the view, with the liver parenchyma visible in the lower right. No laparoscopic instruments or the gallbladder are present in the current frame.",
+      "text": "Continuing the diagnostic survey of the peritoneal cavity, the vascularized anterior abdominal wall and preperitoneal fat dominate the view, with the liver parenchyma visible in the lower right. No laparoscopic instruments or the gallbladder are present in the current frame.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_1995",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1995",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1995",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01963_1995",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1995",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_1995",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "Continuing the diagnostic survey of the peritoneal cavity, the vascularized anterior abdominal wall and preperitoneal fat dominate the view, with the liver parenchyma visible in the lower right. No laparoscopic instruments or the gallbladder are present in the current frame.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_1995"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_2003",
+      "narration": "During this phase of exploration, the vascularized anterior abdominal wall and preperitoneal fat remain prominently in view without any graspers or dissection tools. Although a dark parenchymal border is partially seen in the lower right periphery, we are not yet confident identifying it as liver tissue.",
+      "sentence": "During this phase of exploration, the vascularized anterior abdominal wall and preperitoneal fat remain prominently in view without any graspers or dissection tools. Although a dark parenchymal border is partially seen in the lower right periphery, we are not yet confident identifying it as liver tissue.",
+      "text": "During this phase of exploration, the vascularized anterior abdominal wall and preperitoneal fat remain prominently in view without any graspers or dissection tools. Although a dark parenchymal border is partially seen in the lower right periphery, we are not yet confident identifying it as liver tissue.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_2003",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2003",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2003",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2003",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2003",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "During this phase of exploration, the vascularized anterior abdominal wall and preperitoneal fat remain prominently in view without any graspers or dissection tools. Although a dark parenchymal border is partially seen in the lower right periphery, we are not yet confident identifying it as liver tissue.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_2003"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01963_2003"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_2011",
+      "narration": "The camera maintains a view of the anterior abdominal wall and adjacent adipose tissue, with no instruments or active dissection in place. A dark tissue edge is visible along the lower right border, but we are not yet confident identifying it as liver.",
+      "sentence": "The camera maintains a view of the anterior abdominal wall and adjacent adipose tissue, with no instruments or active dissection in place. A dark tissue edge is visible along the lower right border, but we are not yet confident identifying it as liver.",
+      "text": "The camera maintains a view of the anterior abdominal wall and adjacent adipose tissue, with no instruments or active dissection in place. A dark tissue edge is visible along the lower right border, but we are not yet confident identifying it as liver.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_2011",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2011",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2011",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2011",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2011",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The camera maintains a view of the anterior abdominal wall and adjacent adipose tissue, with no instruments or active dissection in place. A dark tissue edge is visible along the lower right border, but we are not yet confident identifying it as liver.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_2011"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01963_2011"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_2019",
+      "narration": "We continue observing the vascularized peritoneal wall and adjacent fatty tissue, with no surgical instruments currently introduced. A dark tissue margin remains visible along the lower right edge, though we are not yet confident identifying it as liver.",
+      "sentence": "We continue observing the vascularized peritoneal wall and adjacent fatty tissue, with no surgical instruments currently introduced. A dark tissue margin remains visible along the lower right edge, though we are not yet confident identifying it as liver.",
+      "text": "We continue observing the vascularized peritoneal wall and adjacent fatty tissue, with no surgical instruments currently introduced. A dark tissue margin remains visible along the lower right edge, though we are not yet confident identifying it as liver.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_2019",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2019",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2019",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2019",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2019",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "We continue observing the vascularized peritoneal wall and adjacent fatty tissue, with no surgical instruments currently introduced. A dark tissue margin remains visible along the lower right edge, though we are not yet confident identifying it as liver.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_2019"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01963_2019"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_2027",
+      "narration": "The peritoneal lining and underlying adipose layers remain under steady laparoscopic visualization without any active surgical instruments in view. Along the lower right periphery, we are not yet confident identifying the darker margin as liver.",
+      "sentence": "The peritoneal lining and underlying adipose layers remain under steady laparoscopic visualization without any active surgical instruments in view. Along the lower right periphery, we are not yet confident identifying the darker margin as liver.",
+      "text": "The peritoneal lining and underlying adipose layers remain under steady laparoscopic visualization without any active surgical instruments in view. Along the lower right periphery, we are not yet confident identifying the darker margin as liver.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_2027",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2027",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2027",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2027",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2027",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The peritoneal lining and underlying adipose layers remain under steady laparoscopic visualization without any active surgical instruments in view. Along the lower right periphery, we are not yet confident identifying the darker margin as liver.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_2027"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video17_01963_2027"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video17_01963_2035",
+      "narration": "The peritoneal lining and adipose tissue remain in view with no instruments currently introduced. The dark edge of the liver parenchyma is now confirmed along the lower right margin.",
+      "sentence": "The peritoneal lining and adipose tissue remain in view with no instruments currently introduced. The dark edge of the liver parenchyma is now confirmed along the lower right margin.",
+      "text": "The peritoneal lining and adipose tissue remain in view with no instruments currently introduced. The dark edge of the liver parenchyma is now confirmed along the lower right margin.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video17_01963_2035",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2035",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2035",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video17_01963_2035",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2035",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video17_01963_2035",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The peritoneal lining and adipose tissue remain in view with no instruments currently introduced. The dark edge of the liver parenchyma is now confirmed along the lower right margin.",
+          "status": "verified",
+          "evidence_frames": [
+            "video17_01963_2035"
+          ]
+        }
+      ]
+    }
+  ]
+}

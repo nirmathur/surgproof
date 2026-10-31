@@ -1,0 +1,83 @@
+{
+ "clips": {
+  "video28_00000": {
+   "frames": 80,
+   "n_mask_scored": 77,
+   "mean_iou": 0.6949,
+   "per_label_iou": {
+    "liver": [
+     0.6949,
+     77
+    ]
+   },
+   "presence_accuracy": 0.9563,
+   "presence_counts": {
+    "tp": 77,
+    "fp": 11,
+    "fn": 3,
+    "tn": 229
+   }
+  },
+  "video55_00508": {
+   "frames": 80,
+   "n_mask_scored": 299,
+   "mean_iou": 0.6619,
+   "per_label_iou": {
+    "liver": [
+     0.5711,
+     80
+    ],
+    "grasper": [
+     0.6103,
+     80
+    ],
+    "l_hook": [
+     0.7871,
+     59
+    ],
+    "gallbladder": [
+     0.7118,
+     80
+    ]
+   },
+   "presence_accuracy": 0.9906,
+   "presence_counts": {
+    "tp": 299,
+    "fp": 1,
+    "fn": 2,
+    "tn": 18
+   }
+  },
+  "video12_15750": {
+   "frames": 80,
+   "n_mask_scored": 318,
+   "mean_iou": 0.6312,
+   "per_label_iou": {
+    "liver": [
+     0.4882,
+     80
+    ],
+    "grasper": [
+     0.6361,
+     80
+    ],
+    "l_hook": [
+     0.8058,
+     80
+    ],
+    "gallbladder": [
+     0.5938,
+     78
+    ]
+   },
+   "presence_accuracy": 0.9938,
+   "presence_counts": {
+    "tp": 318,
+    "fp": 2,
+    "fn": 0,
+    "tn": 0
+   }
+  }
+ },
+ "note": "every frame of each clip annotated by the AI (no human); scored afterwards vs CholecSeg8k per-frame masks"
+}

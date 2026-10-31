@@ -1,0 +1,121 @@
+{
+  "split_evaluated": "test",
+  "n_test_frames": 90,
+  "n_test_videos": 6,
+  "n_test_annotations": 277,
+  "n_all_annotations": 805,
+  "boxes": {
+    "n_scored": 268,
+    "mean_iou": 0.7604,
+    "median_iou": 0.8351,
+    "iou_ge_05_rate": 0.8694,
+    "mean_iou_full_mask": 0.7021,
+    "pass1_mean_iou": 0.7204,
+    "accepted_only": {
+      "n": 257,
+      "mean_iou": 0.7589,
+      "iou_ge_05_rate": 0.8716
+    },
+    "per_label": {
+      "gallbladder": {
+        "n": 84,
+        "mean_iou": 0.5838,
+        "median_iou": 0.6489,
+        "iou_ge_05": 0.6548,
+        "accepted_n": 82,
+        "accepted_mean_iou": 0.5917,
+        "accepted_iou_ge_05": 0.6707
+      },
+      "grasper": {
+        "n": 72,
+        "mean_iou": 0.8363,
+        "median_iou": 0.8992,
+        "iou_ge_05": 0.9444,
+        "accepted_n": 65,
+        "accepted_mean_iou": 0.8265,
+        "accepted_iou_ge_05": 0.9385
+      },
+      "l_hook": {
+        "n": 57,
+        "mean_iou": 0.9135,
+        "median_iou": 0.9275,
+        "iou_ge_05": 1.0,
+        "accepted_n": 56,
+        "accepted_mean_iou": 0.9143,
+        "accepted_iou_ge_05": 1.0
+      },
+      "liver": {
+        "n": 55,
+        "mean_iou": 0.7722,
+        "median_iou": 0.7939,
+        "iou_ge_05": 0.9636,
+        "accepted_n": 54,
+        "accepted_mean_iou": 0.7704,
+        "accepted_iou_ge_05": 0.963
+      }
+    }
+  },
+  "tips": {
+    "n_scored": 129,
+    "within_tool_mask_rate": 0.814,
+    "within_gt_tool_mask_rate": 0.814,
+    "within_tool_mask_3px_rate": 0.8837,
+    "within_any_tool_mask_3px_rate": 0.8992,
+    "per_tool": {
+      "grasper": {
+        "n": 72,
+        "within_tool_mask_rate": 0.75,
+        "within_gt_tool_mask_rate": 0.75,
+        "within_tool_mask_3px_rate": 0.8333
+      },
+      "l_hook": {
+        "n": 57,
+        "within_tool_mask_rate": 0.8947,
+        "within_gt_tool_mask_rate": 0.8947,
+        "within_tool_mask_3px_rate": 0.9474
+      }
+    }
+  },
+  "phases": {
+    "mode": "showcase_only",
+    "external_has_phase_labels": false,
+    "external_phase_accuracy": null,
+    "n_test_frames_with_phase": 90,
+    "pass1_pass2_phase_agreement": 0.7556,
+    "mean_phase_conf": 0.9446,
+    "test_phase_distribution": {
+      "2. Calot's (Hepatocystic) Triangle Dissection": 6,
+      "4. Gallbladder Dissection": 76,
+      "1. Preparation": 8
+    }
+  },
+  "amber_loop": {
+    "ambers_by_round": [
+      56,
+      25,
+      20,
+      13
+    ],
+    "initial_ambers": 56,
+    "residual_ambers": 13,
+    "resolved_by_loop": 43,
+    "n_total_annotations": 277,
+    "n_accepted_final": 265,
+    "n_amber_final": 12
+  },
+  "amber_loop_all_splits": {
+    "ambers_by_round": [
+      56,
+      25,
+      20,
+      13
+    ],
+    "initial_ambers": 56,
+    "residual_ambers": 13,
+    "resolved_by_loop": 43,
+    "n_total_annotations": 805,
+    "n_accepted_final": 779,
+    "n_amber_final": 26
+  },
+  "zero_leakage_note": "Watershed masks were read ONLY in verify_localize.evaluate_annotations after out/annotations.jsonl was finalized. Zero human labels or reference masks are used in localization."
+}

@@ -4,6 +4,8 @@
     {
       "frame_id": "video09_00832_832",
       "narration": "The liver is visible within the subhepatic space, providing anatomical orientation. We are not yet confident in definitively identifying the gallbladder amid the surrounding tissue and fat.",
+      "sentence": "The liver is visible within the subhepatic space, providing anatomical orientation. We are not yet confident in definitively identifying the gallbladder amid the surrounding tissue and fat.",
+      "text": "The liver is visible within the subhepatic space, providing anatomical orientation. We are not yet confident in definitively identifying the gallbladder amid the surrounding tissue and fat.",
       "unsure_about": [
         "gallbladder"
       ],
@@ -54,6 +56,8 @@
     {
       "frame_id": "video09_00832_840",
       "narration": "The liver remains clearly exposed within the upper abdomen during initial inspection. We are not yet confident in confirming the position of the gallbladder amid the surrounding fatty attachments.",
+      "sentence": "The liver remains clearly exposed within the upper abdomen during initial inspection. We are not yet confident in confirming the position of the gallbladder amid the surrounding fatty attachments.",
+      "text": "The liver remains clearly exposed within the upper abdomen during initial inspection. We are not yet confident in confirming the position of the gallbladder amid the surrounding fatty attachments.",
       "unsure_about": [
         "gallbladder"
       ],
@@ -102,6 +106,8 @@
     {
       "frame_id": "video09_00832_848",
       "narration": "The liver is prominently visualized with its smooth capsular surface arching across the upper abdomen. Careful diagnostic inspection of the peritoneal cavity continues as exposure is established.",
+      "sentence": "The liver is prominently visualized with its smooth capsular surface arching across the upper abdomen. Careful diagnostic inspection of the peritoneal cavity continues as exposure is established.",
+      "text": "The liver is prominently visualized with its smooth capsular surface arching across the upper abdomen. Careful diagnostic inspection of the peritoneal cavity continues as exposure is established.",
       "unsure_about": [],
       "evidence": [
         {
@@ -148,6 +154,8 @@
     {
       "frame_id": "video09_00832_856",
       "narration": "The liver remains clearly visible as laparoscopic visualization and orientation within the peritoneal cavity continue. No surgical instruments or bleeding are present in the operative field.",
+      "sentence": "The liver remains clearly visible as laparoscopic visualization and orientation within the peritoneal cavity continue. No surgical instruments or bleeding are present in the operative field.",
+      "text": "The liver remains clearly visible as laparoscopic visualization and orientation within the peritoneal cavity continue. No surgical instruments or bleeding are present in the operative field.",
       "unsure_about": [],
       "evidence": [
         {
@@ -194,6 +202,8 @@
     {
       "frame_id": "video09_00832_864",
       "narration": "The liver parenchyma remains clearly visible as anatomical orientation is maintained within the peritoneal cavity. No surgical instruments or extravasated blood are observed in the operative view.",
+      "sentence": "The liver parenchyma remains clearly visible as anatomical orientation is maintained within the peritoneal cavity. No surgical instruments or extravasated blood are observed in the operative view.",
+      "text": "The liver parenchyma remains clearly visible as anatomical orientation is maintained within the peritoneal cavity. No surgical instruments or extravasated blood are observed in the operative view.",
       "unsure_about": [],
       "evidence": [
         {
@@ -240,6 +250,8 @@
     {
       "frame_id": "video09_00832_872",
       "narration": "The liver parenchyma remains clearly visualized across the operative field without evidence of bleeding or active instrument engagement. We are not yet confident in definitively delineating the gallbladder margins at this stage.",
+      "sentence": "The liver parenchyma remains clearly visualized across the operative field without evidence of bleeding or active instrument engagement. We are not yet confident in definitively delineating the gallbladder margins at this stage.",
+      "text": "The liver parenchyma remains clearly visualized across the operative field without evidence of bleeding or active instrument engagement. We are not yet confident in definitively delineating the gallbladder margins at this stage.",
       "unsure_about": [
         "gallbladder"
       ],
@@ -290,6 +302,8 @@
     {
       "frame_id": "video09_00832_880",
       "narration": "The liver is clearly visible across the central upper field with intact, glistening hepatic parenchyma. The operative area remains free of active bleeding and without instrument intervention.",
+      "sentence": "The liver is clearly visible across the central upper field with intact, glistening hepatic parenchyma. The operative area remains free of active bleeding and without instrument intervention.",
+      "text": "The liver is clearly visible across the central upper field with intact, glistening hepatic parenchyma. The operative area remains free of active bleeding and without instrument intervention.",
       "unsure_about": [],
       "evidence": [
         {
@@ -336,6 +350,8 @@
     {
       "frame_id": "video09_00832_888",
       "narration": "The liver parenchyma is visible across the central field under laparoscopic visualization. While adjacent tissue is in view, we are not yet confident in confirming the gallbladder without clearer identification.",
+      "sentence": "The liver parenchyma is visible across the central field under laparoscopic visualization. While adjacent tissue is in view, we are not yet confident in confirming the gallbladder without clearer identification.",
+      "text": "The liver parenchyma is visible across the central field under laparoscopic visualization. While adjacent tissue is in view, we are not yet confident in confirming the gallbladder without clearer identification.",
       "unsure_about": [
         "gallbladder"
       ],
@@ -386,6 +402,8 @@
     {
       "frame_id": "video09_00832_896",
       "narration": "The hepatic parenchyma remains clearly visualized as the surgical field and surrounding peritoneal attachments are surveyed. At this stage, we are not yet confident in identifying the gallbladder until proper exposure is achieved.",
+      "sentence": "The hepatic parenchyma remains clearly visualized as the surgical field and surrounding peritoneal attachments are surveyed. At this stage, we are not yet confident in identifying the gallbladder until proper exposure is achieved.",
+      "text": "The hepatic parenchyma remains clearly visualized as the surgical field and surrounding peritoneal attachments are surveyed. At this stage, we are not yet confident in identifying the gallbladder until proper exposure is achieved.",
       "unsure_about": [
         "gallbladder"
       ],
@@ -434,6 +452,8 @@
     {
       "frame_id": "video09_00832_904",
       "narration": "The liver is clearly visualized as the peritoneal cavity and surrounding tissues are surveyed during initial exploration. No laparoscopic instruments or target biliary structures have been engaged in the field yet.",
+      "sentence": "The liver is clearly visualized as the peritoneal cavity and surrounding tissues are surveyed during initial exploration. No laparoscopic instruments or target biliary structures have been engaged in the field yet.",
+      "text": "The liver is clearly visualized as the peritoneal cavity and surrounding tissues are surveyed during initial exploration. No laparoscopic instruments or target biliary structures have been engaged in the field yet.",
       "unsure_about": [],
       "evidence": [
         {
@@ -473,6 +493,1038 @@
           "status": "verified",
           "evidence_frames": [
             "video09_00832_904"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_912",
+      "narration": "The peritoneal cavity is being surveyed during exposure, though I am not yet confident in definitively identifying the liver or the gallbladder in this view. No laparoscopic instruments, cystic duct, or active bleeding are present in the operative field.",
+      "sentence": "The peritoneal cavity is being surveyed during exposure, though I am not yet confident in definitively identifying the liver or the gallbladder in this view. No laparoscopic instruments, cystic duct, or active bleeding are present in the operative field.",
+      "text": "The peritoneal cavity is being surveyed during exposure, though I am not yet confident in definitively identifying the liver or the gallbladder in this view. No laparoscopic instruments, cystic duct, or active bleeding are present in the operative field.",
+      "unsure_about": [
+        "liver",
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_912",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_912",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_912",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_912",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The peritoneal cavity is being surveyed during exposure, though I am not yet confident in definitively identifying the liver or the gallbladder in this view. No laparoscopic instruments, cystic duct, or active bleeding are present in the operative field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_912"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video09_00912_912"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00912_912"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_920",
+      "narration": "The liver parenchyma is clearly visualized in the operative field, though I am not yet confident in confirming the gallbladder amid the adjacent tissues. No surgical instruments, cystic duct, or free blood are present in this view.",
+      "sentence": "The liver parenchyma is clearly visualized in the operative field, though I am not yet confident in confirming the gallbladder amid the adjacent tissues. No surgical instruments, cystic duct, or free blood are present in this view.",
+      "text": "The liver parenchyma is clearly visualized in the operative field, though I am not yet confident in confirming the gallbladder amid the adjacent tissues. No surgical instruments, cystic duct, or free blood are present in this view.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_920",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_920",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_920",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00912_920",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_920",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma is clearly visualized in the operative field, though I am not yet confident in confirming the gallbladder amid the adjacent tissues. No surgical instruments, cystic duct, or free blood are present in this view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_920"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00912_920"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_928",
+      "narration": "The liver parenchyma remains visualized in the operative field alongside adjacent peritoneal and fatty tissue structures. No surgical instruments, gallbladder, cystic duct, or free blood are observed.",
+      "sentence": "The liver parenchyma remains visualized in the operative field alongside adjacent peritoneal and fatty tissue structures. No surgical instruments, gallbladder, cystic duct, or free blood are observed.",
+      "text": "The liver parenchyma remains visualized in the operative field alongside adjacent peritoneal and fatty tissue structures. No surgical instruments, gallbladder, cystic duct, or free blood are observed.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_928",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_928",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_928",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00912_928",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_928",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_928",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma remains visualized in the operative field alongside adjacent peritoneal and fatty tissue structures. No surgical instruments, gallbladder, cystic duct, or free blood are observed.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_928"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_936",
+      "narration": "The liver parenchyma is visualized in the surgical view adjacent to fatty peritoneal structures. No surgical instruments, gallbladder, cystic duct, or active bleeding are observed in the operative field.",
+      "sentence": "The liver parenchyma is visualized in the surgical view adjacent to fatty peritoneal structures. No surgical instruments, gallbladder, cystic duct, or active bleeding are observed in the operative field.",
+      "text": "The liver parenchyma is visualized in the surgical view adjacent to fatty peritoneal structures. No surgical instruments, gallbladder, cystic duct, or active bleeding are observed in the operative field.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_936",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_936",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_936",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00912_936",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_936",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_936",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma is visualized in the surgical view adjacent to fatty peritoneal structures. No surgical instruments, gallbladder, cystic duct, or active bleeding are observed in the operative field.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_936"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_944",
+      "narration": "The liver is visible within the operative field, with no graspers, L-hook cautery, cystic duct, or active bleeding present. We cannot yet confidently identify the gallbladder tissue amidst the surrounding structures.",
+      "sentence": "The liver is visible within the operative field, with no graspers, L-hook cautery, cystic duct, or active bleeding present. We cannot yet confidently identify the gallbladder tissue amidst the surrounding structures.",
+      "text": "The liver is visible within the operative field, with no graspers, L-hook cautery, cystic duct, or active bleeding present. We cannot yet confidently identify the gallbladder tissue amidst the surrounding structures.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_944",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_944",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_944",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00912_944",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_944",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver is visible within the operative field, with no graspers, L-hook cautery, cystic duct, or active bleeding present. We cannot yet confidently identify the gallbladder tissue amidst the surrounding structures.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_944"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00912_944"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_952",
+      "narration": "The liver is clearly visualized with its characteristic smooth capsular surface, and no active bleeding or instruments such as graspers or hook cautery are present. The gallbladder and cystic duct are not visible in this field of view.",
+      "sentence": "The liver is clearly visualized with its characteristic smooth capsular surface, and no active bleeding or instruments such as graspers or hook cautery are present. The gallbladder and cystic duct are not visible in this field of view.",
+      "text": "The liver is clearly visualized with its characteristic smooth capsular surface, and no active bleeding or instruments such as graspers or hook cautery are present. The gallbladder and cystic duct are not visible in this field of view.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_952",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_952",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_952",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00912_952",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_952",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_952",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver is clearly visualized with its characteristic smooth capsular surface, and no active bleeding or instruments such as graspers or hook cautery are present. The gallbladder and cystic duct are not visible in this field of view.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_952"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_960",
+      "narration": "The liver parenchyma remains visible in the background with no instruments, isolated cystic duct, or active bleeding present. We are not yet confident in identifying the gallbladder beneath the prominent fatty tissue in the foreground.",
+      "sentence": "The liver parenchyma remains visible in the background with no instruments, isolated cystic duct, or active bleeding present. We are not yet confident in identifying the gallbladder beneath the prominent fatty tissue in the foreground.",
+      "text": "The liver parenchyma remains visible in the background with no instruments, isolated cystic duct, or active bleeding present. We are not yet confident in identifying the gallbladder beneath the prominent fatty tissue in the foreground.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_960",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_960",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_960",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00912_960",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_960",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma remains visible in the background with no instruments, isolated cystic duct, or active bleeding present. We are not yet confident in identifying the gallbladder beneath the prominent fatty tissue in the foreground.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_960"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00912_960"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_968",
+      "narration": "No surgical instruments, isolated cystic duct, or active bleeding are seen within the operative field. We are not yet confident in confirming the exact boundaries of the liver or the gallbladder amid the surrounding tissue folds.",
+      "sentence": "No surgical instruments, isolated cystic duct, or active bleeding are seen within the operative field. We are not yet confident in confirming the exact boundaries of the liver or the gallbladder amid the surrounding tissue folds.",
+      "text": "No surgical instruments, isolated cystic duct, or active bleeding are seen within the operative field. We are not yet confident in confirming the exact boundaries of the liver or the gallbladder amid the surrounding tissue folds.",
+      "unsure_about": [
+        "liver",
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_968",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_968",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_968",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_968",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "No surgical instruments, isolated cystic duct, or active bleeding are seen within the operative field. We are not yet confident in confirming the exact boundaries of the liver or the gallbladder amid the surrounding tissue folds.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_968"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video09_00912_968"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00912_968"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_976",
+      "narration": "The liver parenchyma is clearly visible across the upper surgical field without any instruments, isolated cystic duct, or bleeding present. We are not yet confident in confirming the margins of the gallbladder among the surrounding tissue folds.",
+      "sentence": "The liver parenchyma is clearly visible across the upper surgical field without any instruments, isolated cystic duct, or bleeding present. We are not yet confident in confirming the margins of the gallbladder among the surrounding tissue folds.",
+      "text": "The liver parenchyma is clearly visible across the upper surgical field without any instruments, isolated cystic duct, or bleeding present. We are not yet confident in confirming the margins of the gallbladder among the surrounding tissue folds.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_976",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_976",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_976",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00912_976",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_976",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma is clearly visible across the upper surgical field without any instruments, isolated cystic duct, or bleeding present. We are not yet confident in confirming the margins of the gallbladder among the surrounding tissue folds.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_976"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00912_976"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00912_984",
+      "narration": "The liver remains clearly visible across the field, with no active bleeding or surgical instruments currently in view. We are not yet confident in confirming the demarcation of the gallbladder amidst the adjacent tissues.",
+      "sentence": "The liver remains clearly visible across the field, with no active bleeding or surgical instruments currently in view. We are not yet confident in confirming the demarcation of the gallbladder amidst the adjacent tissues.",
+      "text": "The liver remains clearly visible across the field, with no active bleeding or surgical instruments currently in view. We are not yet confident in confirming the demarcation of the gallbladder amidst the adjacent tissues.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00912_984",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_984",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_984",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00912_984",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00912_984",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver remains clearly visible across the field, with no active bleeding or surgical instruments currently in view. We are not yet confident in confirming the demarcation of the gallbladder amidst the adjacent tissues.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00912_984"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00912_984"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_992",
+      "narration": "The liver parenchyma remains clearly visible across the upper surgical field, with no instruments or bleeding detected. We are not yet confident in identifying the precise boundaries of the gallbladder.",
+      "sentence": "The liver parenchyma remains clearly visible across the upper surgical field, with no instruments or bleeding detected. We are not yet confident in identifying the precise boundaries of the gallbladder.",
+      "text": "The liver parenchyma remains clearly visible across the upper surgical field, with no instruments or bleeding detected. We are not yet confident in identifying the precise boundaries of the gallbladder.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_992",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_992",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_992",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00992_992",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_992",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma remains clearly visible across the upper surgical field, with no instruments or bleeding detected. We are not yet confident in identifying the precise boundaries of the gallbladder.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_992"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00992_992"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_1000",
+      "narration": "The liver parenchyma remains clearly exposed across the surgical view, and the field is clean with no active bleeding or instruments present. We are not yet confident in delineating the boundaries of the gallbladder.",
+      "sentence": "The liver parenchyma remains clearly exposed across the surgical view, and the field is clean with no active bleeding or instruments present. We are not yet confident in delineating the boundaries of the gallbladder.",
+      "text": "The liver parenchyma remains clearly exposed across the surgical view, and the field is clean with no active bleeding or instruments present. We are not yet confident in delineating the boundaries of the gallbladder.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_1000",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1000",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1000",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00992_1000",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1000",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma remains clearly exposed across the surgical view, and the field is clean with no active bleeding or instruments present. We are not yet confident in delineating the boundaries of the gallbladder.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_1000"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00992_1000"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_1008",
+      "narration": "The liver parenchyma is visible in the background, providing stable anatomical orientation. The operative field remains clear, with no surgical instruments or active bleeding currently observed.",
+      "sentence": "The liver parenchyma is visible in the background, providing stable anatomical orientation. The operative field remains clear, with no surgical instruments or active bleeding currently observed.",
+      "text": "The liver parenchyma is visible in the background, providing stable anatomical orientation. The operative field remains clear, with no surgical instruments or active bleeding currently observed.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_1008",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1008",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1008",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00992_1008",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1008",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1008",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma is visible in the background, providing stable anatomical orientation. The operative field remains clear, with no surgical instruments or active bleeding currently observed.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_1008"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_1016",
+      "narration": "The liver parenchyma remains prominent across the background. We are not yet confident identifying the exact margins of the gallbladder in the foreground, while no surgical instruments or active bleeding are present.",
+      "sentence": "The liver parenchyma remains prominent across the background. We are not yet confident identifying the exact margins of the gallbladder in the foreground, while no surgical instruments or active bleeding are present.",
+      "text": "The liver parenchyma remains prominent across the background. We are not yet confident identifying the exact margins of the gallbladder in the foreground, while no surgical instruments or active bleeding are present.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_1016",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1016",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1016",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00992_1016",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1016",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma remains prominent across the background. We are not yet confident identifying the exact margins of the gallbladder in the foreground, while no surgical instruments or active bleeding are present.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_1016"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00992_1016"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_1024",
+      "narration": "We are not yet confident in confirming the visual boundaries of the liver parenchyma in the field. Currently, no instruments such as graspers or an L-hook are present, and there is no sign of the cystic duct or free blood.",
+      "sentence": "We are not yet confident in confirming the visual boundaries of the liver parenchyma in the field. Currently, no instruments such as graspers or an L-hook are present, and there is no sign of the cystic duct or free blood.",
+      "text": "We are not yet confident in confirming the visual boundaries of the liver parenchyma in the field. Currently, no instruments such as graspers or an L-hook are present, and there is no sign of the cystic duct or free blood.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_1024",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1024",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1024",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1024",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1024",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "We are not yet confident in confirming the visual boundaries of the liver parenchyma in the field. Currently, no instruments such as graspers or an L-hook are present, and there is no sign of the cystic duct or free blood.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_1024"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video09_00992_1024"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_1032",
+      "narration": "The liver parenchyma is clearly visible across the field with an intact, glistening capsular surface. No laparoscopic instruments like graspers or an L-hook are present, and there is currently no visualization of the gallbladder, cystic duct, or free blood.",
+      "sentence": "The liver parenchyma is clearly visible across the field with an intact, glistening capsular surface. No laparoscopic instruments like graspers or an L-hook are present, and there is currently no visualization of the gallbladder, cystic duct, or free blood.",
+      "text": "The liver parenchyma is clearly visible across the field with an intact, glistening capsular surface. No laparoscopic instruments like graspers or an L-hook are present, and there is currently no visualization of the gallbladder, cystic duct, or free blood.",
+      "unsure_about": [],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_1032",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1032",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1032",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00992_1032",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1032",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1032",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver parenchyma is clearly visible across the field with an intact, glistening capsular surface. No laparoscopic instruments like graspers or an L-hook are present, and there is currently no visualization of the gallbladder, cystic duct, or free blood.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_1032"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_1040",
+      "narration": "We are not yet confident in confirming the visualization of the liver in this view. No surgical instruments such as a grasper or L-hook are present, and the gallbladder, cystic duct, and free blood remain absent.",
+      "sentence": "We are not yet confident in confirming the visualization of the liver in this view. No surgical instruments such as a grasper or L-hook are present, and the gallbladder, cystic duct, and free blood remain absent.",
+      "text": "We are not yet confident in confirming the visualization of the liver in this view. No surgical instruments such as a grasper or L-hook are present, and the gallbladder, cystic duct, and free blood remain absent.",
+      "unsure_about": [
+        "liver"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_1040",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1040",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1040",
+          "key": "gallbladder",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1040",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1040",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "We are not yet confident in confirming the visualization of the liver in this view. No surgical instruments such as a grasper or L-hook are present, and the gallbladder, cystic duct, and free blood remain absent.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_1040"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video09_00992_1040"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_1048",
+      "narration": "We are not yet confident in confirming the visual boundaries of the liver or gallbladder in this frame. No grasper or L-hook is currently in the operative field, and neither the cystic duct nor free blood is visible.",
+      "sentence": "We are not yet confident in confirming the visual boundaries of the liver or gallbladder in this frame. No grasper or L-hook is currently in the operative field, and neither the cystic duct nor free blood is visible.",
+      "text": "We are not yet confident in confirming the visual boundaries of the liver or gallbladder in this frame. No grasper or L-hook is currently in the operative field, and neither the cystic duct nor free blood is visible.",
+      "unsure_about": [
+        "liver",
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_1048",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1048",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1048",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1048",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "We are not yet confident in confirming the visual boundaries of the liver or gallbladder in this frame. No grasper or L-hook is currently in the operative field, and neither the cystic duct nor free blood is visible.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_1048"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video09_00992_1048"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00992_1048"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_1056",
+      "narration": "We remain not yet confident in definitively identifying the boundaries of the liver or the gallbladder in this view. No grasper or L-hook is present in the field, and neither the cystic duct nor free blood is visible.",
+      "sentence": "We remain not yet confident in definitively identifying the boundaries of the liver or the gallbladder in this view. No grasper or L-hook is present in the field, and neither the cystic duct nor free blood is visible.",
+      "text": "We remain not yet confident in definitively identifying the boundaries of the liver or the gallbladder in this view. No grasper or L-hook is present in the field, and neither the cystic duct nor free blood is visible.",
+      "unsure_about": [
+        "liver",
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_1056",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1056",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1056",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1056",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "We remain not yet confident in definitively identifying the boundaries of the liver or the gallbladder in this view. No grasper or L-hook is present in the field, and neither the cystic duct nor free blood is visible.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_1056"
+          ]
+        },
+        {
+          "text": "liver (AMBER / unverified \u2014 withheld from narration)",
+          "status": "unsupported",
+          "evidence_frames": [
+            "video09_00992_1056"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00992_1056"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_id": "video09_00992_1064",
+      "narration": "The liver is visible in the view, though we are not yet confident in definitively identifying the gallbladder. Neither surgical instruments like a grasper or L-hook nor the cystic duct or free blood are observed.",
+      "sentence": "The liver is visible in the view, though we are not yet confident in definitively identifying the gallbladder. Neither surgical instruments like a grasper or L-hook nor the cystic duct or free blood are observed.",
+      "text": "The liver is visible in the view, though we are not yet confident in definitively identifying the gallbladder. Neither surgical instruments like a grasper or L-hook nor the cystic duct or free blood are observed.",
+      "unsure_about": [
+        "gallbladder"
+      ],
+      "evidence": [
+        {
+          "frame_id": "video09_00992_1064",
+          "key": "grasper",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1064",
+          "key": "l_hook",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1064",
+          "key": "liver",
+          "present": true
+        },
+        {
+          "frame_id": "video09_00992_1064",
+          "key": "cystic_duct",
+          "present": false
+        },
+        {
+          "frame_id": "video09_00992_1064",
+          "key": "blood",
+          "present": false
+        }
+      ],
+      "claims": [
+        {
+          "text": "The liver is visible in the view, though we are not yet confident in definitively identifying the gallbladder. Neither surgical instruments like a grasper or L-hook nor the cystic duct or free blood are observed.",
+          "status": "verified",
+          "evidence_frames": [
+            "video09_00992_1064"
+          ]
+        },
+        {
+          "text": "gallbladder (rejected \u2014 withheld from narration)",
+          "status": "contradicted",
+          "evidence_frames": [
+            "video09_00992_1064"
           ]
         }
       ]

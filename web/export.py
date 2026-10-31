@@ -225,6 +225,17 @@ def export_video_bundle(
         cp = coord_dir / name
         return cp if cp.exists() else p
 
+    # Preserve pre-bundled demo JSON on fresh clones when raw index + annotations.jsonl are absent
+    existing_bundle_path = web_data_dir / f"{video}.json"
+    if (
+        existing_bundle_path.is_file()
+        and not (data_dir / "index.csv").is_file()
+        and not (out_dir / "annotations.jsonl").is_file()
+    ):
+        existing_bundle = _read_json(existing_bundle_path)
+        if isinstance(existing_bundle, dict) and existing_bundle.get("n_frames", 0) > 0:
+            return existing_bundle
+
     # 1. Load frame index for target video
     index_csv = data_dir / "index.csv"
     video_rows = []
@@ -312,6 +323,10 @@ def export_video_bundle(
             if not dst_img.exists() or dst_img.stat().st_size != img_src.stat().st_size:
                 shutil.copy2(img_src, dst_img)
             img_url = f"data/frames/{fid}.png"
+        elif (frames_out_dir / f"{fid}.jpg").is_file():
+            img_url = f"data/frames/{fid}.jpg"
+        elif (frames_out_dir / f"{fid}.png").is_file():
+            img_url = f"data/frames/{fid}.png"
 
         gt_mask_raw = str(frow.get("mask_path") or "").strip()
         gt_mask_src = Path(gt_mask_raw) if gt_mask_raw else None
@@ -320,6 +335,8 @@ def export_video_bundle(
             dst_gt = gt_masks_out_dir / f"{fid}.png"
             if not dst_gt.exists() or dst_gt.stat().st_size != gt_mask_src.stat().st_size:
                 shutil.copy2(gt_mask_src, dst_gt)
+            gt_mask_url = f"data/gt_masks/{fid}.png"
+        elif (gt_masks_out_dir / f"{fid}.png").is_file():
             gt_mask_url = f"data/gt_masks/{fid}.png"
 
         ph_info = phase_by_frame.get(fid, {})
@@ -510,6 +527,9 @@ def sync_web_data_across_worktrees(src_web_data: Path):
                 continue
         except Exception:
             pass
+        # Never clobber a real committed web/data directory
+        if t.is_dir() and not t.is_symlink() and (t / "video12.json").is_file():
+            continue
         try:
             t.parent.mkdir(parents=True, exist_ok=True)
             if t.is_symlink() or t.is_file():
@@ -551,9 +571,15 @@ def main():
             bundle = b
     (web_data_dir / "videos.json").write_text(json.dumps({"test_videos": video_summaries}, indent=2))
 
-    # Copy real directory into ~/surgatlas/out/web_data and symlink or copy into ~/surgatlas/web/data
+    # Copy real directory into ~/surgatlas/out/web_data only when raw index.csv and annotations.jsonl exist
     shared_web_data = (C.OUT_DIR / "web_data").resolve()
-    if shared_web_data != web_data_dir.resolve() and bundle and bundle.get("n_frames", 0) > 0:
+    if (
+        shared_web_data != web_data_dir.resolve()
+        and bundle
+        and bundle.get("n_frames", 0) > 0
+        and (C.DATA_DIR / "index.csv").is_file()
+        and (C.OUT_DIR / "annotations.jsonl").is_file()
+    ):
         if shared_web_data.exists():
             shutil.rmtree(shared_web_data)
         shutil.copytree(web_data_dir, shared_web_data)
