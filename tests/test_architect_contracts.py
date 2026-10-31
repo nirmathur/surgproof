@@ -28,6 +28,12 @@ def test_gem_img_part_and_key():
     part, raw_bytes = gem.img_part(im, max_side=256, crop=(100, 100, 800, 800))
     assert len(raw_bytes) > 0
     assert part is not None
+    # Degenerate and inverted crops should be clamped safely without raising ValueError
+    for bad_crop in [(500, 500, 500, 500), (800, 800, 200, 200), (1200, 1200, 1500, 1500)]:
+        p2, b2 = gem.img_part(im, max_side=256, crop=bad_crop)
+        assert len(b2) > 0 and p2 is not None
+    mode = gem._db.execute("PRAGMA journal_mode").fetchone()[0]
+    assert mode.lower() == "wal"
     k1 = gem._key(C.FLASH, ["sig1"], "prompt", "Schema", [0.0, 0, False])
     k2 = gem._key(C.FLASH, ["sig1"], "prompt", "Schema", [0.0, 1, False])
     assert k1 != k2

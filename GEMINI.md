@@ -13,12 +13,12 @@ Six Antigravity (agy) workers on Gemini 4 Argon build this project in parallel. 
 - Work in small, runnable steps. A smaller result that is real beats a perfect plan.
 
 ## Keep each other updated (HARD RULE, both machines)
-- Shared workspace = GitHub Issues on nirmathur/surgatlas. Bulletin = issue #1 (pinned). Your lane's task issues are labelled lane:<lane>.
+- Shared workspace = GitHub Issues on nirmathur/surgproof. Bulletin = issue #1 (pinned). Your lane's task issues are labelled lane:<lane>.
 - Every 10 minutes AND at every milestone, do both:
   1. Rewrite out/lanes/<lane>.md (shape below).
-  2. `gh issue comment 1 -R nirmathur/surgatlas -b "[nir-<lane>] DONE: ... | NEXT: ... | BLOCKED: ... | NEED: <who> -> <what>"`
-- Before each task: `gh issue view 1 -R nirmathur/surgatlas --comments | tail -80` and act on anything addressed to you.
-- Claim a task: comment on its issue and `gh issue edit <n> -R nirmathur/surgatlas --add-label status:claimed --remove-label status:todo`. Close it with a comment naming the artifact path and commit sha.
+  2. `gh issue comment 1 -R nirmathur/surgproof -b "[nir-<lane>] DONE: ... | NEXT: ... | BLOCKED: ... | NEED: <who> -> <what>"`
+- Before each task: `gh issue view 1 -R nirmathur/surgproof --comments | tail -80` and act on anything addressed to you.
+- Claim a task: comment on its issue and `gh issue edit <n> -R nirmathur/surgproof --add-label status:claimed --remove-label status:todo`. Close it with a comment naming the artifact path and commit sha.
 - Changing a file or schema another lane reads? Post on #1 with `-> <lane>` before you change it.
 - Silence is a failure: the orchestrator restarts any lane with no post for 15 minutes.
 

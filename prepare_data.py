@@ -35,14 +35,16 @@ def mask_to_classes(mask_path):
     if m.ndim == 3:
         m = m[..., 0]
     vals = np.unique(m)
-    # auto-detect convention
-    if set(vals.tolist()) <= set(C.WATERSHED_VALUE_TO_CLASS):
+    non_ignore = set(vals.tolist()) - {0, 255}
+    # auto-detect convention: released watershed masks use WATERSHED_VALUE_TO_CLASS
+    # plus 255 for the watershed border (and rare 0 pixels), whereas paper convention is 0..12.
+    if non_ignore and non_ignore <= set(C.WATERSHED_VALUE_TO_CLASS) and (max(non_ignore) > 12 or 0 not in vals):
         lut = np.zeros(256, dtype=np.int16) - 1
         for v, c in C.WATERSHED_VALUE_TO_CLASS.items():
             lut[v] = c
         cls = lut[m]
     else:
-        cls = m.astype(np.int16)  # assume value == class id (paper convention)
+        cls = np.where(m == 255, -1, m.astype(np.int16))  # assume value == class id (paper convention)
     return cls
 
 
