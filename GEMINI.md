@@ -1,6 +1,6 @@
 # SurgAtlas: rules for every Gemini worker
 
-Six Argon workers build this project in parallel. Claude is the orchestrator and reads only your status file. The existing code is a first draft: every layer is assumed imperfect until your research and redesign say otherwise.
+Six Antigravity (agy) workers on Gemini 4 Argon build this project in parallel. Claude is the orchestrator and reads only your status file. The existing code is a first draft: every layer is assumed imperfect until your research and redesign say otherwise.
 
 ## Layout
 - Each lane has its own git worktree at ~/surgatlas-lanes/<lane>, on branch lane/<lane>. The architect lane works in ~/surgatlas on main and is the only one that merges into main.
