@@ -1177,7 +1177,27 @@ def render_human_gate_page() -> None:
         picked_source = sources[0]
         st.caption(f"Source: **{picked_source[0]}** (`{picked_source[1].name}`)")
 
-    dec_df = load_decisions_from_source(picked_source[1])
+    dec_df_all = load_decisions_from_source(picked_source[1])
+    if len(dec_df_all) > 500 and "split" in dec_df_all.columns and "key" in dec_df_all.columns:
+        scope_options = [
+            "Held-Out Test Split · 5 Headline Structures (split='test', excl. liver)",
+            "Held-Out Test Split · All 6 Structures (split='test')",
+            "Full Dataset · All Splits (train + calib + test)",
+        ]
+        picked_scope = st.radio(
+            "Release Gate Scope",
+            scope_options,
+            index=0,
+            horizontal=True,
+        )
+        if picked_scope == scope_options[0]:
+            dec_df = dec_df_all[(dec_df_all["split"] == "test") & (dec_df_all["key"] != "liver")].copy().reset_index(drop=True)
+        elif picked_scope == scope_options[1]:
+            dec_df = dec_df_all[dec_df_all["split"] == "test"].copy().reset_index(drop=True)
+        else:
+            dec_df = dec_df_all
+    else:
+        dec_df = dec_df_all
     pending_df, cleared_df, summary = compute_amber_queue(dec_df, gate_log)
 
     rounds_by_item: dict[tuple[str, str], list[dict]] = {}
@@ -1491,7 +1511,24 @@ def render_human_gate_page() -> None:
                         st.rerun()
 
         st.subheader(f"All Pending Residual AMBER Items ({len(pending_df)})")
-        for idx, r in enumerate(pending_df.itertuples()):
+        page_slice = pending_df
+        page_offset = 0
+        if len(pending_df) > 25:
+            page_size = 20
+            n_pages = (len(pending_df) + page_size - 1) // page_size
+            pg_idx = st.number_input(
+                f"Queue Page (20 AMBER cards per page, {n_pages} page(s) total)",
+                min_value=1,
+                max_value=n_pages,
+                value=1,
+                step=1,
+                key="amber_queue_page",
+            )
+            page_offset = (int(pg_idx) - 1) * page_size
+            page_slice = pending_df.iloc[page_offset : page_offset + page_size]
+
+        for local_idx, r in enumerate(page_slice.itertuples()):
+            idx = page_offset + local_idx
             r_fid = str(r.frame_id)
             r_k = str(r.key)
             r_vid = str(getattr(r, "video", getattr(r, "video_id", "")))
