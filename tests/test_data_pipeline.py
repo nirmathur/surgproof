@@ -102,3 +102,67 @@ def test_features_npy_contract_if_built():
     assert np.isfinite(X).all()
     assert float(X.std()) > 0.01
 
+
+def test_endoscapes_presence_mapping():
+    """Endoscapes2023 maps class 5 -> gallbladder, class 4 -> cystic_duct, class 6 -> tool_any,
+    and sets unscorable keys (grasper, l_hook, liver, blood) to -1.
+    """
+    mask = np.zeros((100, 100), dtype=np.uint8)
+    mask.flat[:30] = 5   # gallbladder (0.003 >= 0.002)
+    mask.flat[30:45] = 4  # cystic_duct (0.0015 >= 0.001)
+    mask.flat[45:70] = 6  # tool (0.0025 >= 0.002)
+    out = prepare_data.endoscapes_presence(mask)
+    assert out["gt_gallbladder"] == 1
+    assert out["gt_cystic_duct"] == 1
+    assert out["gt_tool_any"] == 1
+    for k in ("grasper", "l_hook", "liver", "blood"):
+        assert out[f"gt_{k}"] == -1
+        assert out[f"frac_{k}"] == -1.0
+
+
+def test_cholect50_presence_mapping():
+    """CholecT50 maps instrument presence ('grasper', 'hook' -> l_hook) and sets anatomy keys to -1."""
+    out = prepare_data.cholect50_presence(["grasper", "hook", "bipolar"])
+    assert out["gt_grasper"] == 1
+    assert out["gt_l_hook"] == 1
+    for k in ("liver", "gallbladder", "cystic_duct", "blood"):
+        assert out[f"gt_{k}"] == -1
+
+    out_empty = prepare_data.cholect50_presence(["irrigator"])
+    assert out_empty["gt_grasper"] == 0
+    assert out_empty["gt_l_hook"] == 0
+
+
+def test_external_datasets_contract_if_built():
+    """Verify external held-out datasets (Endoscapes2023, CholecT50) schema & zero video leakage."""
+    endo_dir = C.DATA_DIR / "external" / "endoscapes2023"
+    if (endo_dir / "index.csv").exists():
+        df_e = pd.read_csv(endo_dir / "index.csv")
+        assert len(df_e) == 493
+        assert df_e["video"].nunique() == 50
+        assert (df_e.split == "test").sum() == 74
+        assert set(df_e["gt_gallbladder"].unique()) <= {0, 1}
+        assert set(df_e["gt_cystic_duct"].unique()) <= {0, 1}
+        assert (df_e["gt_grasper"] == -1).all()
+        if (endo_dir / "features.npy").exists():
+            Xe = np.load(endo_dir / "features.npy")
+            assert Xe.shape == (len(df_e), 768)
+            assert np.isfinite(Xe).all()
+
+    c50_dir = C.DATA_DIR / "external" / "cholect50"
+    if (c50_dir / "index.csv").exists():
+        df_c = pd.read_csv(c50_dir / "index.csv")
+        assert len(df_c) >= 50
+        # Zero overlap with any CholecSeg8k video
+        for v in df_c["video"].unique():
+            vid_num = int(v.split("vid")[-1])
+            assert f"video{vid_num:02d}" not in prepare_data.CHOLECSEG8K_VIDEOS
+        assert set(df_c["gt_grasper"].unique()) <= {0, 1}
+        assert set(df_c["gt_l_hook"].unique()) <= {0, 1}
+        assert (df_c["gt_liver"] == -1).all()
+        if (c50_dir / "features.npy").exists():
+            Xc = np.load(c50_dir / "features.npy")
+            assert Xc.shape == (len(df_c), 768)
+            assert np.isfinite(Xc).all()
+
+
