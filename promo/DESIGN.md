@@ -68,21 +68,24 @@ Load macOS system font `/System/Library/Fonts/SFNS.ttf` via Pillow `ImageFont.tr
 
 Every shot follows `VISION.md` (13:15–13:22 updates): positioning (`Today: a human at every step` vs `SurgProof: none`), public teaching video $\rightarrow$ self-written manual $\rightarrow$ real frames labelled $\rightarrow$ independent double-check (green/amber/red) + multi-round Amber loop shrinking uncertain cases $\rightarrow$ human final pass & `Release dataset` sign-off (`out/verified_dataset.jsonl`) $\rightarrow$ one real held-out number (`out/results.json`) $\rightarrow$ end card.
 
-### Shot 1 — Raw Surgical Video & Positioning (`0:00–0:07`, 7.0s)
+### Shot 1 — Raw Surgical Video, Positioning & Verified Problem Quote (`0:00–0:09`, 9.0s)
 - **File**: `out/promo/shot_01_raw_frame.mp4`
-- **Real Source**: Real laparoscopic frames from `data/index.csv` — specifically held-out test clip `video12_15750` (`frame_15758_endo.png` in `/Users/nirmathur/surgatlas-lanes/data/raw/CholecSeg8k/video12/video12_15750/`).
+- **Real Source**: Real laparoscopic frames from `data/index.csv` — specifically held-out test clip `video12_15750` (`frame_15758_endo.png`).
 - **Composition**:
-  - Top positioning header (clean two-line contrast centered at `y = 68`, fading in gently):
-    - Line 1 (`18px` SF Pro Regular `#8A909E`): `Today: a human at every step.`
-    - Line 2 (`22px` SF Pro Semibold `#F4F5F8`): `SurgProof: none.`
-  - Real surgical frame displayed centered at `736×414` (`x = 272, y = 140`), framed by a `1px` `#232734` border (`8px` corner radius).
-  - No bounding boxes, no sidebar, no badges.
-- **Caption (4 words)**:
-  > `Surgical video. No labels.`
+  - **Beat 1A (`t = 0.0–5.2s`)**:
+    - Top positioning header (clean two-line contrast centered at `y = 68`):
+      - Line 1 (`18px` SF Pro Regular `#8A909E`): `Today: a human at every step.`
+      - Line 2 (`22px` SF Pro Semibold `#F4F5F8`): `SurgProof: none.`
+    - Real surgical frame displayed centered at `736×414` (`x = 272, y = 140`), framed by a `1px` `#232734` border (`8px` corner radius).
+    - Bottom caption (4 words): `Surgical video. No labels.`
+  - **Beat 1B (`t = 5.2–9.0s`, Quiet Verified Quote Card per 13:40 spec)**:
+    - Pure `#0A0B0E` canvas with verbatim quote (`22px` SF Pro Regular `#F4F5F8`, centered) and small muted attribution (`15px` SF Pro Regular `#8A909E`) and **no other text**:
+      - `"The major bottleneck for data annotation in surgical applications is access to expert knowledge."`
+      - `Maier-Hein et al., Surgical Data Science Consensus, 2022`
 
 ---
 
-### Shot 2 — Self-Written Manual (`0:07–0:15`, 8.0s)
+### Shot 2 — Self-Written Manual (`0:09–0:17`, 8.0s)
 - **File**: `out/promo/shot_02_manual.mp4`
 - **Real Source**: Reads `out/manual.json` directly (`procedure`, `sources[0]`, and `structures`).
 - **Composition**:
@@ -99,73 +102,68 @@ Every shot follows `VISION.md` (13:15–13:22 updates): positioning (`Today: a h
 
 ---
 
-### Shot 3 — Zero-Shot Frame Labelling (`0:15–0:22`, 7.0s)
+### Shot 3 — Zero-Shot Frame Labelling (`0:17–0:24`, 7.0s)
 - **File**: `out/promo/shot_03_labels.mp4`
-- **Real Source**: Real frame `video12_15750_15758` (`frame_15758_endo.png`) and its real predictions from `out/labels_manual.jsonl`:
-  - `grasper`: `box = [420, 140, 522, 380]`
-  - `l_hook`: `box = [50, 524, 492, 824]`
-  - `gallbladder`: `box = [8, 298, 565, 560]`
-  - `liver`: `box = [126, 300, 764, 868]`
-  - `cystic_duct`: `box = [445, 445, 748, 810]`
-  *(Note: coordinates in `out/labels_manual.jsonl` are `[ymin, xmin, ymax, xmax]` normalized `0..1000` — scale accurately to the rendered frame rectangle).*
+- **Real Source (STRICT — Per 13:36 Review Blocker #3)**:
+  - Real frame from `data/index.csv` (`video12_15750_15758` or first localized test frame in `out/annotations.jsonl`).
+  - **Bounding boxes on the frame MUST be read ONLY from `out/annotations.jsonl` (or `out/annotations_live.jsonl`) model output.** Never hardcode fallback box coordinates and never read ground-truth masks. If `out/annotations.jsonl` does not have boxes yet, show the clean surgical frame on the left without boxes and show the detected label pills on the right card.
 - **Composition**:
-  - **Left (`x = 112, y = 112, w = 688, h = 387`)**: The real laparoscopic frame. One by one (`t = 0.5s, 1.1s, 1.7s, 2.3s, 2.9s`), clean `2px` `#3B82F6` boxes appear with a small `#3B82F6` pill tag at the top-left of each box (`grasper`, `l_hook`, `gallbladder`, `liver`, `cystic_duct`).
-  - **Right (`x = 832, y = 112, w = 336, h = 387`)**: Clean vertical list of the 5 labels appearing in sync with the boxes, each with a calm blue dot `#3B82F6` and structure name (`grasper`, `l_hook`, `gallbladder`, `liver`, `cystic_duct`).
+  - **Left (`x = 112, y = 112, w = 688, h = 387`)**: The real laparoscopic frame (with `#3B82F6` boxes drawn ONLY if present in `out/annotations.jsonl` / `out/annotations_live.jsonl`).
+  - **Right (`x = 832, y = 112, w = 336, h = 387`)**: Clean vertical list of the 5 labels appearing one by one, each with a calm blue dot `#3B82F6` and structure name (`grasper`, `l_hook`, `gallbladder`, `liver`, `cystic_duct`).
 - **Caption (4 words)**:
   > `Labels a real frame.`
 
 ---
 
-### Shot 4 — Independent Double-Check & Multi-Round Amber Loop (`0:22–0:32`, 10.0s — Hero Moment)
+### Shot 4 — Independent Double-Check & Multi-Round Amber Loop (`0:24–0:34`, 10.0s — Hero Moment)
 - **File**: `out/promo/shot_04_verify.mp4`
-- **Real Source**: Same frame `video12_15750_15758` from `out/labels_manual.jsonl` + `out/amber_rounds.jsonl` / `out/decisions.csv` scored by `accept.py` rules (zero GT access):
-  - `grasper` (`trust = 0.98`, `pv_match = True`) $\rightarrow$ **Accept (Green `#10B981`)**
-  - `l_hook` (`trust = 0.98`, `pv_match = True`) $\rightarrow$ **Accept (Green `#10B981`)**
-  - `gallbladder` (`trust = 0.97`, `pv_match = True`) $\rightarrow$ **Accept (Green `#10B981`)**
-  - `liver` (`trust = 0.49`, `pv_match = False`) $\rightarrow$ **Unsure (Amber `#F59E0B`)**
-  - `cystic_duct` (`trust = 0.29`, `pv_match = False`, `p_wrong = 0.35`) $\rightarrow$ **Reject (Red `#EF4444`)**
+- **Real Source (STRICT — Per 13:36 Review Blocker #3)**:
+  - Verdicts read from `out/decisions.csv` (`status_round_0` / `status`):
+    - `grasper`, `l_hook`, `gallbladder` $\rightarrow$ **Accept (Green `#10B981`)**
+    - `liver` $\rightarrow$ **Unsure (Amber `#F59E0B`)**
+    - `cystic_duct` $\rightarrow$ **Reject (Red `#EF4444`)**
+  - Frame boxes drawn ONLY if present in `out/annotations.jsonl` / `out/annotations_live.jsonl`.
+  - **Amber Loop round counts read ONLY from `out/amber_rounds.jsonl` (or `out/results.json['amber_loop']` computed from `out/amber_rounds.jsonl`).** If `out/amber_rounds.jsonl` is missing or empty, omit the round bars completely—zero synthetic fallback numbers.
 - **Composition (Two-Beat Hero Sequence)**:
-  - **Beat 4A (`t = 0.0s–4.5s`, Double-Check)**: Each bounding box and right-hand row smoothly transitions from neutral blue `#3B82F6` to its double-check verdict colour:
-    - `grasper`, `l_hook`, `gallbladder` turn **Green (`#10B981`)** (`accept`).
-    - `liver` turns **Amber (`#F59E0B`)** (`amber`).
-    - `cystic_duct` turns **Red (`#EF4444`)** (`reject`, box dims to `25%` opacity).
-  - **Beat 4B (`t = 4.5s–10.0s`, Shrinking Amber Loop)**: Below the verdict list on the right card, display the real **Amber Loop** progress read from `out/amber_rounds.jsonl` (or `out/decisions.csv` if `amber_rounds.jsonl` is still pending, showing `Round 0 -> Round 1 -> Round 2 -> Round 3` horizontal shrinking amber bars as Argon re-examines tight crops against the manual criteria).
+  - **Beat 4A (`t = 0.0s–4.5s`, Double-Check)**: Each right-hand row (and any `out/annotations.jsonl` box) smoothly transitions from neutral blue `#3B82F6` to its double-check verdict colour (**Green `#10B981`**, **Amber `#F59E0B`**, **Red `#EF4444`**).
+  - **Beat 4B (`t = 4.5s–10.0s`, Shrinking Amber Loop)**: Below the verdict list on the right card, display the real **Amber Loop** progress read from `out/amber_rounds.jsonl` (`Round 0 -> Round 1 -> Round 2 -> Round 3`).
 - **Caption (5 words)**:
   > `Checks itself. Green, amber, red.`
 
 ---
 
-### Shot 5 — Human Final Pass & "Release dataset" Sign-Off (`0:32–0:40`, 8.0s)
+### Shot 5 — Human Final Pass & "Release dataset" Sign-Off (`0:34–0:42`, 8.0s)
 - **File**: `out/promo/shot_05_gate.mp4`
-- **Real Source**: Real Human Gate (`pages/2_Human_gate.py`, reading `out/decisions.csv` and `out/amber_rounds.jsonl` $\rightarrow$ `out/verified_dataset.jsonl`).
+- **Real Source**: Real Human Gate (`pages/2_Human_gate.py`, reading `out/decisions.csv` and `out/amber_rounds.jsonl` $\rightarrow$ `out/verified_dataset.jsonl`). Frame box drawn only if present in `out/annotations.jsonl` / `out/annotations_live.jsonl`.
 - **Composition**:
   - Centered minimal Gate review card (`x = 160, y = 96, w = 960, h = 456`, `#12141C`, `1px` border `#232734`).
-  - Top bar of card: `Final Pass · Release Dataset` on left; two clean status pills on right: `Ambers left: 1 -> 0` and `Audit sample: 20/20`.
-  - Inside left (`w = 480, h = 270`): Real laparoscopic frame with evidence crop showing the residual **Amber (`#F59E0B`)** item.
-  - Inside right: Structure label, manual criterion, `Approve` / `Reject` buttons, and the **`Release dataset`** button (`out/verified_dataset.jsonl`).
-  - **Action at `t = 3.5s`**: The last Amber item turns **Green (`#10B981`, `verified`)**, `Ambers left: 0`, and the **`Release dataset`** button unlocks in crisp **Green (`#10B981`)** (`out/verified_dataset.jsonl`).
+  - Top bar of card: `Final Pass · Release Dataset` on left; two clean status pills on right: `Ambers left` (from `out/amber_rounds.jsonl`) and `Audit sample: 20/20`.
+  - **Action at `t = 3.5s`**: The residual Amber item turns **Green (`#10B981`, `verified`)**, `Ambers left: 0`, and the **`Release dataset`** button unlocks in crisp **Green (`#10B981`)** (`out/verified_dataset.jsonl`).
 - **Caption (5 words)**:
   > `Human clears only amber cases.`
 
 ---
 
-### Shot 6 — The Result (`0:40–0:47`, 7.0s)
+### Shot 6 — The Result (`0:42–0:49`, 7.0s)
 - **File**: `out/promo/shot_06_result.mp4`
-- **Real Source**: Strictly `out/results.json` (and `out/student.json` if present).
-- **Conditional Rule (MANDATORY)**:
-  - **Case A — `out/results.json` exists and contains a valid test-split metric**:
-    - Display **one** hero number read from `out/results.json` (specifically held-out test accuracy on accepted self-verified labels excluding liver, e.g. `94.2%`), set in `84px` SF Pro Semibold `#F4F5F8`, centered at `(640, 320)`.
-    - Below it at `(640, 400)` in `24px` SF Pro Regular `#8A909E`, one caption (5 words): `Held-out test accuracy, zero labels.`
-  - **Case B — `out/results.json` does NOT exist yet**:
+- **Real Source**: Strictly `out/results.json` — **FULL HELD-OUT TEST RUN ONLY (`n_test_labels >= 1000`)**.
+- **Conditional Rule (MANDATORY — Per 13:36 Review Blocker #1 & #2)**:
+  - **Case A — `out/results.json` exists AND `n_test_labels >= 1000` (full 280-frame held-out test run)**:
+    - Read `acc = accepted_5_informative.accuracy` (or `accepted.accuracy`), `cov = accepted_5_informative.coverage` (or `accepted.coverage`), and `N = accepted_5_informative.n_test_labels_excl_liver` (or `n_test_labels`).
+    - Line 1 (centered at `(640, 320)`, `42px` SF Pro Semibold `#F4F5F8`):
+      > `<acc>% accurate on the <coverage>% it accepted`
+    - Line 2 (centered at `(640, 390)`, `20px` SF Pro Regular `#8A909E`):
+      > `n = <N> held-out labels, 6 unseen videos`
+  - **Case B — `out/results.json` does NOT exist OR `n_test_labels < 1000` (interim smoke set)**:
     - Pure `#0A0B0E` canvas.
     - Display **exact text**:
       > `Result: pending`
     - Set in `52px` SF Pro Medium `#F4F5F8`, centered at `(640, 360)`.
-    - **Nothing else on screen.** No subtitle, no boxes, no explanation.
+    - **Nothing else on screen.** Never show interim smoke numbers (`n=90`) on Shot 6.
 
 ---
 
-### Shot 7 — End Card (`0:47–0:54`, 7.0s)
+### Shot 7 — End Card (`0:49–0:56`, 7.0s)
 - **File**: `out/promo/shot_07_end.mp4`
 - **Composition**:
   - Pure `#0A0B0E` canvas.
