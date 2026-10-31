@@ -9,6 +9,14 @@ from typing import Sequence
 PROJECT_NAME = os.environ.get("PROJECT_NAME", "SurgProof")
 PROJECT_TAGLINE = "No human labels. Only proof."
 
+NAMED_PERSON_NAME = "Nir Mathur"
+NAMED_PERSON_ROLE = "Medical Student, King's College London (KCL)"
+NAMED_PERSON_LINE = os.environ.get(
+    "NIR_QUOTE",
+    "As a KCL medical student, I would otherwise label thousands of surgical frames by hand — "
+    "SurgProof learns the criteria from public video and verifies its own labels.",
+)
+
 ILLUSTRATIVE_CAPTION = (
     "ILLUSTRATIVE — AI-GENERATED VISUALIZATION (NOT CLINICAL FOOTAGE OR REAL RESULTS)"
 )
@@ -31,6 +39,7 @@ class ShotSpec:
     prompt: str
     narration: str
     is_proof_slot: bool = False
+    has_person_and_quote_slot: bool = False
 
     @property
     def badge_text(self) -> str:
@@ -42,12 +51,13 @@ SHOTS: Sequence[ShotSpec] = (
         shot_id="shot_01_med_school",
         index=1,
         filename="shot_01_med_school.mp4",
-        title="ACT 1 · AUTONOMOUS MEDICAL SCHOOL",
-        subtitle="Gemini 4 Argon studies public narrated surgery video & writes its own visual manual",
+        title="ACT 1 · NIR MATHUR (KCL) & AUTONOMOUS MED SCHOOL",
+        subtitle="Nir Mathur (KCL medical student) + Supervisor Quote Slot + med_school.py -> manual.json",
         pipeline_cmd="python med_school.py --video <URL>",
         artifact_label="out/manual.json · 0 human labels",
         duration_sec=12.0,
         illustrative=True,
+        has_person_and_quote_slot=True,
         prompt=(
             "Cinematic wide shot inside a dark-mode surgical AI research lab. "
             "A sleek glass workstation monitor displays an abstract surgical lecture "
@@ -56,9 +66,9 @@ SHOTS: Sequence[ShotSpec] = (
             "clean modern interface aesthetic, no text or charts, no people."
         ),
         narration=(
-            "Surgical AI usually requires thousands of hours of surgeon annotation. "
-            "SurgProof — No human labels. Only proof. — begins at Autonomous Medical School: "
-            "Gemini 4 Argon watches public surgical lectures and writes its own visual manual."
+            "Nir Mathur, a King's College London medical student who would otherwise label "
+            "these frames by hand: SurgProof learns surgical criteria from public video and "
+            "writes its own visual manual with zero human labels."
         ),
     ),
     ShotSpec(
@@ -88,8 +98,8 @@ SHOTS: Sequence[ShotSpec] = (
         shot_id="shot_03_verify",
         index=3,
         filename="shot_03_verify.mp4",
-        title="ACT 3 · AUTONOMOUS SELF-VERIFICATION LOOP",
-        subtitle="Agent replaces human verifier: Accept (green) · Re-analyse crop (amber) · Escalate (red)",
+        title="ACT 3 · SELF-VERIFICATION & AMBER GATE",
+        subtitle="Agent replaces human verifier: Accept (green) · AMBER Human Gate · Reject (red)",
         pipeline_cmd="python accept.py",
         artifact_label="out/decisions.csv · replaces human verifier",
         duration_sec=12.0,
@@ -98,13 +108,13 @@ SHOTS: Sequence[ShotSpec] = (
             "Futuristic AI verification workstation screen showing a high-precision optical "
             "zoom lens inspecting a highlighted crop of a synthetic surgical simulation frame. "
             "Amber inspection rings pulse and lock into emerald-green verified indicators, "
-            "while one uncertain frame routes into a crimson escalation lane. Smooth camera dolly, "
+            "while one uncertain frame routes into an amber review gate. Smooth camera dolly, "
             "photorealistic lighting, no text gibberish."
         ),
         narration=(
             "Where prior systems like SurgSLOT needed human verifiers, SurgProof replaces the "
-            "human verifier: cropping uncertain regions for a second opinion, accepting verified "
-            "labels, and escalating ambiguous cases to a surgeon."
+            "human verifier: cropping uncertain regions for re-analysis, accepting verified "
+            "labels, and routing borderline cases to the AMBER human gate."
         ),
     ),
     ShotSpec(
@@ -151,9 +161,9 @@ SHOTS: Sequence[ShotSpec] = (
         shot_id="shot_06_narrate",
         index=6,
         filename="shot_06_narrate.mp4",
-        title="ACT 6 · GROUNDED SURGICAL NARRATION",
-        subtitle="SurgProof: No human labels. Only proof. Grounded narration from verified structures",
-        pipeline_cmd="python narrate.py --video <test_video>",
+        title="ACT 6 · HUMAN GATE & GROUNDED SURGICAL PROOF",
+        subtitle="SurgProof: No human labels. Only proof. Grounded replay & verified dataset export",
+        pipeline_cmd="streamlit run app.py",
         artifact_label="Prior art: SurgAtlas · SurgVLP · SurgSLOT · Med-Gemini",
         duration_sec=13.0,
         illustrative=True,
@@ -164,9 +174,9 @@ SHOTS: Sequence[ShotSpec] = (
             "ambient blue lighting, slow camera push-in, cinematic finish, no readable text."
         ),
         narration=(
-            "Finally, SurgProof narrates the operation like Netflix for surgery, speaking "
-            "only from verified labels it can stand behind. Prior art: SurgAtlas, SurgVLP, "
-            "SurgSLOT, and Med-Gemini. Our step: the agent replaces the human verifier."
+            "Finally, SurgProof locks export behind the AMBER human gate and replays surgery "
+            "using only verified structures. Prior art: SurgAtlas, SurgVLP, SurgSLOT, "
+            "and Med-Gemini. Our step: the agent replaces the human verifier."
         ),
     ),
 )
