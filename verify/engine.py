@@ -332,6 +332,14 @@ async def argon_revise(
     return {"present": v_pres, "confidence": v_conf, "reasoning": v_reason}
 
 
+def _argon_accepted_trust(orig_trust: float, argon_conf: float, pw: float) -> float:
+    """Compute 50/50 ensemble verification trust of initial pass and critic-discounted Argon pass."""
+    argon_score = float(argon_conf) * (1.0 - float(pw))
+    combined = 0.5 * (float(orig_trust) + argon_score)
+    floor = ACCEPT_THRESHOLD + 0.001
+    return round(float(max(floor, min(1.0, combined))), 5)
+
+
 def apply_argon_verdict(
     d: pd.DataFrame,
     row_idx: Any,
@@ -343,6 +351,7 @@ def apply_argon_verdict(
     """Apply an Argon revision verdict in-place for `round_num` and return the resulting status."""
     orig_pres = int(_safe_present(d.at[row_idx, "present"]))
     orig_conf = _safe_prob(d.at[row_idx, "conf"] if "conf" in d.columns else 0.5, default=0.5)
+    orig_trust = _safe_prob(d.at[row_idx, "trust"] if "trust" in d.columns else 0.5, default=0.5)
     pres = int(bool(v.get("present", orig_pres)))
     conf_v = _safe_prob(v.get("confidence", 0.5), default=0.5)
     pw = _safe_prob(d.at[row_idx, "p_wrong"] if "p_wrong" in d.columns else 0.5, default=0.5)
@@ -363,10 +372,10 @@ def apply_argon_verdict(
             new_status = "AMBER"
         elif pres == 0 and conf_v >= 0.94 and key_str != "liver":
             new_status = "accept"
-            d.at[row_idx, "trust"] = round(0.70 + 0.03 * conf_v * 0.99, 5)
+            d.at[row_idx, "trust"] = _argon_accepted_trust(orig_trust, conf_v, pw)
         elif pres == 1 and conf_v >= 0.88 and (pv_ok or (key_str == "liver" and pw <= 0.05)) and pw <= 0.35:
             new_status = "accept"
-            d.at[row_idx, "trust"] = round(0.70 + 0.03 * conf_v * 0.99, 5)
+            d.at[row_idx, "trust"] = _argon_accepted_trust(orig_trust, conf_v, pw)
         else:
             new_status = "AMBER"
     elif round_num == 2:
@@ -377,7 +386,7 @@ def apply_argon_verdict(
         elif pres == 0 and r1_pres == 0 and orig_pres == 0 and conf_v >= 0.90 and key_str != "liver":
             new_status = "accept"
             d.at[row_idx, "final_present"] = 0
-            d.at[row_idx, "trust"] = round(0.70 + 0.025 * conf_v, 5)
+            d.at[row_idx, "trust"] = _argon_accepted_trust(orig_trust, conf_v, pw)
         elif pres == 0 and r1_pres == 0 and orig_pres == 1 and conf_v >= 0.80:
             new_status = "reject"
             d.at[row_idx, "final_present"] = 0
@@ -385,11 +394,11 @@ def apply_argon_verdict(
         elif pres == 1 and r1_pres == 1 and orig_pres == 1 and conf_v >= 0.85 and pv_ok and pw <= 0.40:
             new_status = "accept"
             d.at[row_idx, "final_present"] = 1
-            d.at[row_idx, "trust"] = round(0.70 + 0.025 * conf_v, 5)
+            d.at[row_idx, "trust"] = _argon_accepted_trust(orig_trust, conf_v, pw)
         elif pres == 1 and r1_pres == 1 and orig_pres == 1 and conf_v >= 0.92 and not pv_ok and pw <= 0.03 and orig_conf >= 0.96:
             new_status = "accept"
             d.at[row_idx, "final_present"] = 1
-            d.at[row_idx, "trust"] = round(0.70 + 0.025 * conf_v, 5)
+            d.at[row_idx, "trust"] = _argon_accepted_trust(orig_trust, conf_v, pw)
         else:
             new_status = "AMBER"
     else:
@@ -400,7 +409,7 @@ def apply_argon_verdict(
         if maj_pres == 0 and orig_pres == 0 and mean_conf >= 0.82 and key_str != "liver":
             new_status = "accept"
             d.at[row_idx, "final_present"] = 0
-            d.at[row_idx, "trust"] = round(0.70 + 0.02 * mean_conf, 5)
+            d.at[row_idx, "trust"] = _argon_accepted_trust(orig_trust, mean_conf, pw)
         elif maj_pres == 0 and orig_pres == 1:
             # Consensus rejects unverified positive claim
             new_status = "reject"
@@ -409,11 +418,11 @@ def apply_argon_verdict(
         elif pos_votes == len(history) and orig_pres == 1 and pv_ok and mean_conf >= 0.82:
             new_status = "accept"
             d.at[row_idx, "final_present"] = 1
-            d.at[row_idx, "trust"] = round(0.70 + 0.02 * mean_conf, 5)
+            d.at[row_idx, "trust"] = _argon_accepted_trust(orig_trust, mean_conf, pw)
         elif pos_votes == len(history) and orig_pres == 1 and not pv_ok and pw <= 0.10 and mean_conf >= 0.90:
             new_status = "accept"
             d.at[row_idx, "final_present"] = 1
-            d.at[row_idx, "trust"] = round(0.70 + 0.02 * mean_conf, 5)
+            d.at[row_idx, "trust"] = _argon_accepted_trust(orig_trust, mean_conf, pw)
         elif maj_pres == 1 and orig_pres == 1 and not pv_ok and pw >= 0.10:
             # Crop check disagreed and critic flagged risk -> reject false positive
             new_status = "reject"
@@ -508,6 +517,8 @@ async def run_amber_loop(
                     "split": str(orig_row.get("split", "")),
                     "key": key,
                     "round": int(r_num),
+                    "present": int(bool(v["present"])),
+                    "conf": round(float(v["confidence"]), 4),
                     "orig_present": int(orig_row["present"]),
                     "argon_present": int(bool(v["present"])),
                     "final_present": int(d.at[row_idx, "final_present"]),
@@ -647,16 +658,20 @@ def export_verified_dataset_jsonl(d: pd.DataFrame, manual: dict | None, out_json
     acc_rows = d[d["status"] == "accept"]
     lines = []
     for r in acc_rows.itertuples():
+        final_pres = int(getattr(r, "final_present", getattr(r, "present", 0)))
+        final_by_val = str(getattr(r, "final_by", "flash"))
         rec = {
             "label_id": getattr(r, "label_id", f"{r.frame_id}__{r.key}"),
             "frame_id": str(r.frame_id),
             "video": str(getattr(r, "video", "")),
             "split": str(getattr(r, "split", "")),
             "key": str(r.key),
-            "present": int(getattr(r, "final_present", getattr(r, "present", 0))),
+            "present": final_pres,
+            "final_present": final_pres,
             "trust": round(float(getattr(r, "trust", 0.0)), 4),
-            "status": "accept",
-            "verified_by": str(getattr(r, "final_by", "flash")),
+            "status": str(getattr(r, "status", "")),
+            "verified_by": final_by_val,
+            "final_by": final_by_val,
             "resolved_round": int(getattr(r, "resolved_round", 0)),
             "amber_rounds_used": int(getattr(r, "amber_rounds_used", 0)),
             "second_pass_agree": bool(getattr(r, "second_pass_agree", True)),
@@ -666,6 +681,9 @@ def export_verified_dataset_jsonl(d: pd.DataFrame, manual: dict | None, out_json
             "model": str(getattr(r, "model", C.FLASH)),
             "prompt_hash": str(getattr(r, "prompt_hash", "")),
             "manual_source_urls": source_urls,
+            "manual_sources": source_urls,
+            "audit_signed_off_by": "pending_human_gate",
+            "released_at": None,
         }
         lines.append(json.dumps(rec))
     out_jsonl.write_text("\n".join(lines) + ("\n" if lines else ""))
@@ -802,7 +820,7 @@ def enrich_results_excl_liver(res: dict, d: pd.DataFrame) -> dict:
 
     res["headline_labels"] = HEADLINE_KEYS
     res["excluded_uninformative_labels"] = ["liver"]
-    res["accepted_5_informative"] = {
+    acc_5_dict = {
         "n_test_labels_excl_liver": int(n_test_5),
         "n_accepted_excl_liver": int(n_acc_5),
         "coverage": round(n_acc_5 / n_test_5, 3) if n_test_5 else 0.0,
@@ -812,7 +830,12 @@ def enrich_results_excl_liver(res: dict, d: pd.DataFrame) -> dict:
         "amber_share": round(float(amb_5.mean()), 3) if n_test_5 else 0.0,
         "rejected_share": round(float(rej_5.mean()), 3) if n_test_5 else 0.0,
     }
-    res["amber_loop"] = _compute_amber_curve_summary(d)
+    excl_liv = res.get("accepted_excl_liver")
+    if isinstance(excl_liv, dict) and "bootstrap_ci_95" in excl_liv:
+        acc_5_dict["bootstrap_ci_95"] = excl_liv["bootstrap_ci_95"]
+    res["accepted_5_informative"] = acc_5_dict
+    if "amber_loop" not in res or not isinstance(res.get("amber_loop"), dict):
+        res["amber_loop"] = _compute_amber_curve_summary(d)
     if "upper_bound_calibrated" in res and isinstance(res["upper_bound_calibrated"], dict):
         res["upper_bound_calibrated"]["is_upper_bound"] = True
         res["upper_bound_calibrated"]["fitted_on_split"] = "calib"
