@@ -237,7 +237,7 @@ def _load_target_frame_and_boxes(out_dir: Path = OUT_DIR) -> Tuple[Image.Image, 
         for item in items:
             k = item["key"]
             if k in by_key:
-                st = by_key[k].get("status_round_0") or by_key[k].get("status") or ""
+                st = by_key[k].get("status") or by_key[k].get("status_round_0") or ""
                 item["status"] = str(st)
 
     # Strictly read boxes & tips ONLY from out/annotations.jsonl (or out/annotations_live.jsonl) model output
@@ -869,6 +869,7 @@ def load_real_result_card(out_dir: Path = OUT_DIR) -> Optional[Dict[str, str]]:
     acc: Optional[float] = None
     cov: Optional[float] = None
     n_labels = n_test
+    source_key = ""
 
     for key_name in ("accepted_5_informative", "accepted_excl_liver", "accepted"):
         block = data.get(key_name)
@@ -878,6 +879,7 @@ def load_real_result_card(out_dir: Path = OUT_DIR) -> Optional[Dict[str, str]]:
             if isinstance(a_val, (int, float)) and isinstance(c_val, (int, float)):
                 acc = float(a_val)
                 cov = float(c_val)
+                source_key = f"out/results.json:{key_name}.accuracy"
                 if isinstance(block.get("n_test_labels_excl_liver"), int):
                     n_labels = int(block["n_test_labels_excl_liver"])
                 break
@@ -885,12 +887,13 @@ def load_real_result_card(out_dir: Path = OUT_DIR) -> Optional[Dict[str, str]]:
     if acc is None or cov is None:
         return None
 
-    acc_str = f"{acc * 100.0:.1f}%"
-    cov_str = f"{cov * 100.0:.0f}%"
+    acc_str = f"{round(acc * 100.0 + 1e-9, 1):.1f}%"
+    cov_str = f"{round(cov * 100.0 + 1e-9, 1):.1f}%"
     return {
         "headline": f"{acc_str} accurate on the {cov_str} it accepted",
         "subtext": f"n = {n_labels} held-out labels, 6 unseen videos",
         "acc_pct": acc_str,
+        "source": source_key,
     }
 
 
@@ -1088,18 +1091,35 @@ def run_pipeline(
             continue
 
         hero_num: Optional[str] = None
+        hero_src: Optional[str] = None
+        shown_labels: Optional[List[Dict[str, str]]] = None
         if shot.index == 1:
             render_shot_01_raw_frame(shot, out_mp4)
         elif shot.index == 2:
             render_shot_02_manual(shot, out_mp4, out_dir=out_dir)
         elif shot.index == 3:
             render_shot_03_labels(shot, out_mp4)
+            _, items_3 = _load_target_frame_and_boxes(out_dir=out_dir)
+            shown_labels = [
+                {"frame_id": "video12_15750_15758", "key": it["key"], "status": it["status"]}
+                for it in items_3
+                if it.get("status")
+            ]
         elif shot.index == 4:
             render_shot_04_verify(shot, out_mp4)
+            _, items_4 = _load_target_frame_and_boxes(out_dir=out_dir)
+            shown_labels = [
+                {"frame_id": "video12_15750_15758", "key": it["key"], "status": it["status"]}
+                for it in items_4
+                if it.get("status")
+            ]
         elif shot.index == 5:
             render_shot_05_gate(shot, out_mp4)
         elif shot.index == 6:
             _, hero_num = render_shot_06_result(shot, out_mp4, out_dir=out_dir)
+            card_6 = load_real_result_card(out_dir=out_dir)
+            if card_6:
+                hero_src = card_6.get("source")
         elif shot.index == 7:
             render_shot_07_end(shot, out_mp4)
 
@@ -1110,6 +1130,8 @@ def run_pipeline(
             "caption": shot.caption,
             "word_count": shot.word_count,
             "hero_number": hero_num,
+            "hero_number_source": hero_src,
+            "shown_labels": shown_labels,
         }
         print(f"[promo] Rendered {shot.filename} ({meta.get('duration_sec', 0.0):.1f}s)", flush=True)
 
