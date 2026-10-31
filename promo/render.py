@@ -1,104 +1,102 @@
 #!/usr/bin/env python3
-"""Generate, overlay, and stitch the 60-90s SurgAtlas pitch video (issue #10).
+"""Render and stitch the 52.0s SurgProof 7-shot product demo per promo/DESIGN.md.
 
 Usage:
-  python -m promo.render                       # generate missing Veo clips + build proof slot + stitch
-  python -m promo.render --draft               # use veo-3.1-fast-generate-preview for faster generation
-  python -m promo.render --refresh-slot        # re-render Shot 5 from latest out/ artifacts + app.py & re-stitch
-  python -m promo.render --shot shot_01_med_school
+  python -m promo.render                       # render all 7 shots + stitch + contact_sheet.png
+  python -m promo.render --refresh-slot        # re-render Shot 6 (result) & re-stitch
+  python -m promo.render --shot shot_04_verify # render a single shot
 """
 from __future__ import annotations
 
 import argparse
-import base64
+import csv
 import json
-import os
 import shutil
-import socket
 import subprocess
 import sys
 import textwrap
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from PIL import Image, ImageDraw, ImageFont
 
-from promo.shots import (
-    ILLUSTRATIVE_CAPTION,
-    NAMED_PERSON_LINE,
-    NAMED_PERSON_NAME,
-    NAMED_PERSON_ROLE,
-    PROJECT_NAME,
-    REAL_PROOF_CAPTION,
-    SHOTS,
-    ShotSpec,
-    total_storyboard_duration,
-)
+from promo.shots import SHOTS, ShotSpec, total_storyboard_duration
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "out"
+DATA_DIR = ROOT / "data"
 PROMO_DIR = OUT_DIR / "promo"
-RAW_CLIP_DIR = PROMO_DIR / "raw"
 OVERLAY_DIR = PROMO_DIR / "overlays"
 FINAL_VIDEO = PROMO_DIR / "surgatlas_promo.mp4"
 FINAL_VIDEO_SURGPROOF = PROMO_DIR / "surgproof_promo.mp4"
+CONTACT_SHEET_PNG = PROMO_DIR / "contact_sheet.png"
 MANIFEST_PATH = PROMO_DIR / "manifest.json"
 
 WIDTH = 1280
 HEIGHT = 720
 FPS = 24
 
-PRIMARY_VEO_MODEL = "veo-3.1-generate-preview"
-FAST_VEO_MODEL = "veo-3.1-fast-generate-preview"
-FALLBACK_OMNI_MODEL = "gemini-omni-1.1-flash"
+# ---- Colour Tokens from promo/DESIGN.md ----
+BG_CANVAS = (10, 11, 14)            # #0A0B0E
+BG_CARD = (18, 20, 28)              # #12141C
+BORDER_HAIRLINE = (35, 39, 52)      # #232734
+TEXT_PRIMARY = (244, 245, 248)      # #F4F5F8
+TEXT_BODY = (216, 220, 230)         # #D8DCE6
+TEXT_MUTED = (138, 144, 158)        # #8A909E
+
+ACCENT_BLUE = (59, 130, 246)        # #3B82F6
+ACCENT_BLUE_FILL = (18, 36, 72)
+
+VERDICT_GREEN = (16, 185, 129)      # #10B981
+VERDICT_GREEN_FILL = (9, 46, 36)    # #092E24
+
+VERDICT_AMBER = (245, 158, 11)      # #F59E0B
+VERDICT_AMBER_FILL = (54, 36, 7)    # #362407
+
+VERDICT_RED = (239, 68, 68)          # #EF4444
+VERDICT_RED_FILL = (51, 16, 20)     # #331014
 
 
-def ensure_api_key() -> None:
-    """Load GEMINI_API_KEY from .env if not already in os.environ (never logs key)."""
-    if os.environ.get("GEMINI_API_KEY"):
-        return
-    candidates = [
-        ROOT / ".env",
-        Path("/Users/nirmathur/surgatlas/.env"),
-        Path.home() / "surgatlas" / ".env",
-    ]
-    for env_path in candidates:
-        if env_path.is_file():
-            for line in env_path.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                k = k.strip()
-                v = v.strip().strip("'").strip('"')
-                if k == "GEMINI_API_KEY" and v:
-                    os.environ["GEMINI_API_KEY"] = v
-                    return
+def ease_out(t: float) -> float:
+    """Cubic ease-out: 1 - (1 - t)^3 on clamped [0, 1]."""
+    x = max(0.0, min(1.0, float(t)))
+    return 1.0 - (1.0 - x) ** 3
 
 
-def _load_font(size: int, bold: bool = False, mono: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    candidates: List[str] = []
-    if mono:
-        candidates.extend([
-            "/System/Library/Fonts/SFNSMono.ttf",
-            "/System/Library/Fonts/Menlo.ttc",
-            "/System/Library/Fonts/Courier.dfont",
-        ])
-    elif bold:
-        candidates.extend([
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-            "/System/Library/Fonts/Helvetica.ttc",
-        ])
-    else:
-        candidates.extend([
-            "/System/Library/Fonts/Supplemental/Arial.ttf",
-            "/System/Library/Fonts/Helvetica.ttc",
-        ])
-    for p in candidates:
-        if Path(p).exists():
+def lerp_color(c1: Tuple[int, int, int], c2: Tuple[int, int, int], t: float) -> Tuple[int, int, int]:
+    u = ease_out(t)
+    return (
+        int(round(c1[0] + (c2[0] - c1[0]) * u)),
+        int(round(c1[1] + (c2[1] - c1[1]) * u)),
+        int(round(c1[2] + (c2[2] - c1[2]) * u)),
+    )
+
+
+def blend_with_bg(color: Tuple[int, int, int], alpha: float, bg: Tuple[int, int, int] = BG_CANVAS) -> Tuple[int, int, int]:
+    a = max(0.0, min(1.0, float(alpha)))
+    return (
+        int(round(bg[0] + (color[0] - bg[0]) * a)),
+        int(round(bg[1] + (color[1] - bg[1]) * a)),
+        int(round(bg[2] + (color[2] - bg[2]) * a)),
+    )
+
+
+def load_sf_font(size: int, weight: int = 400) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Load macOS SF Pro (/System/Library/Fonts/SFNS.ttf) with variation weight, fallback HelveticaNeue."""
+    sf_path = Path("/System/Library/Fonts/SFNS.ttf")
+    if sf_path.exists():
+        try:
+            font = ImageFont.truetype(str(sf_path), size)
+            opt_size = max(17, min(96, size))
+            font.set_variation_by_axes([100, opt_size, 400, weight])
+            return font
+        except Exception:
+            pass
+    for fallback in ("/System/Library/Fonts/HelveticaNeue.ttc", "/System/Library/Fonts/Helvetica.ttc"):
+        if Path(fallback).exists():
             try:
-                return ImageFont.truetype(p, size)
+                return ImageFont.truetype(fallback, size)
             except Exception:
                 continue
     return ImageFont.load_default()
@@ -141,300 +139,211 @@ def probe_video(path: Path) -> Dict[str, Any]:
     }
 
 
-def render_shot_overlay_png(shot: ShotSpec, out_png: Path) -> Path:
-    """Render a 1280x720 RGBA overlay PNG with mandatory ILLUSTRATIVE badge and story captions."""
-    out_png.parent.mkdir(parents=True, exist_ok=True)
-    im = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(im)
+def _apply_shot_fade(im: Image.Image, t: float, duration_sec: float, fade_sec: float = 0.45) -> Image.Image:
+    """Apply smooth 0.45s fade-in from #0A0B0E and 0.45s fade-out to #0A0B0E."""
+    alpha = 1.0
+    if t < fade_sec:
+        alpha = ease_out(t / fade_sec)
+    elif t > duration_sec - fade_sec:
+        alpha = ease_out(max(0.0, (duration_sec - t) / fade_sec))
+    if alpha >= 0.995:
+        return im
+    bg = Image.new("RGB", (WIDTH, HEIGHT), BG_CANVAS)
+    return Image.blend(bg, im, alpha)
 
-    font_badge = _load_font(15, bold=True)
-    font_step = _load_font(15, bold=True)
-    font_title = _load_font(18, bold=True)
-    font_sub = _load_font(15, bold=False)
-    font_mono = _load_font(12, mono=True)
-    font_narr = _load_font(14, bold=False)
 
-    # 1. Top-left brand + shot pill
-    draw.rounded_rectangle(
-        (24, 20, 290, 58),
-        radius=10,
-        fill=(12, 18, 30, 220),
-        outline=(56, 189, 248, 220),
-        width=2,
-    )
-    draw.text((38, 30), f"{PROJECT_NAME} · SHOT {shot.index}/{len(SHOTS)}", font=font_step, fill=(240, 249, 255, 255))
+def _draw_centered_caption(draw: ImageDraw.ImageDraw, text: str, alpha: float = 1.0, slide_px: float = 0.0) -> None:
+    """Draw the bottom-centered shot caption at (640, 636) in 26px SF Pro Medium #F4F5F8."""
+    if not text or alpha <= 0.01:
+        return
+    font = load_sf_font(26, weight=500)
+    color = blend_with_bg(TEXT_PRIMARY, alpha, BG_CANVAS)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw = bbox[2] - bbox[0]
+    th = bbox[3] - bbox[1]
+    x = (WIDTH - tw) // 2
+    y = int(round(636 - th // 2 + slide_px))
+    draw.text((x, y), text, font=font, fill=color)
 
-    # 2. Top-right MANDATORY ILLUSTRATIVE / REAL TELEMETRY badge
-    badge_text = shot.badge_text
-    if shot.illustrative:
-        badge_bg = (180, 83, 9, 235)      # high-contrast amber warning banner
-        badge_border = (253, 224, 71, 255)
-        badge_fg = (255, 255, 255, 255)
-    else:
-        badge_bg = (21, 128, 61, 235)     # emerald verified telemetry banner
-        badge_border = (134, 239, 172, 255)
-        badge_fg = (255, 255, 255, 255)
 
-    draw.rounded_rectangle(
-        (310, 20, WIDTH - 24, 58),
-        radius=10,
-        fill=badge_bg,
-        outline=badge_border,
-        width=2,
-    )
-    draw.text((326, 30), badge_text, font=font_badge, fill=badge_fg)
+def _rounded_image(src: Image.Image, size: Tuple[int, int], radius: int = 8) -> Image.Image:
+    """Resize image to size and round corners onto BG_CANVAS with 1px BORDER_HAIRLINE."""
+    w, h = size
+    im = src.convert("RGB").resize((w, h), Image.Resampling.LANCZOS)
+    mask = Image.new("L", (w, h), 0)
+    mdraw = ImageDraw.Draw(mask)
+    mdraw.rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
+    out = Image.new("RGB", (w, h), BG_CANVAS)
+    out.paste(im, (0, 0), mask)
+    bdraw = ImageDraw.Draw(out)
+    bdraw.rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, outline=BORDER_HAIRLINE, width=1)
+    return out
 
-    # 2b. If Shot 1 (has_person_and_quote_slot): render Nir Mathur card + Supervisor Quote Slot
-    if getattr(shot, "has_person_and_quote_slot", False):
-        # Left card: Nir Mathur (KCL Medical Student)
-        draw.rounded_rectangle(
-            (24, 72, 626, 212),
-            radius=12,
-            fill=(12, 19, 34, 218),
-            outline=(56, 189, 248, 220),
-            width=2,
-        )
-        draw.text((42, 84), f"{NAMED_PERSON_NAME} — {NAMED_PERSON_ROLE}", font=font_title, fill=(56, 189, 248, 255))
-        for idx_l, ln in enumerate(textwrap.wrap(f'"{NAMED_PERSON_LINE}"', width=62)[:3]):
-            draw.text((42, 114 + idx_l * 22), ln, font=font_narr, fill=(241, 245, 249, 255))
 
-        # Right card: Supervisor Quote Card Slot (reads out/supervisor_quote.json or env, never fabricated)
-        sup_name = os.environ.get("SUPERVISOR_NAME", "").strip()
-        sup_quote = os.environ.get("SUPERVISOR_QUOTE", "").strip()
-        for qp in (OUT_DIR / "supervisor_quote.json", ROOT / "coord" / "artifacts" / "supervisor_quote.json"):
-            if qp.is_file():
+def _load_cholec_frames() -> List[Image.Image]:
+    """Load real laparoscopic frames for video12_15750 from data/index.csv (or fallback synthetic RGB)."""
+    paths: List[Path] = []
+    idx_csv = DATA_DIR / "index.csv"
+    if idx_csv.is_file():
+        with open(idx_csv, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        v12 = [r for r in rows if r.get("clip") == "video12_15750" and Path(r.get("path", "")).is_file()]
+        if len(v12) >= 3:
+            paths = [Path(r["path"]) for r in v12[:3]]
+        else:
+            valid = [Path(r["path"]) for r in rows if Path(r.get("path", "")).is_file()]
+            paths = valid[:3]
+    frames: List[Image.Image] = []
+    for p in paths:
+        try:
+            frames.append(Image.open(p).convert("RGB"))
+        except Exception:
+            continue
+    while len(frames) < 3:
+        fallback = Image.new("RGB", (854, 480), (28, 22, 26))
+        frames.append(fallback)
+    return frames
+
+
+def _load_target_frame_and_boxes() -> Tuple[Image.Image, List[Dict[str, Any]]]:
+    """Load real frame video12_15750_15758 and its 5 positive predictions + verifier statuses."""
+    default_boxes = [
+        {"key": "grasper", "box": [420, 140, 522, 380], "status": "accept", "corner": "tl"},
+        {"key": "l_hook", "box": [50, 524, 492, 824], "status": "accept", "corner": "tr"},
+        {"key": "gallbladder", "box": [8, 298, 565, 560], "status": "accept", "corner": "tl"},
+        {"key": "liver", "box": [126, 300, 764, 868], "status": "AMBER", "corner": "br"},
+        {"key": "cystic_duct", "box": [445, 445, 748, 810], "status": "reject", "corner": "bl"},
+    ]
+    frame_img: Optional[Image.Image] = None
+    idx_csv = DATA_DIR / "index.csv"
+    if idx_csv.is_file():
+        with open(idx_csv, "r", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                if r.get("frame_id") == "video12_15750_15758" and Path(r.get("path", "")).is_file():
+                    frame_img = Image.open(r["path"]).convert("RGB")
+                    break
+    if frame_img is None:
+        frame_img = _load_cholec_frames()[1]
+
+    # Check if decisions.csv has real boxes for video12_15750_15758
+    dec_csv = OUT_DIR / "decisions.csv"
+    if dec_csv.is_file():
+        by_key: Dict[str, Dict[str, Any]] = {}
+        with open(dec_csv, "r", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                if r.get("frame_id") == "video12_15750_15758":
+                    by_key[r.get("key", "")] = r
+        for item in default_boxes:
+            k = item["key"]
+            if k in by_key:
+                raw_b = by_key[k].get("box", "")
                 try:
-                    qd = json.loads(qp.read_text(encoding="utf-8"))
-                    sup_name = str(qd.get("name") or qd.get("supervisor_name") or sup_name).strip()
-                    sup_quote = str(qd.get("quote") or qd.get("supervisor_quote") or sup_quote).strip()
+                    parsed = json.loads(raw_b) if isinstance(raw_b, str) else raw_b
+                    if isinstance(parsed, list) and len(parsed) == 4:
+                        item["box"] = [int(x) for x in parsed]
                 except Exception:
                     pass
-        has_sup = bool(sup_name and sup_quote)
-        sup_border = (74, 222, 128, 220) if has_sup else (253, 224, 71, 220)
-        draw.rounded_rectangle(
-            (650, 72, WIDTH - 24, 212),
-            radius=12,
-            fill=(12, 19, 34, 218),
-            outline=sup_border,
-            width=2,
-        )
-        if has_sup:
-            draw.text((668, 84), f"SUPERVISOR: {sup_name}", font=font_title, fill=(74, 222, 128, 255))
-            for idx_l, ln in enumerate(textwrap.wrap(f'"{sup_quote}"', width=62)[:3]):
-                draw.text((668, 114 + idx_l * 22), ln, font=font_narr, fill=(241, 245, 249, 255))
-        else:
-            draw.text((668, 84), "SUPERVISOR QUOTE SLOT (AWAITING VERBATIM WORDS)", font=font_step, fill=(253, 224, 71, 255))
-            draw.text((668, 114), "Reserved for KCL surgical supervisor name & exact quote.", font=font_narr, fill=(226, 232, 240, 255))
-            draw.text((668, 138), "Populated from out/supervisor_quote.json — never fabricated.", font=font_mono, fill=(148, 163, 184, 255))
+                # Read Round-0 double-check status (status_round_0) so Shot 4 shows pre-loop Green/Amber/Red
+                st0 = by_key[k].get("status_round_0")
+                if st0 in ("accept", "AMBER", "reject"):
+                    item["status"] = st0
+                elif k != "liver":
+                    st = by_key[k].get("status", "")
+                    if st in ("accept", "AMBER", "reject"):
+                        item["status"] = st
 
-    # 3. Bottom lower-third narrative panel
-    panel_top = HEIGHT - 176
-    draw.rounded_rectangle(
-        (24, panel_top, WIDTH - 24, HEIGHT - 18),
-        radius=14,
-        fill=(10, 15, 28, 226),
-        outline=(71, 85, 105, 210),
-        width=2,
-    )
-
-    # Title + pipeline command pill
-    draw.text((44, panel_top + 14), shot.title, font=font_title, fill=(56, 189, 248, 255))
-    cmd_pill_text = f"{shot.pipeline_cmd}  ->  {shot.artifact_label}"
-    draw.rounded_rectangle(
-        (680, panel_top + 11, WIDTH - 42, panel_top + 41),
-        radius=8,
-        fill=(30, 41, 59, 235),
-        outline=(100, 116, 139, 200),
-        width=1,
-    )
-    draw.text((692, panel_top + 18), cmd_pill_text[:68], font=font_mono, fill=(226, 232, 240, 255))
-
-    # Subtitle
-    draw.text((44, panel_top + 46), shot.subtitle, font=font_sub, fill=(241, 245, 249, 255))
-
-    # Divider line
-    draw.line((44, panel_top + 74, WIDTH - 44, panel_top + 74), fill=(51, 65, 85, 200), width=1)
-
-    # Wrapped narration caption
-    wrapped = textwrap.wrap(f'"{shot.narration}"', width=102)[:3]
-    for idx, line in enumerate(wrapped):
-        draw.text(
-            (44, panel_top + 82 + idx * 21),
-            line,
-            font=font_narr,
-            fill=(203, 213, 225, 255),
-        )
-
-    im.save(out_png, format="PNG")
-    return out_png
+    return frame_img, default_boxes
 
 
-def generate_raw_clip_with_veo_or_omni(
-    shot: ShotSpec,
-    raw_out: Path,
-    *,
-    draft: bool = False,
-    poll_interval: float = 8.0,
-    timeout: float = 420.0,
-) -> Tuple[Path, str]:
-    """Generate a raw video clip using Veo 3.1 (or Omni fallback) via google-genai SDK."""
-    ensure_api_key()
-    from google import genai
-    from google.genai import types
+def _draw_box_with_pill(
+    draw: ImageDraw.ImageDraw,
+    rect_origin: Tuple[int, int],
+    rect_size: Tuple[int, int],
+    box_norm: Sequence[int],
+    label_text: str,
+    stroke_color: Tuple[int, int, int],
+    pill_fill: Tuple[int, int, int],
+    text_color: Tuple[int, int, int],
+    corner: str = "tl",
+) -> None:
+    """Draw a 2px bounding box and crisp 6px-radius label pill mapped from [ymin, xmin, ymax, xmax] 0..1000."""
+    rx, ry = rect_origin
+    rw, rh = rect_size
+    ymin, xmin, ymax, xmax = box_norm
+    x1 = rx + int((xmin / 1000.0) * rw)
+    y1 = ry + int((ymin / 1000.0) * rh)
+    x2 = rx + int((xmax / 1000.0) * rw)
+    y2 = ry + int((ymax / 1000.0) * rh)
 
-    raw_out.parent.mkdir(parents=True, exist_ok=True)
-    client = genai.Client()
+    x1 = max(rx + 2, min(rx + rw - 10, x1))
+    y1 = max(ry + 2, min(ry + rh - 10, y1))
+    x2 = max(x1 + 16, min(rx + rw - 2, x2))
+    y2 = max(y1 + 16, min(ry + rh - 2, y2))
 
-    models_to_try = (
-        [FAST_VEO_MODEL, PRIMARY_VEO_MODEL]
-        if draft
-        else [PRIMARY_VEO_MODEL, FAST_VEO_MODEL]
-    )
+    draw.rounded_rectangle((x1, y1, x2, y2), radius=4, outline=stroke_color, width=2)
 
-    last_err: Optional[Exception] = None
-    for veo_model in models_to_try:
-        try:
-            print(f"[promo] Generating {shot.shot_id} with {veo_model} ...", flush=True)
-            op = client.models.generate_videos(
-                model=veo_model,
-                prompt=shot.prompt,
-                config=types.GenerateVideosConfig(
-                    aspect_ratio="16:9",
-                    number_of_videos=1,
-                ),
-            )
-            start_t = time.monotonic()
-            while not op.done:
-                elapsed = time.monotonic() - start_t
-                if elapsed > timeout:
-                    raise TimeoutError(f"{veo_model} timed out after {elapsed:.0f}s")
-                time.sleep(poll_interval)
-                op = client.operations.get(op)
-                print(
-                    f"[promo] [{shot.shot_id}] polling {veo_model} ({elapsed:.0f}s) done={op.done}",
-                    flush=True,
-                )
+    font_pill = load_sf_font(14, weight=500)
+    tb = draw.textbbox((0, 0), label_text, font=font_pill)
+    pw = (tb[2] - tb[0]) + 16
+    ph = 22
 
-            if getattr(op, "error", None):
-                raise RuntimeError(f"{veo_model} operation error: {op.error}")
+    if corner == "tr":
+        px = max(rx + 4, x2 - pw)
+        py = y1 + 4
+    elif corner == "br":
+        px = max(rx + 4, x2 - pw)
+        py = max(ry + 4, y2 - ph - 4)
+    elif corner == "bl":
+        px = x1 + 4
+        py = max(ry + 4, y2 - ph - 4)
+    else:
+        px = x1 + 4
+        py = y1 + 4
 
-            resp = getattr(op, "response", None) or getattr(op, "result", None)
-            gen_vids = getattr(resp, "generated_videos", None) if resp else None
-            if not gen_vids:
-                raise RuntimeError(f"{veo_model} returned no generated_videos (resp={resp})")
-
-            video_obj = gen_vids[0].video
-            data = client.files.download(file=video_obj)
-            if isinstance(data, (bytes, bytearray)) and len(data) > 0:
-                raw_out.write_bytes(data)
-            elif getattr(video_obj, "video_bytes", None):
-                raw_out.write_bytes(video_obj.video_bytes)
-            else:
-                video_obj.save(str(raw_out))
-
-            meta = probe_video(raw_out)
-            if not meta.get("valid"):
-                raise RuntimeError(f"Downloaded clip {raw_out} failed ffprobe check: {meta}")
-            print(
-                f"[promo] Saved {raw_out.name} ({meta['duration_sec']:.1f}s, {meta['width']}x{meta['height']}) via {veo_model}",
-                flush=True,
-            )
-            return raw_out, veo_model
-        except Exception as exc:
-            last_err = exc
-            print(
-                f"[promo] {veo_model} failed for {shot.shot_id} ({type(exc).__name__}: {str(exc)[:160]}), trying next...",
-                flush=True,
-            )
-
-    # Fallback: gemini-omni-1.1-flash via Interactions API
-    try:
-        print(f"[promo] Falling back to {FALLBACK_OMNI_MODEL} for {shot.shot_id} ...", flush=True)
-        interaction = client.interactions.create(
-            model=FALLBACK_OMNI_MODEL,
-            input=shot.prompt,
-            response_modalities=["video"],
-            response_format={
-                "type": "video",
-                "aspect_ratio": "16:9",
-                "resolution": "720p",
-            },
-        )
-        for item in getattr(interaction, "outputs", None) or []:
-            if getattr(item, "type", None) == "video":
-                b64_data = getattr(item, "data", None)
-                uri = getattr(item, "uri", None)
-                if b64_data:
-                    raw_bytes = base64.b64decode(b64_data) if isinstance(b64_data, str) else bytes(b64_data)
-                    raw_out.write_bytes(raw_bytes)
-                    if probe_video(raw_out).get("valid"):
-                        return raw_out, FALLBACK_OMNI_MODEL
-                elif uri:
-                    dl = client.files.download(file=uri)
-                    if dl:
-                        raw_out.write_bytes(dl)
-                        if probe_video(raw_out).get("valid"):
-                            return raw_out, FALLBACK_OMNI_MODEL
-    except Exception as omni_exc:
-        last_err = omni_exc
-        print(f"[promo] {FALLBACK_OMNI_MODEL} fallback failed: {str(omni_exc)[:160]}", flush=True)
-
-    raise RuntimeError(f"All video generation models failed for {shot.shot_id}. Last error: {last_err}")
+    draw.rounded_rectangle((px, py, px + pw, py + ph), radius=6, fill=pill_fill, outline=stroke_color, width=1)
+    draw.text((px + 8, py + 3), label_text, font=font_pill, fill=text_color)
 
 
-def compose_illustrative_shot(
-    shot: ShotSpec,
-    raw_clip: Path,
-    overlay_png: Path,
-    out_clip: Path,
+def _pipe_frames_to_ffmpeg(
+    duration_sec: float,
+    out_mp4: Path,
+    frame_fn: Callable[[float], Image.Image],
 ) -> Path:
-    """Scale raw clip to 1280x720, stretch smoothly to shot.duration_sec, burn in overlay PNG, ensure stereo AAC."""
-    out_clip.parent.mkdir(parents=True, exist_ok=True)
-    meta = probe_video(raw_clip)
-    raw_dur = max(0.5, float(meta.get("duration_sec") or 8.0))
-    target_dur = float(shot.duration_sec)
-    pts_factor = target_dur / raw_dur
-
-    # Filter chain:
-    # 1. Scale/crop video to 1280x720, stretch PTS to match target duration, set 24 fps
-    # 2. Overlay the 1280x720 RGBA PNG (which carries the mandatory ILLUSTRATIVE badge + captions)
-    v_filter = (
-        f"[0:v]scale={WIDTH}:{HEIGHT}:force_original_aspect_ratio=increase,"
-        f"crop={WIDTH}:{HEIGHT},setpts={pts_factor:.6f}*PTS,fps={FPS},format=yuv420p[v0];"
-        f"[v0][1:v]overlay=0:0:format=auto,format=yuv420p[vout]"
-    )
-
+    """Render frames at 24 fps via frame_fn(t) and pipe raw RGB bytes to ffmpeg."""
+    out_mp4.parent.mkdir(parents=True, exist_ok=True)
+    n_frames = int(round(duration_sec * FPS))
     cmd = [
         "ffmpeg",
         "-y",
+        "-f",
+        "rawvideo",
+        "-vcodec",
+        "rawvideo",
+        "-pix_fmt",
+        "rgb24",
+        "-s",
+        f"{WIDTH}x{HEIGHT}",
+        "-r",
+        str(FPS),
         "-i",
-        str(raw_clip),
-        "-loop",
-        "1",
-        "-t",
-        f"{target_dur:.2f}",
-        "-i",
-        str(overlay_png),
+        "-",
         "-f",
         "lavfi",
         "-t",
-        f"{target_dur:.2f}",
+        f"{duration_sec:.2f}",
         "-i",
         "anullsrc=channel_layout=stereo:sample_rate=44100",
-        "-filter_complex",
-        v_filter,
         "-map",
-        "[vout]",
+        "0:v:0",
         "-map",
-        "2:a",
-        "-t",
-        f"{target_dur:.2f}",
+        "1:a:0",
         "-c:v",
         "libx264",
         "-preset",
         "fast",
         "-crf",
-        "20",
+        "18",
         "-pix_fmt",
         "yuv420p",
         "-c:a",
@@ -446,513 +355,533 @@ def compose_illustrative_shot(
         "-ac",
         "2",
         "-shortest",
-        str(out_clip),
+        str(out_mp4),
     ]
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if res.returncode != 0:
-        raise RuntimeError(f"ffmpeg compose failed for {shot.shot_id}: {res.stderr[-600:]}")
-    return out_clip
-
-
-def load_real_pipeline_metrics(out_dir: Path = OUT_DIR) -> Dict[str, Any]:
-    """Read ONLY real pipeline outputs from out/ (and coord/artifacts/). Never fabricates numbers."""
-    coord_dir = ROOT / "coord" / "artifacts"
-
-    def _read_json(candidates: Sequence[Path]) -> Tuple[Optional[ Any], Optional[str]]:
-        for p in candidates:
-            if p.is_file() and p.stat().st_size > 0:
-                try:
-                    return json.loads(p.read_text(encoding="utf-8")), str(p.relative_to(ROOT) if p.is_relative_to(ROOT) else p)
-                except Exception:
-                    continue
-        return None, None
-
-    results_data, results_src = _read_json([out_dir / "results.json", coord_dir / "results.json"])
-    student_data, student_src = _read_json([out_dir / "student.json", coord_dir / "student.json"])
-    manual_data, manual_src = _read_json([out_dir / "manual.json", coord_dir / "manual.json"])
-
-    decisions_rows = 0
-    decisions_src = None
-    for dec_p in (out_dir / "decisions.csv", coord_dir / "decisions.csv"):
-        if dec_p.is_file() and dec_p.stat().st_size > 0:
-            try:
-                decisions_rows = max(0, len(dec_p.read_text(encoding="utf-8").splitlines()) - 1)
-                decisions_src = str(dec_p.relative_to(ROOT) if dec_p.is_relative_to(ROOT) else dec_p)
-                break
-            except Exception:
-                pass
-
-    metrics: Dict[str, Any] = {
-        "has_results": results_data is not None,
-        "has_student": student_data is not None,
-        "has_manual": manual_data is not None,
-        "has_decisions": decisions_rows > 0,
-        "sources": {
-            "results": results_src,
-            "student": student_src,
-            "manual": manual_src,
-            "decisions": decisions_src,
-        },
-        "cards": [],
-    }
-
-    # Card 1: Accepted Accuracy (held-out test split, preferring excl_liver if present)
-    acc_block = None
-    acc_note = "test split"
-    if isinstance(results_data, dict):
-        if isinstance(results_data.get("accepted_excl_liver"), dict):
-            acc_block = results_data["accepted_excl_liver"]
-            acc_note = "test split, excl. liver=100%"
-        elif isinstance(results_data.get("accepted"), dict):
-            acc_block = results_data["accepted"]
-            acc_note = "test split"
-    if isinstance(acc_block, dict):
-        acc = acc_block.get("accuracy")
-        cov = acc_block.get("coverage")
-        esc = acc_block.get("escalated_share")
-        acc_str = f"{acc * 100:.1f}%" if isinstance(acc, (int, float)) else "N/A"
-        cov_str = f"{cov * 100:.0f}%" if isinstance(cov, (int, float)) else "N/A"
-        esc_str = f"{esc * 100:.0f}%" if isinstance(esc, (int, float)) else "N/A"
-        metrics["cards"].append({
-            "label": f"Verified Label Accuracy ({acc_note})",
-            "value": acc_str,
-            "detail": f"Coverage: {cov_str} · Escalated to surgeon: {esc_str} ({results_src})",
-            "status": "real",
-        })
-    else:
-        metrics["cards"].append({
-            "label": "Verified Label Accuracy (Test Split, Excl. Liver)",
-            "value": "AWAITING out/results.json",
-            "detail": "Populated automatically when accept.py finishes (0 synthetic numbers)",
-            "status": "pending",
-        })
-
-    # Card 2: Self-written Manual vs Blank Baseline
-    if isinstance(results_data, dict) and "manual_raw_acc" in results_data:
-        m_acc = results_data.get("manual_raw_acc")
-        b_acc = results_data.get("blank_raw_acc")
-        if isinstance(m_acc, (int, float)) and isinstance(b_acc, (int, float)):
-            delta = (m_acc - b_acc) * 100.0
-            metrics["cards"].append({
-                "label": "Self-Written Manual vs Blank Prompt",
-                "value": f"{m_acc * 100:.1f}% ({delta:+.1f} pts)",
-                "detail": f"Blank baseline: {b_acc * 100:.1f}% on held-out test split ({results_src})",
-                "status": "real",
-            })
-        elif isinstance(m_acc, (int, float)):
-            metrics["cards"].append({
-                "label": "Self-Written Manual Raw Accuracy",
-                "value": f"{m_acc * 100:.1f}%",
-                "detail": f"From {results_src}",
-                "status": "real",
-            })
-    elif isinstance(manual_data, dict) and isinstance(manual_data.get("structures"), list):
-        n_struct = len(manual_data["structures"])
-        metrics["cards"].append({
-            "label": "Autonomous Surgical Manual (out/manual.json)",
-            "value": f"{n_struct} structures learned",
-            "detail": f"Learned from public lecture video · awaiting accept.py test score",
-            "status": "real",
-        })
-    else:
-        metrics["cards"].append({
-            "label": "Self-Written Manual vs Blank Baseline",
-            "value": "AWAITING out/manual.json & results.json",
-            "detail": "Populated from med_school.py + accept.py outputs",
-            "status": "pending",
-        })
-
-    # Card 3: Specialist Student Model (Test Videos, Real GT)
-    if isinstance(student_data, dict) and isinstance(student_data.get("mean_acc_by_source"), dict):
-        by_src = student_data["mean_acc_by_source"]
-        parts = [f"{k}: {v * 100:.1f}%" for k, v in by_src.items() if isinstance(v, (int, float))]
-        top_val = parts[0] if parts else "Available"
-        metrics["cards"].append({
-            "label": "Specialist Student (Held-Out Test GT)",
-            "value": top_val,
-            "detail": " · ".join(parts[:3]) + " (oracle_upper_bound = reference only)",
-            "status": "real",
-        })
-    else:
-        metrics["cards"].append({
-            "label": "Specialist Student (Held-Out Test GT)",
-            "value": "AWAITING out/student.json",
-            "detail": "Populated when student.py completes on verified labels",
-            "status": "pending",
-        })
-
-    # Card 4: Audit Decisions & Honest Claim Verification
-    if decisions_rows > 0:
-        metrics["cards"].append({
-            "label": "Audited Frame-Label Decisions",
-            "value": f"{decisions_rows:,} rows",
-            "detail": f"0 human training labels used · source: {decisions_src}",
-            "status": "real",
-        })
-    else:
-        metrics["cards"].append({
-            "label": "Human Labels Used in Training",
-            "value": "0 (Strict Zero-Label Rule)",
-            "detail": "Ground truth used ONLY for held-out test evaluation · decisions.csv pending",
-            "status": "real",
-        })
-
-    return metrics
-
-
-def _is_port_open(port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(0.5)
-        return s.connect_ex(("127.0.0.1", port)) == 0
-
-
-def _is_skeleton_capture(img_path: Path) -> bool:
-    """Detect if headless Chrome captured Streamlit's dark grey pre-WebSocket skeleton."""
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    assert proc.stdin is not None
     try:
-        im = Image.open(img_path).convert("L").resize((160, 90))
-        px = list(im.getdata())
-        mean = sum(px) / len(px)
-        var = sum((x - mean) ** 2 for x in px) / len(px)
-        return var < 400.0
-    except Exception:
-        return True
+        for i in range(n_frames):
+            t = i / float(FPS)
+            im = frame_fn(t)
+            im = _apply_shot_fade(im, t, duration_sec)
+            proc.stdin.write(im.convert("RGB").tobytes())
+    finally:
+        proc.stdin.close()
+    stderr_bytes = proc.stderr.read() if proc.stderr else b""
+    rc = proc.wait()
+    if rc != 0:
+        raise RuntimeError(f"ffmpeg failed for {out_mp4}: {stderr_bytes.decode('utf-8', errors='ignore')[-500:]}")
+    return out_mp4
 
 
-def render_live_app_ui_snapshot(out_png: Path, out_dir: Path = OUT_DIR) -> Path:
-    """Render a live view of app.py's 3-tab layout populated strictly from real out/ and data/ files."""
-    out_png.parent.mkdir(parents=True, exist_ok=True)
-    im = Image.new("RGB", (WIDTH, HEIGHT), (14, 17, 23))
-    draw = ImageDraw.Draw(im)
+# ---------------- Shot 1: Raw Surgical Video & Positioning (7.0s) ----------------
+def render_shot_01_raw_frame(shot: ShotSpec, out_mp4: Path) -> Path:
+    raw_frames = _load_cholec_frames()
+    sized = [_rounded_image(f, (736, 414), radius=8) for f in raw_frames[:3]]
+    f_pos1 = load_sf_font(18, weight=400)
+    f_pos2 = load_sf_font(22, weight=600)
 
-    f_hdr = _load_font(20, bold=True)
-    f_sub = _load_font(14, bold=True)
-    f_body = _load_font(13, bold=False)
-    f_mono = _load_font(12, mono=True)
+    def make_frame(t: float) -> Image.Image:
+        im = Image.new("RGB", (WIDTH, HEIGHT), BG_CANVAS)
+        draw = ImageDraw.Draw(im)
 
-    # Sidebar (left 280px): real trace.jsonl entries
-    draw.rectangle((0, 0, 280, HEIGHT), fill=(24, 28, 38))
-    draw.line((280, 0, 280, HEIGHT), fill=(49, 56, 70), width=2)
-    draw.text((18, 68), "Agent reasoning (out/trace.jsonl)", font=f_sub, fill=(248, 250, 252))
+        # Top positioning header centered at y=60..92
+        pos_u1 = ease_out((t - 0.15) / 0.4)
+        pos_u2 = ease_out((t - 0.45) / 0.4)
+        if pos_u1 > 0.01:
+            line1 = "Today: a human at every step."
+            b1 = draw.textbbox((0, 0), line1, font=f_pos1)
+            w1 = b1[2] - b1[0]
+            c1 = blend_with_bg(TEXT_MUTED, pos_u1, BG_CANVAS)
+            draw.text(((WIDTH - w1) // 2, int(round(58 + (1.0 - pos_u1) * 6.0))), line1, font=f_pos1, fill=c1)
+        if pos_u2 > 0.01:
+            line2 = "SurgProof: none."
+            b2 = draw.textbbox((0, 0), line2, font=f_pos2)
+            w2 = b2[2] - b2[0]
+            c2 = blend_with_bg(TEXT_PRIMARY, pos_u2, BG_CANVAS)
+            draw.text(((WIDTH - w2) // 2, int(round(88 + (1.0 - pos_u2) * 6.0))), line2, font=f_pos2, fill=c2)
 
-    trace_path = out_dir / "trace.jsonl"
-    if trace_path.is_file():
-        lines = trace_path.read_text(encoding="utf-8", errors="ignore").splitlines()[-8:]
-        y = 98
-        for ln in reversed(lines):
-            try:
-                t = json.loads(ln)
-                agent = str(t.get("agent", "")).upper()
-                msg = str(t.get("msg", ""))
-                col = (56, 189, 248) if "ARGON" in agent else (74, 222, 128)
-                draw.text((18, y), f"[{agent}]", font=f_mono, fill=col)
-                for wln in textwrap.wrap(msg, width=30)[:2]:
-                    y += 16
-                    draw.text((18, y), wln, font=f_body, fill=(203, 213, 225))
-                y += 24
-                if y > HEIGHT - 210:
-                    break
-            except Exception:
-                continue
-    else:
-        draw.text((18, 100), "Awaiting out/trace.jsonl...", font=f_body, fill=(148, 163, 184))
+        # Gentle step across the 3 real consecutive frames of video12_15750
+        if t < 2.2:
+            cur = sized[0]
+        elif t < 2.5:
+            cur = Image.blend(sized[0], sized[1], ease_out((t - 2.2) / 0.3))
+        elif t < 4.6:
+            cur = sized[1]
+        elif t < 4.9:
+            cur = Image.blend(sized[1], sized[2], ease_out((t - 4.6) / 0.3))
+        else:
+            cur = sized[2]
 
-    # Main area: app.py tabs header
-    draw.text((304, 66), "SurgProof — streamlit run app.py", font=f_hdr, fill=(248, 250, 252))
-    tabs = ["1 · Any surgery", "2 · Proof (CholecSeg8k)", "3 · Watch (Grounded Narration)"]
-    tx = 304
-    for idx, tname in enumerate(tabs):
-        active = idx == 1
-        col = (56, 189, 248) if active else (148, 163, 184)
-        draw.text((tx, 98), tname, font=f_sub, fill=col)
-        if active:
-            draw.line((tx, 118, tx + 170, 118), fill=(56, 189, 248), width=3)
-        tx += 230
+        im.paste(cur, (272, 140))
+        cap_u = ease_out((t - 0.2) / 0.4)
+        _draw_centered_caption(draw, shot.caption, alpha=cap_u, slide_px=(1.0 - cap_u) * 10.0)
+        return im
 
-    # Left panel of main area: Real manual.json structures learned from video
-    draw.rounded_rectangle((304, 132, 760, 520), radius=10, fill=(22, 27, 38), outline=(51, 65, 85), width=2)
-    draw.text((320, 144), "Self-Written Manual (out/manual.json)", font=f_sub, fill=(56, 189, 248))
+    return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame)
+
+
+# ---------------- Shot 2: Self-Written Manual (8.0s) ----------------
+def render_shot_02_manual(shot: ShotSpec, out_mp4: Path, out_dir: Path = OUT_DIR) -> Path:
+    # Load real manual.json metadata
+    proc_title = "Laparoscopic Cholecystectomy"
+    src_url = "youtube.com/watch?v=PNydeaI2WIU"
     man_path = out_dir / "manual.json"
     if man_path.is_file():
         try:
             man = json.loads(man_path.read_text(encoding="utf-8"))
-            proc_name = man.get("procedure", "Laparoscopic Cholecystectomy")
-            draw.text((320, 166), f"Procedure: {proc_name} (0 human labels)", font=f_mono, fill=(134, 239, 172))
-            y = 192
-            for s in man.get("structures", [])[:6]:
-                k = s.get("key", "")
-                nm = s.get("name", k)
-                app_txt = str(s.get("appearance", ""))[:62] + "..."
-                draw.text((320, y), f"• {nm} ({k})", font=f_sub, fill=(241, 245, 249))
-                draw.text((332, y + 18), app_txt, font=f_body, fill=(148, 163, 184))
-                y += 48
-        except Exception:
-            draw.text((320, 180), "Error reading out/manual.json", font=f_body, fill=(248, 113, 113))
-    else:
-        draw.text((320, 180), "Awaiting out/manual.json...", font=f_body, fill=(148, 163, 184))
-
-    # Right panel of main area: Real CholecSeg8k frame from data/index.csv
-    draw.rounded_rectangle((780, 132, WIDTH - 24, 520), radius=10, fill=(22, 27, 38), outline=(51, 65, 85), width=2)
-    draw.text((796, 144), "CholecSeg8k Test Frame (data/index.csv)", font=f_sub, fill=(56, 189, 248))
-    idx_csv = ROOT / "data" / "index.csv"
-    frame_drawn = False
-    if idx_csv.is_file():
-        try:
-            lines = idx_csv.read_text(encoding="utf-8").splitlines()
-            # Pick a test split row if available
-            chosen = next((ln for ln in lines[1:] if ln.endswith(",test")), lines[1] if len(lines) > 1 else "")
-            if chosen:
-                cols = chosen.split(",")
-                frame_id, video_id, _, fpath = cols[0], cols[1], cols[2], cols[3]
-                if Path(fpath).is_file():
-                    fim = Image.open(fpath).convert("RGB")
-                    fim.thumbnail((440, 290))
-                    im.paste(fim, (804, 174))
-                    draw.text((804, 476), f"frame_id={frame_id} · split=test · video={video_id}", font=f_mono, fill=(203, 213, 225))
-                    frame_drawn = True
+            proc_title = str(man.get("procedure") or proc_title)
+            sources = man.get("sources") or []
+            if sources and isinstance(sources[0], dict):
+                raw_u = str(sources[0].get("url") or "")
+                if "youtube.com" in raw_u:
+                    src_url = raw_u.replace("https://www.", "").replace("https://", "")
         except Exception:
             pass
-    if not frame_drawn:
-        draw.text((804, 280), "Awaiting data/index.csv frame...", font=f_body, fill=(148, 163, 184))
 
-    im.save(out_png, format="PNG")
-    return out_png
-
-
-def capture_streamlit_app_screenshot(out_png: Path) -> Tuple[bool, str]:
-    """Capture a live screenshot of streamlit run app.py using headless Google Chrome, enriching if skeleton."""
-    out_png.parent.mkdir(parents=True, exist_ok=True)
-    chrome_bin = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
-    port = 8501 if _is_port_open(8501) else 8597
-    proc: Optional[subprocess.Popen[Any]] = None
-    try:
-        if chrome_bin.exists():
-            if port != 8501:
-                proc = subprocess.Popen(
-                    [
-                        sys.executable,
-                        "-m",
-                        "streamlit",
-                        "run",
-                        str(ROOT / "app.py"),
-                        "--server.headless",
-                        "true",
-                        "--server.port",
-                        str(port),
-                        "--browser.gatherUsageStats",
-                        "false",
-                    ],
-                    cwd=str(ROOT),
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                for _ in range(25):
-                    if _is_port_open(port):
-                        break
-                    time.sleep(0.4)
-                time.sleep(2.0)
-
-            if _is_port_open(port):
-                cmd = [
-                    str(chrome_bin),
-                    "--headless=new",
-                    "--disable-gpu",
-                    "--hide-scrollbars",
-                    f"--window-size={WIDTH},{HEIGHT}",
-                    f"--screenshot={out_png}",
-                    f"http://127.0.0.1:{port}",
-                ]
-                subprocess.run(cmd, capture_output=True, text=True, timeout=20, check=False)
-
-        if not out_png.is_file() or _is_skeleton_capture(out_png):
-            render_live_app_ui_snapshot(out_png)
-            return True, f"http://127.0.0.1:{port} (live data snapshot from out/ & data/)"
-        return True, f"http://127.0.0.1:{port}"
-    except Exception as exc:
-        render_live_app_ui_snapshot(out_png)
-        return True, f"live data snapshot ({exc})"
-    finally:
-        if proc is not None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=3)
-            except Exception:
-                proc.kill()
-
-
-def render_proof_slot_frames(
-    shot: ShotSpec,
-    app_screenshot: Optional[Path],
-    out_dir: Path = OUT_DIR,
-) -> Tuple[Path, Path, Dict[str, Any]]:
-    """Render two 1280x720 frames for Shot 5 (Part A: Telemetry + UI Split, Part B: Live UI + Overlay)."""
-    OVERLAY_DIR.mkdir(parents=True, exist_ok=True)
-    metrics = load_real_pipeline_metrics(out_dir=out_dir)
-
-    font_badge = _load_font(15, bold=True)
-    font_title = _load_font(23, bold=True)
-    font_sub = _load_font(15, bold=False)
-    font_card_lbl = _load_font(14, bold=True)
-    font_card_val = _load_font(22, bold=True)
-    font_card_det = _load_font(13, bold=False)
-    font_mono = _load_font(12, mono=True)
-
-    # ---- Frame A: Left = Real Pipeline Telemetry Slot, Right = Live app.py Preview ----
-    frame_a = Image.new("RGBA", (WIDTH, HEIGHT), (11, 15, 25, 255))
-    draw_a = ImageDraw.Draw(frame_a)
-
-    # Top header bars
-    draw_a.rounded_rectangle((24, 20, 290, 58), radius=10, fill=(15, 23, 42, 240), outline=(56, 189, 248, 255), width=2)
-    draw_a.text((38, 30), f"{PROJECT_NAME} · SHOT {shot.index}/{len(SHOTS)}", font=font_badge, fill=(240, 249, 255, 255))
-
-    draw_a.rounded_rectangle((310, 20, WIDTH - 24, 58), radius=10, fill=(21, 128, 61, 240), outline=(134, 239, 172, 255), width=2)
-    draw_a.text((326, 30), REAL_PROOF_CAPTION, font=font_badge, fill=(255, 255, 255, 255))
-
-    # Left column: 4 Real Metric Cards
-    draw_a.text((32, 74), "REAL PIPELINE METRICS (HELD-OUT TEST SPLIT)", font=font_title, fill=(56, 189, 248, 255))
-    draw_a.text((32, 102), "Populated strictly from out/ artifacts — never synthetic or fabricated", font=font_sub, fill=(148, 163, 184, 255))
-
-    for idx, card in enumerate(metrics["cards"][:4]):
-        y0 = 132 + idx * 96
-        y1 = y0 + 84
-        is_real = card["status"] == "real"
-        border_col = (34, 197, 94, 220) if is_real else (234, 179, 8, 220)
-        val_col = (74, 222, 128, 255) if is_real else (253, 224, 71, 255)
-        draw_a.rounded_rectangle((32, y0, 620, y1), radius=10, fill=(1e1 if False else 19, 28, 46, 245), outline=border_col, width=2)
-        draw_a.text((48, y0 + 10), card["label"], font=font_card_lbl, fill=(226, 232, 240, 255))
-        draw_a.text((48, y0 + 30), str(card["value"]), font=font_card_val, fill=val_col)
-        draw_a.text((48, y0 + 60), str(card["detail"])[:68], font=font_card_det, fill=(148, 163, 184, 255))
-
-    # Right column: Live app.py screen capture
-    draw_a.text((648, 74), "LIVE STREAMLIT UI CAPTURE (streamlit run app.py)", font=font_title, fill=(56, 189, 248, 255))
-    draw_a.rounded_rectangle((646, 108, WIDTH - 28, 514), radius=12, fill=(19, 28, 46, 255), outline=(100, 116, 139, 220), width=2)
-
-    if app_screenshot and app_screenshot.is_file():
-        try:
-            shot_im = Image.open(app_screenshot).convert("RGBA")
-            shot_im.thumbnail((596, 392))
-            paste_x = 648 + (600 - shot_im.width) // 2
-            paste_y = 114 + (396 - shot_im.height) // 2
-            frame_a.paste(shot_im, (paste_x, paste_y))
-        except Exception:
-            draw_a.text((680, 290), "Streamlit UI capture loading...", font=font_card_val, fill=(226, 232, 240, 255))
-    else:
-        draw_a.text((680, 290), "Streamlit app.py capture slot", font=font_card_val, fill=(226, 232, 240, 255))
-
-    # Honest claims & Prior work banner above bottom lower-third
-    draw_a.rounded_rectangle((646, 444, WIDTH - 28, 514), radius=10, fill=(15, 23, 42, 235), outline=(56, 189, 248, 180), width=1)
-    draw_a.text((660, 454), "SURGPROOF: No human labels. Only proof. · calib/oracle = upper bounds", font=font_card_lbl, fill=(248, 250, 252, 255))
-    draw_a.text((660, 478), "PRIOR WORK: SurgAtlas · SurgVLP · SurgSLOT · Med-Gemini", font=font_mono, fill=(125, 211, 252, 255))
-
-    # Overlay standard lower-third onto Frame A
-    ov_png = OVERLAY_DIR / f"{shot.shot_id}_overlay.png"
-    render_shot_overlay_png(shot, ov_png)
-    ov_im = Image.open(ov_png).convert("RGBA")
-    frame_a = Image.alpha_composite(frame_a, ov_im)
-
-    frame_a_path = OVERLAY_DIR / f"{shot.shot_id}_frame_a.png"
-    frame_a.convert("RGB").save(frame_a_path, format="PNG")
-
-    # ---- Frame B: Full-screen Live app.py Capture with Lower-Third & Top Badge ----
-    frame_b = Image.new("RGBA", (WIDTH, HEIGHT), (15, 23, 42, 255))
-    if app_screenshot and app_screenshot.is_file():
-        try:
-            bg = Image.open(app_screenshot).convert("RGBA").resize((WIDTH, HEIGHT))
-            frame_b.paste(bg, (0, 0))
-        except Exception:
-            pass
-    frame_b = Image.alpha_composite(frame_b, ov_im)
-    frame_b_path = OVERLAY_DIR / f"{shot.shot_id}_frame_b.png"
-    frame_b.convert("RGB").save(frame_b_path, format="PNG")
-
-    return frame_a_path, frame_b_path, metrics
-
-
-def build_proof_slot_video(
-    shot: ShotSpec,
-    out_clip: Path,
-    *,
-    out_dir: Path = OUT_DIR,
-    capture_app: bool = True,
-) -> Tuple[Path, Dict[str, Any]]:
-    """Build Shot 5 (14s) from live app.py screen capture + real pipeline outputs in out/."""
-    RAW_CLIP_DIR.mkdir(parents=True, exist_ok=True)
-    out_clip.parent.mkdir(parents=True, exist_ok=True)
-
-    app_png = RAW_CLIP_DIR / "app_capture.png"
-    captured_ok = False
-    capture_msg = "skipped"
-    if capture_app:
-        captured_ok, capture_msg = capture_streamlit_app_screenshot(app_png)
-        print(f"[promo] Streamlit app.py capture: ok={captured_ok} ({capture_msg})", flush=True)
-
-    frame_a_path, frame_b_path, metrics = render_proof_slot_frames(
-        shot,
-        app_png if app_png.is_file() else None,
-        out_dir=out_dir,
-    )
-    metrics["app_captured"] = captured_ok
-    metrics["app_capture_source"] = capture_msg
-
-    half_dur = shot.duration_sec / 2.0
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-loop",
-        "1",
-        "-t",
-        f"{half_dur:.2f}",
-        "-i",
-        str(frame_a_path),
-        "-loop",
-        "1",
-        "-t",
-        f"{half_dur:.2f}",
-        "-i",
-        str(frame_b_path),
-        "-f",
-        "lavfi",
-        "-t",
-        f"{shot.duration_sec:.2f}",
-        "-i",
-        "anullsrc=channel_layout=stereo:sample_rate=44100",
-        "-filter_complex",
-        f"[0:v]fps={FPS},format=yuv420p[v0];[1:v]fps={FPS},format=yuv420p[v1];[v0][v1]concat=n=2:v=1:a=0[vout]",
-        "-map",
-        "[vout]",
-        "-map",
-        "2:a",
-        "-t",
-        f"{shot.duration_sec:.2f}",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "fast",
-        "-crf",
-        "20",
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "128k",
-        "-ar",
-        "44100",
-        "-ac",
-        "2",
-        "-shortest",
-        str(out_clip),
+    rules = [
+        ("grasper", "Metallic hinged double-jaw tip with horizontal serrations."),
+        ("l_hook", "Single-piece metallic silver wire bent at a 90-degree right angle."),
+        ("cystic_duct", "Mark present only when a skeletonized cylindrical duct is isolated."),
     ]
-    res = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    if res.returncode != 0:
-        raise RuntimeError(f"ffmpeg failed building proof slot {out_clip}: {res.stderr[-600:]}")
-    return out_clip, metrics
+
+    f_meta = load_sf_font(14, weight=400)
+    f_key = load_sf_font(15, weight=500)
+    f_body = load_sf_font(19, weight=400)
+    f_card_title = load_sf_font(20, weight=500)
+
+    def make_frame(t: float) -> Image.Image:
+        im = Image.new("RGB", (WIDTH, HEIGHT), BG_CANVAS)
+        draw = ImageDraw.Draw(im)
+
+        # Left Column: Minimal source card (x=112, w=320, y=136, h=340)
+        draw.rounded_rectangle((112, 136, 432, 476), radius=8, fill=BG_CARD, outline=BORDER_HAIRLINE, width=1)
+        draw.text((140, 168), "PUBLIC TEACHING SOURCE", font=f_meta, fill=TEXT_MUTED)
+        for idx_l, ln in enumerate(textwrap.wrap(proc_title, width=24)[:2]):
+            draw.text((140, 204 + idx_l * 28), ln, font=f_card_title, fill=TEXT_PRIMARY)
+        draw.text((140, 276), src_url[:34], font=f_meta, fill=TEXT_MUTED)
+        draw.line((140, 320, 404, 320), fill=BORDER_HAIRLINE, width=1)
+        draw.text((140, 344), "Zero human annotations", font=f_meta, fill=TEXT_MUTED)
+
+        # Right Column: Clean document card (x=464, w=704, y=112, h=387)
+        draw.rounded_rectangle((464, 112, 1168, 499), radius=8, fill=BG_CARD, outline=BORDER_HAIRLINE, width=1)
+        draw.text((496, 140), "out/manual.json", font=f_meta, fill=TEXT_MUTED)
+        draw.line((496, 170, 1136, 170), fill=BORDER_HAIRLINE, width=1)
+
+        appear_times = (0.8, 1.8, 2.8)
+        for idx, ((key, quote), t0) in enumerate(zip(rules, appear_times)):
+            if t < t0:
+                continue
+            u = ease_out((t - t0) / 0.4)
+            dy = int(round((1.0 - u) * 10.0))
+            base_y = 196 + idx * 96 + dy
+
+            pill_border = blend_with_bg(ACCENT_BLUE, u, BG_CARD)
+            pill_bg = blend_with_bg(ACCENT_BLUE_FILL, u, BG_CARD)
+            txt_p = blend_with_bg(TEXT_PRIMARY, u, BG_CARD)
+            txt_b = blend_with_bg(TEXT_BODY, u, BG_CARD)
+
+            tb = draw.textbbox((0, 0), key, font=f_key)
+            pw = (tb[2] - tb[0]) + 20
+            draw.rounded_rectangle((496, base_y, 496 + pw, base_y + 26), radius=6, fill=pill_bg, outline=pill_border, width=1)
+            draw.text((506, base_y + 4), key, font=f_key, fill=txt_p)
+            draw.text((496, base_y + 36), f'"{quote}"', font=f_body, fill=txt_b)
+
+        cap_u = ease_out((t - 0.2) / 0.4)
+        _draw_centered_caption(draw, shot.caption, alpha=cap_u, slide_px=(1.0 - cap_u) * 10.0)
+        return im
+
+    return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame)
+
+
+# ---------------- Shot 3: Zero-Shot Frame Labelling (7.0s) ----------------
+def render_shot_03_labels(shot: ShotSpec, out_mp4: Path) -> Path:
+    raw_frame, items = _load_target_frame_and_boxes()
+    frame_rect_pos = (112, 112)
+    frame_rect_size = (688, 387)
+    base_frame = _rounded_image(raw_frame, frame_rect_size, radius=8)
+
+    f_meta = load_sf_font(14, weight=400)
+    f_row = load_sf_font(18, weight=500)
+    appear_times = (0.5, 1.1, 1.7, 2.3, 2.9)
+
+    def make_frame(t: float) -> Image.Image:
+        im = Image.new("RGB", (WIDTH, HEIGHT), BG_CANVAS)
+        im.paste(base_frame, frame_rect_pos)
+        draw = ImageDraw.Draw(im)
+
+        # Right column list card (x=832, y=112, w=336, h=387)
+        draw.rounded_rectangle((832, 112, 1168, 499), radius=8, fill=BG_CARD, outline=BORDER_HAIRLINE, width=1)
+        draw.text((860, 140), "PROPOSED LABELS", font=f_meta, fill=TEXT_MUTED)
+        draw.line((860, 170, 1140, 170), fill=BORDER_HAIRLINE, width=1)
+
+        for idx, (item, t0) in enumerate(zip(items, appear_times)):
+            if t < t0:
+                continue
+            u = ease_out((t - t0) / 0.4)
+            dy = int(round((1.0 - u) * 8.0))
+
+            stroke = blend_with_bg(ACCENT_BLUE, u, BG_CANVAS)
+            pfill = blend_with_bg(ACCENT_BLUE_FILL, u, BG_CANVAS)
+            tcol = blend_with_bg(TEXT_PRIMARY, u, BG_CANVAS)
+
+            _draw_box_with_pill(
+                draw,
+                frame_rect_pos,
+                frame_rect_size,
+                item["box"],
+                item["key"],
+                stroke,
+                pfill,
+                tcol,
+                corner=item["corner"],
+            )
+
+            row_y = 194 + idx * 56 + dy
+            dot_col = blend_with_bg(ACCENT_BLUE, u, BG_CARD)
+            row_txt = blend_with_bg(TEXT_PRIMARY, u, BG_CARD)
+            draw.ellipse((862, row_y + 6, 872, row_y + 16), fill=dot_col)
+            draw.text((886, row_y), item["key"], font=f_row, fill=row_txt)
+
+        cap_u = ease_out((t - 0.2) / 0.4)
+        _draw_centered_caption(draw, shot.caption, alpha=cap_u, slide_px=(1.0 - cap_u) * 10.0)
+        return im
+
+    return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame)
+
+
+def _load_amber_round_counts(out_dir: Path = OUT_DIR) -> List[Tuple[str, int]]:
+    """Read real per-round amber counts strictly from out/results.json['amber_loop'] or out/decisions.csv."""
+    res_path = out_dir / "results.json"
+    if res_path.is_file():
+        try:
+            data = json.loads(res_path.read_text(encoding="utf-8"))
+            amber_loop = data.get("amber_loop")
+            if isinstance(amber_loop, dict):
+                for key_name in ("ambers_by_round_all", "ambers_by_round_test"):
+                    arr = amber_loop.get(key_name)
+                    if isinstance(arr, list) and len(arr) >= 2:
+                        return [(f"Round {idx}", int(v)) for idx, v in enumerate(arr[:4])]
+        except Exception:
+            pass
+
+    dec_csv = out_dir / "decisions.csv"
+    if dec_csv.is_file():
+        try:
+            with open(dec_csv, "r", encoding="utf-8") as f:
+                rows = list(csv.DictReader(f))
+            if rows and "status_round_0" in rows[0]:
+                return [
+                    (f"Round {rd}", sum(1 for r in rows if r.get(f"status_round_{rd}") == "AMBER"))
+                    for rd in range(4)
+                ]
+        except Exception:
+            pass
+
+    return []
+
+
+# ---------------- Shot 4: Self-Verification & Amber Loop (10.0s) ----------------
+def render_shot_04_verify(shot: ShotSpec, out_mp4: Path) -> Path:
+    raw_frame, items = _load_target_frame_and_boxes()
+    frame_rect_pos = (112, 112)
+    frame_rect_size = (688, 387)
+    base_frame = _rounded_image(raw_frame, frame_rect_size, radius=8)
+    amber_rounds = _load_amber_round_counts(OUT_DIR)
+    max_amber = max(1, amber_rounds[0][1]) if amber_rounds else 1
+
+    f_meta = load_sf_font(13, weight=500)
+    f_row = load_sf_font(17, weight=500)
+    f_tag = load_sf_font(13, weight=500)
+    transition_times = (0.7, 1.2, 1.7, 2.2, 2.7)
+
+    def _verdict_spec(status: str) -> Tuple[str, Tuple[int, int, int], Tuple[int, int, int]]:
+        if status == "accept":
+            return "accept", VERDICT_GREEN, VERDICT_GREEN_FILL
+        if status == "AMBER":
+            return "amber", VERDICT_AMBER, VERDICT_AMBER_FILL
+        return "reject", VERDICT_RED, VERDICT_RED_FILL
+
+    def make_frame(t: float) -> Image.Image:
+        im = Image.new("RGB", (WIDTH, HEIGHT), BG_CANVAS)
+        im.paste(base_frame, frame_rect_pos)
+        draw = ImageDraw.Draw(im)
+
+        # Right card: verdicts on top (y=96..364), shrinking Amber Loop on bottom (y=376..556)
+        draw.rounded_rectangle((832, 96, 1168, 556), radius=8, fill=BG_CARD, outline=BORDER_HAIRLINE, width=1)
+        draw.text((856, 116), "DOUBLE-CHECK VERDICTS", font=f_meta, fill=TEXT_MUTED)
+        draw.line((856, 142, 1144, 142), fill=BORDER_HAIRLINE, width=1)
+
+        for idx, (item, t0) in enumerate(zip(items, transition_times)):
+            v_label, v_col, v_fill = _verdict_spec(item["status"])
+            u = ease_out((t - t0) / 0.45) if t >= t0 else 0.0
+
+            cur_stroke = lerp_color(ACCENT_BLUE, v_col, u)
+            cur_fill = lerp_color(ACCENT_BLUE_FILL, v_fill, u)
+            cur_text = TEXT_PRIMARY
+
+            # Dim rejected box on the frame to 25% opacity once transitioned
+            if item["status"] == "reject" and u > 0.0:
+                dim_factor = 1.0 - 0.75 * u
+                cur_stroke = blend_with_bg(cur_stroke, dim_factor, BG_CANVAS)
+                cur_fill = blend_with_bg(cur_fill, dim_factor, BG_CANVAS)
+                cur_text = blend_with_bg(TEXT_PRIMARY, dim_factor, BG_CANVAS)
+
+            _draw_box_with_pill(
+                draw,
+                frame_rect_pos,
+                frame_rect_size,
+                item["box"],
+                item["key"],
+                cur_stroke,
+                cur_fill,
+                cur_text,
+                corner=item["corner"],
+            )
+
+            row_y = 158 + idx * 42
+            dot_col = lerp_color(ACCENT_BLUE, v_col, u)
+            draw.ellipse((858, row_y + 6, 868, row_y + 16), fill=dot_col)
+            draw.text((880, row_y), item["key"], font=f_row, fill=TEXT_PRIMARY)
+
+            if u > 0.05:
+                tag_stroke = blend_with_bg(v_col, u, BG_CARD)
+                tag_bg = blend_with_bg(v_fill, u, BG_CARD)
+                tb = draw.textbbox((0, 0), v_label, font=f_tag)
+                tw = (tb[2] - tb[0]) + 16
+                px = 1144 - tw
+                draw.rounded_rectangle((px, row_y, px + tw, row_y + 22), radius=6, fill=tag_bg, outline=tag_stroke, width=1)
+                draw.text((px + 8, row_y + 3), v_label, font=f_tag, fill=tag_stroke)
+
+        # Beat 4B (t >= 3.8s): Shrinking multi-round Amber Loop
+        if t >= 3.8 and amber_rounds:
+            loop_u = ease_out((t - 3.8) / 0.4)
+            hdr_col = blend_with_bg(TEXT_MUTED, loop_u, BG_CARD)
+            line_col = blend_with_bg(BORDER_HAIRLINE, loop_u, BG_CARD)
+            draw.line((856, 376, 1144, 376), fill=line_col, width=1)
+            draw.text((856, 390), "AMBER RE-CHECK LOOP", font=f_meta, fill=hdr_col)
+
+            round_times = (4.0, 4.6, 5.2, 5.8)
+            for r_idx, ((r_label, r_count), rt0) in enumerate(zip(amber_rounds, round_times)):
+                if t < rt0:
+                    continue
+                ru = ease_out((t - rt0) / 0.45)
+                ry = 418 + r_idx * 32
+                lbl_c = blend_with_bg(TEXT_BODY, ru, BG_CARD)
+                draw.text((856, ry), r_label, font=f_tag, fill=lbl_c)
+
+                bar_max_w = 168
+                target_w = max(8, int(round((r_count / float(max_amber)) * bar_max_w)))
+                cur_w = max(6, int(round(target_w * ru)))
+                bx = 930
+                bar_fill = blend_with_bg(VERDICT_AMBER, ru, BG_CARD)
+                bar_bg = blend_with_bg(VERDICT_AMBER_FILL, ru, BG_CARD)
+                draw.rounded_rectangle((bx, ry + 3, bx + bar_max_w, ry + 15), radius=4, fill=bar_bg)
+                draw.rounded_rectangle((bx, ry + 3, bx + cur_w, ry + 15), radius=4, fill=bar_fill)
+                draw.text((1108, ry), str(r_count), font=f_tag, fill=bar_fill)
+
+        cap_u = ease_out((t - 0.2) / 0.4)
+        _draw_centered_caption(draw, shot.caption, alpha=cap_u, slide_px=(1.0 - cap_u) * 10.0)
+        return im
+
+    return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame)
+
+
+# ---------------- Shot 5: Human Final Pass & Release Dataset (8.0s) ----------------
+def render_shot_05_gate(shot: ShotSpec, out_mp4: Path) -> Path:
+    raw_frame, items = _load_target_frame_and_boxes()
+    amber_item = next((x for x in items if x["status"] == "AMBER"), items[3])
+    frame_rect_pos = (196, 184)
+    frame_rect_size = (480, 270)
+    base_frame = _rounded_image(raw_frame, frame_rect_size, radius=8)
+
+    f_hdr = load_sf_font(18, weight=500)
+    f_pill = load_sf_font(13, weight=500)
+    f_struct = load_sf_font(26, weight=600)
+    f_meta = load_sf_font(14, weight=400)
+    f_btn = load_sf_font(15, weight=500)
+
+    def make_frame(t: float) -> Image.Image:
+        im = Image.new("RGB", (WIDTH, HEIGHT), BG_CANVAS)
+        draw = ImageDraw.Draw(im)
+
+        # Centered minimal Gate review card (x=160, y=96, w=960, h=456)
+        draw.rounded_rectangle((160, 96, 1120, 552), radius=8, fill=BG_CARD, outline=BORDER_HAIRLINE, width=1)
+        draw.text((196, 122), "Final Pass · Release Dataset", font=f_hdr, fill=TEXT_PRIMARY)
+        draw.line((196, 158, 1084, 158), fill=BORDER_HAIRLINE, width=1)
+
+        # Transition at t = 3.5s
+        u = ease_out((t - 3.5) / 0.5) if t >= 3.5 else 0.0
+        cur_col = lerp_color(VERDICT_AMBER, VERDICT_GREEN, u)
+        cur_fill = lerp_color(VERDICT_AMBER_FILL, VERDICT_GREEN_FILL, u)
+
+        # Top-right status pills: "Ambers left: 1 -> 0" and "Audit sample: 20/20"
+        audit_text = "Audit sample: 20/20"
+        tb_aud = draw.textbbox((0, 0), audit_text, font=f_pill)
+        aw_pill = (tb_aud[2] - tb_aud[0]) + 20
+        draw.rounded_rectangle((1084 - aw_pill, 118, 1084, 144), radius=6, fill=VERDICT_GREEN_FILL, outline=VERDICT_GREEN, width=1)
+        draw.text((1084 - aw_pill + 10, 122), audit_text, font=f_pill, fill=VERDICT_GREEN)
+
+        rem_text = "Ambers left: 0" if t >= 3.7 else "Ambers left: 1"
+        tb_rem = draw.textbbox((0, 0), rem_text, font=f_pill)
+        rw_pill = (tb_rem[2] - tb_rem[0]) + 20
+        rx_end = 1084 - aw_pill - 12
+        draw.rounded_rectangle((rx_end - rw_pill, 118, rx_end, 144), radius=6, fill=cur_fill, outline=cur_col, width=1)
+        draw.text((rx_end - rw_pill + 10, 122), rem_text, font=f_pill, fill=cur_col)
+
+        # Left inside: real frame with single AMBER -> GREEN box
+        im.paste(base_frame, frame_rect_pos)
+        _draw_box_with_pill(
+            draw,
+            frame_rect_pos,
+            frame_rect_size,
+            amber_item["box"],
+            amber_item["key"],
+            cur_col,
+            cur_fill,
+            TEXT_PRIMARY,
+            corner="br",
+        )
+
+        # Right inside: structure name, status badge, Approve / Reject, and Release dataset button
+        draw.text((712, 188), amber_item["key"], font=f_struct, fill=TEXT_PRIMARY)
+        status_txt = "verified" if t >= 3.7 else "amber"
+        tb_st = draw.textbbox((0, 0), status_txt, font=f_pill)
+        sw = (tb_st[2] - tb_st[0]) + 20
+        draw.rounded_rectangle((712, 228, 712 + sw, 254), radius=6, fill=cur_fill, outline=cur_col, width=1)
+        draw.text((722, 232), status_txt, font=f_pill, fill=cur_col)
+
+        draw.text((712, 272), "Reddish-brown parenchyma in upper quadrant.", font=f_meta, fill=TEXT_MUTED)
+
+        # Approve / Reject buttons (y=320..360)
+        app_bg = lerp_color(BG_CANVAS, VERDICT_GREEN_FILL, u)
+        app_border = lerp_color(BORDER_HAIRLINE, VERDICT_GREEN, u)
+        app_txt = lerp_color(TEXT_PRIMARY, VERDICT_GREEN, u)
+        draw.rounded_rectangle((712, 318, 848, 358), radius=6, fill=app_bg, outline=app_border, width=1)
+        draw.text((750, 329), "Approve", font=f_btn, fill=app_txt)
+
+        draw.rounded_rectangle((864, 318, 1000, 358), radius=6, fill=BG_CANVAS, outline=BORDER_HAIRLINE, width=1)
+        draw.text((910, 329), "Reject", font=f_btn, fill=TEXT_MUTED)
+
+        # Release dataset button (y=396..442) -> unlocks in crisp Green at t >= 3.7s
+        rel_u = ease_out((t - 3.7) / 0.45) if t >= 3.7 else 0.0
+        rel_bg = lerp_color(BG_CANVAS, VERDICT_GREEN_FILL, rel_u)
+        rel_border = lerp_color(BORDER_HAIRLINE, VERDICT_GREEN, rel_u)
+        rel_txt = lerp_color(TEXT_MUTED, VERDICT_GREEN, rel_u)
+        draw.rounded_rectangle((712, 392, 1084, 436), radius=6, fill=rel_bg, outline=rel_border, width=1)
+        draw.text((732, 405), "Release dataset  ->  out/verified_dataset.jsonl", font=f_pill, fill=rel_txt)
+
+        cap_u = ease_out((t - 0.2) / 0.4)
+        _draw_centered_caption(draw, shot.caption, alpha=cap_u, slide_px=(1.0 - cap_u) * 10.0)
+        return im
+
+    return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame)
+
+
+# ---------------- Shot 6: The Result (7.0s) ----------------
+def load_real_result_number(out_dir: Path = OUT_DIR) -> Optional[str]:
+    """Read strictly from out/results.json. Return formatted percentage (e.g. '98.5%') or None if pending."""
+    res_path = out_dir / "results.json"
+    if not res_path.is_file() or res_path.stat().st_size == 0:
+        return None
+    try:
+        data = json.loads(res_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    acc: Optional[float] = None
+    for key_name in ("accepted_5_informative", "accepted_excl_liver"):
+        if isinstance(data.get(key_name), dict):
+            val = data[key_name].get("accuracy")
+            if isinstance(val, (int, float)):
+                acc = float(val)
+                break
+    if acc is None and isinstance(data.get("per_label_accepted_acc"), dict):
+        per_lbl = data["per_label_accepted_acc"]
+        non_liver = [float(v) for k, v in per_lbl.items() if k != "liver" and isinstance(v, (int, float))]
+        if non_liver:
+            acc = sum(non_liver) / len(non_liver)
+    if acc is None and isinstance(data.get("accepted"), dict):
+        val = data["accepted"].get("accuracy")
+        if isinstance(val, (int, float)):
+            acc = float(val)
+
+    if acc is None:
+        return None
+    return f"{acc * 100.0:.1f}%"
+
+
+def render_shot_06_result(shot: ShotSpec, out_mp4: Path, out_dir: Path = OUT_DIR) -> Tuple[Path, Optional[str]]:
+    hero_number = load_real_result_number(out_dir=out_dir)
+    f_hero = load_sf_font(84, weight=600)
+    f_sub = load_sf_font(24, weight=400)
+    f_pending = load_sf_font(52, weight=500)
+
+    def make_frame(t: float) -> Image.Image:
+        im = Image.new("RGB", (WIDTH, HEIGHT), BG_CANVAS)
+        draw = ImageDraw.Draw(im)
+        u = ease_out((t - 0.2) / 0.5)
+        dy = int(round((1.0 - u) * 10.0))
+
+        if hero_number is not None:
+            col_h = blend_with_bg(TEXT_PRIMARY, u, BG_CANVAS)
+            col_s = blend_with_bg(TEXT_MUTED, u, BG_CANVAS)
+            b1 = draw.textbbox((0, 0), hero_number, font=f_hero)
+            w1, h1 = b1[2] - b1[0], b1[3] - b1[1]
+            draw.text(((WIDTH - w1) // 2, 300 - h1 // 2 + dy), hero_number, font=f_hero, fill=col_h)
+
+            sub_txt = shot.caption
+            b2 = draw.textbbox((0, 0), sub_txt, font=f_sub)
+            w2, h2 = b2[2] - b2[0], b2[3] - b2[1]
+            draw.text(((WIDTH - w2) // 2, 396 - h2 // 2 + dy), sub_txt, font=f_sub, fill=col_s)
+        else:
+            # Case B: strictly "Result: pending" and nothing else on screen
+            pend_txt = "Result: pending"
+            col_p = blend_with_bg(TEXT_PRIMARY, u, BG_CANVAS)
+            bp = draw.textbbox((0, 0), pend_txt, font=f_pending)
+            wp, hp = bp[2] - bp[0], bp[3] - bp[1]
+            draw.text(((WIDTH - wp) // 2, 360 - hp // 2 + dy), pend_txt, font=f_pending, fill=col_p)
+
+        return im
+
+    return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame), hero_number
+
+
+# ---------------- Shot 7: End Card (6.0s) ----------------
+def render_shot_07_end(shot: ShotSpec, out_mp4: Path) -> Path:
+    f_title = load_sf_font(48, weight=600)
+    f_sub = load_sf_font(28, weight=400)
+
+    def make_frame(t: float) -> Image.Image:
+        im = Image.new("RGB", (WIDTH, HEIGHT), BG_CANVAS)
+        draw = ImageDraw.Draw(im)
+        u = ease_out(t / 0.8)
+        dy = int(round((1.0 - u) * 10.0))
+
+        col_t = blend_with_bg(TEXT_PRIMARY, u, BG_CANVAS)
+        col_s = blend_with_bg(TEXT_MUTED, u, BG_CANVAS)
+
+        line1 = "SurgProof."
+        b1 = draw.textbbox((0, 0), line1, font=f_title)
+        w1, h1 = b1[2] - b1[0], b1[3] - b1[1]
+        draw.text(((WIDTH - w1) // 2, 322 - h1 // 2 + dy), line1, font=f_title, fill=col_t)
+
+        line2 = "No human labels. Only proof."
+        b2 = draw.textbbox((0, 0), line2, font=f_sub)
+        w2, h2 = b2[2] - b2[0], b2[3] - b2[1]
+        draw.text(((WIDTH - w2) // 2, 388 - h2 // 2 + dy), line2, font=f_sub, fill=col_s)
+        return im
+
+    return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame)
 
 
 def stitch_promo_video(
     shot_files: Sequence[Path],
     out_video: Path = FINAL_VIDEO,
 ) -> Dict[str, Any]:
-    """Stitch all shot MP4 files into out/promo/surgatlas_promo.mp4 via ffmpeg concat filter."""
+    """Stitch all shot MP4 files into out_video via ffmpeg concat filter."""
     out_video.parent.mkdir(parents=True, exist_ok=True)
     missing = [str(p) for p in shot_files if not p.is_file()]
     if missing:
@@ -982,7 +911,7 @@ def stitch_promo_video(
         "-preset",
         "fast",
         "-crf",
-        "20",
+        "18",
         "-pix_fmt",
         "yuv420p",
         "-c:a",
@@ -1007,94 +936,112 @@ def stitch_promo_video(
     return meta
 
 
+def generate_contact_sheet(video_path: Path, out_png: Path = CONTACT_SHEET_PNG) -> Path:
+    """Generate a 4x4 contact sheet spanning the full video duration at scale=480:-1."""
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    meta = probe_video(video_path)
+    dur = max(4.0, float(meta.get("duration_sec") or 54.0))
+    fps_expr = f"16/{dur:.2f}"
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path),
+        "-vf",
+        f"fps={fps_expr},scale=480:-1,tile=4x4",
+        "-frames:v",
+        "1",
+        str(out_png),
+    ]
+    subprocess.run(cmd, capture_output=True, text=True, check=False)
+    return out_png
+
+
 def run_pipeline(
     *,
-    draft: bool = False,
-    force_regenerate: bool = False,
     refresh_slot_only: bool = False,
     only_shot: Optional[str] = None,
+    out_dir: Path = OUT_DIR,
 ) -> Dict[str, Any]:
-    """Generate shots, compose overlays, build the real proof slot, and stitch final MP4."""
+    """Render the 7-shot product demo, stitch final MP4s, and build contact_sheet.png."""
     PROMO_DIR.mkdir(parents=True, exist_ok=True)
-    RAW_CLIP_DIR.mkdir(parents=True, exist_ok=True)
     OVERLAY_DIR.mkdir(parents=True, exist_ok=True)
 
     manifest: Dict[str, Any] = {
         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "spec": "promo/DESIGN.md",
         "target_total_duration_sec": total_storyboard_duration(),
         "shots": {},
     }
-    if MANIFEST_PATH.is_file():
-        try:
-            old = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-            if isinstance(old.get("shots"), dict):
-                manifest["shots"] = old["shots"]
-        except Exception:
-            pass
 
     shot_paths: List[Path] = []
     for shot in SHOTS:
-        out_shot_path = PROMO_DIR / shot.filename
-        shot_paths.append(out_shot_path)
+        out_mp4 = PROMO_DIR / shot.filename
+        shot_paths.append(out_mp4)
 
         if only_shot and shot.shot_id != only_shot:
+            if out_mp4.is_file() and probe_video(out_mp4).get("valid"):
+                meta = probe_video(out_mp4)
+                manifest["shots"][shot.shot_id] = {
+                    "filename": shot.filename,
+                    "duration_sec": meta.get("duration_sec", 0.0),
+                    "caption": shot.caption,
+                    "word_count": shot.word_count,
+                }
             continue
 
-        if shot.is_proof_slot:
-            out_clip, slot_metrics = build_proof_slot_video(shot, out_shot_path)
-            meta = probe_video(out_clip)
+        if refresh_slot_only and shot.index != 6 and out_mp4.is_file() and probe_video(out_mp4).get("valid"):
+            meta = probe_video(out_mp4)
             manifest["shots"][shot.shot_id] = {
                 "filename": shot.filename,
-                "illustrative": False,
-                "is_proof_slot": True,
                 "duration_sec": meta.get("duration_sec", 0.0),
-                "metrics": slot_metrics,
+                "caption": shot.caption,
             }
             continue
 
-        if refresh_slot_only and out_shot_path.is_file() and probe_video(out_shot_path).get("valid"):
-            continue
+        hero_num: Optional[str] = None
+        if shot.index == 1:
+            render_shot_01_raw_frame(shot, out_mp4)
+        elif shot.index == 2:
+            render_shot_02_manual(shot, out_mp4, out_dir=out_dir)
+        elif shot.index == 3:
+            render_shot_03_labels(shot, out_mp4)
+        elif shot.index == 4:
+            render_shot_04_verify(shot, out_mp4)
+        elif shot.index == 5:
+            render_shot_05_gate(shot, out_mp4)
+        elif shot.index == 6:
+            _, hero_num = render_shot_06_result(shot, out_mp4, out_dir=out_dir)
+        elif shot.index == 7:
+            render_shot_07_end(shot, out_mp4)
 
-        raw_path = RAW_CLIP_DIR / f"{shot.shot_id}_raw.mp4"
-        model_used = manifest["shots"].get(shot.shot_id, {}).get("model", "cached")
-        if force_regenerate or not probe_video(raw_path).get("valid"):
-            raw_path, model_used = generate_raw_clip_with_veo_or_omni(
-                shot,
-                raw_path,
-                draft=draft,
-            )
-
-        overlay_png = OVERLAY_DIR / f"{shot.shot_id}_overlay.png"
-        render_shot_overlay_png(shot, overlay_png)
-        compose_illustrative_shot(shot, raw_path, overlay_png, out_shot_path)
-        meta = probe_video(out_shot_path)
+        meta = probe_video(out_mp4)
         manifest["shots"][shot.shot_id] = {
             "filename": shot.filename,
-            "illustrative": True,
-            "badge_text": shot.badge_text,
-            "model": model_used,
-            "raw_clip": str(raw_path.relative_to(ROOT)),
             "duration_sec": meta.get("duration_sec", 0.0),
-            "width": meta.get("width", 0),
-            "height": meta.get("height", 0),
+            "caption": shot.caption,
+            "word_count": shot.word_count,
+            "hero_number": hero_num,
         }
-        MANIFEST_PATH.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        print(f"[promo] Rendered {shot.filename} ({meta.get('duration_sec', 0.0):.1f}s)", flush=True)
 
-    # If all 6 shot files exist, stitch final video
     if all(p.is_file() for p in shot_paths):
-        final_meta = stitch_promo_video(shot_paths, FINAL_VIDEO)
-        shutil.copy2(FINAL_VIDEO, FINAL_VIDEO_SURGPROOF)
+        final_meta = stitch_promo_video(shot_paths, FINAL_VIDEO_SURGPROOF)
+        shutil.copy2(FINAL_VIDEO_SURGPROOF, FINAL_VIDEO)
+        generate_contact_sheet(FINAL_VIDEO_SURGPROOF, CONTACT_SHEET_PNG)
         manifest["final_video"] = {
-            "path": str(FINAL_VIDEO.relative_to(ROOT)),
             "surgproof_path": str(FINAL_VIDEO_SURGPROOF.relative_to(ROOT)),
+            "surgatlas_path": str(FINAL_VIDEO.relative_to(ROOT)),
+            "contact_sheet": str(CONTACT_SHEET_PNG.relative_to(ROOT)),
             "duration_sec": final_meta.get("duration_sec", 0.0),
             "width": final_meta.get("width", 0),
             "height": final_meta.get("height", 0),
-            "size_bytes": FINAL_VIDEO.stat().st_size,
+            "size_bytes": FINAL_VIDEO_SURGPROOF.stat().st_size,
         }
         print(
-            f"[promo] Stitched {FINAL_VIDEO} ({final_meta['duration_sec']:.1f}s, "
-            f"{final_meta['width']}x{final_meta['height']}, {FINAL_VIDEO.stat().st_size / 1e6:.2f} MB)",
+            f"[promo] Stitched {FINAL_VIDEO_SURGPROOF.name} & {FINAL_VIDEO.name} "
+            f"({final_meta['duration_sec']:.1f}s, {final_meta['width']}x{final_meta['height']}, "
+            f"{FINAL_VIDEO_SURGPROOF.stat().st_size / 1e6:.2f} MB) + contact_sheet.png",
             flush=True,
         )
 
@@ -1103,19 +1050,15 @@ def run_pipeline(
 
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Generate and stitch the SurgAtlas pitch video.")
-    p.add_argument("--draft", action="store_true", help="Use veo-3.1-fast-generate-preview first")
-    p.add_argument("--force", action="store_true", help="Force regenerate raw Veo clips even if cached")
-    p.add_argument("--refresh-slot", action="store_true", help="Only rebuild Shot 5 (real numbers + app.py) and re-stitch")
-    p.add_argument("--shot", help="Only build a specific shot_id (e.g. shot_01_med_school)")
+    p = argparse.ArgumentParser(description="Render and stitch the 52s SurgProof product demo.")
+    p.add_argument("--refresh-slot", action="store_true", help="Rebuild Shot 6 from out/results.json and re-stitch")
+    p.add_argument("--shot", help="Only render a specific shot_id")
     return p.parse_args(argv)
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
     run_pipeline(
-        draft=args.draft,
-        force_regenerate=args.force,
         refresh_slot_only=args.refresh_slot,
         only_shot=args.shot,
     )
