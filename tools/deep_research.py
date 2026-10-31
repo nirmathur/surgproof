@@ -84,6 +84,27 @@ def extract_report_and_sources(interaction: object) -> tuple[str, list[tuple[str
             for res in getattr(item, "result", None) or []:
                 _add_source(getattr(res, "url", None), None)
 
+    # Also support google-genai Interactions SDK `steps` (type == "model_output") and `output_text`
+    if not text_blocks:
+        for step in getattr(interaction, "steps", None) or []:
+            step_type = step.get("type") if isinstance(step, dict) else getattr(step, "type", None)
+            if step_type in ("model_output", "assistant", None):
+                contents = (step.get("content") if isinstance(step, dict) else getattr(step, "content", None)) or []
+                for c in contents:
+                    c_type = c.get("type") if isinstance(c, dict) else getattr(c, "type", None)
+                    txt = c.get("text") if isinstance(c, dict) else getattr(c, "text", None)
+                    if txt and (c_type in ("text", None)):
+                        text_blocks.append(txt)
+                    anns = (c.get("annotations") if isinstance(c, dict) else getattr(c, "annotations", None)) or []
+                    for ann in anns:
+                        u = ann.get("url") if isinstance(ann, dict) else getattr(ann, "url", None)
+                        t = ann.get("title") if isinstance(ann, dict) else getattr(ann, "title", None)
+                        _add_source(u, t)
+        if not text_blocks:
+            out_txt = getattr(interaction, "output_text", None)
+            if out_txt:
+                text_blocks.append(out_txt)
+
     report_text = "\n\n".join(text_blocks).strip()
 
     # Also harvest inline markdown links [title](https://...) from the report text
