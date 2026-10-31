@@ -359,6 +359,14 @@ def export_video_bundle(
                     shutil.copy2(mp_r2, dst_r2)
                 mask_r2_url = f"data/masks_r2/{fid}_{lbl}.png"
 
+            mask_vote3_url = None
+            mp_vote3 = out_dir / "masks_vote3" / f"{fid}_{lbl}.png"
+            if mp_vote3.is_file():
+                dst_vote3 = masks_vote3_out_dir / f"{fid}_{lbl}.png"
+                if not dst_vote3.exists() or dst_vote3.stat().st_size != mp_vote3.stat().st_size:
+                    shutil.copy2(mp_vote3, dst_vote3)
+                mask_vote3_url = f"data/masks_vote3/{fid}_{lbl}.png"
+
             round_history = []
             for r_idx in range(4):
                 rk = f"status_round_{r_idx}"
@@ -396,6 +404,7 @@ def export_video_bundle(
                 "mask_r0_url": mask_url,
                 "mask_r1_url": mask_r1_url,
                 "mask_r2_url": mask_r2_url,
+                "mask_vote3_url": mask_vote3_url,
                 "mask_b64": a.get("mask") if isinstance(a.get("mask"), str) else None,
                 "mask_iou": _to_float_or_none(a.get("mask_iou")),
                 "mask_source": a.get("mask_source") or None,
@@ -544,11 +553,15 @@ def main():
 
     # Copy real directory into ~/surgatlas/out/web_data and symlink or copy into ~/surgatlas/web/data
     shared_web_data = (C.OUT_DIR / "web_data").resolve()
-    if shared_web_data != web_data_dir.resolve():
+    if shared_web_data != web_data_dir.resolve() and bundle and bundle.get("n_frames", 0) > 0:
         if shared_web_data.exists():
             shutil.rmtree(shared_web_data)
         shutil.copytree(web_data_dir, shared_web_data)
-        sync_web_data_across_worktrees(shared_web_data)
+        main_repo = Path(os.path.expanduser("~/surgatlas")).resolve()
+        lanes_root = Path(os.path.expanduser("~/surgatlas-lanes")).resolve()
+        root_resolved = ROOT.resolve()
+        if root_resolved == main_repo or str(root_resolved).startswith(str(lanes_root) + "/"):
+            sync_web_data_across_worktrees(shared_web_data)
     print(
         f"Exported web/data/video12.json (+ {len(test_videos)} test videos): {bundle['n_frames']} frames "
         f"({bundle['n_frames_with_boxes']} with boxes, {bundle['n_frames_with_masks']} with masks, "

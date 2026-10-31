@@ -1163,7 +1163,12 @@ def get_video_frames_by_parity(
         return [f.strip() for f in explicit_frames if f.strip()]
     idx_file = Path(index_path) if index_path is not None else (C.DATA_DIR / "index.csv")
     if not idx_file.is_file():
-        return []
+        for fallback_csv in (C.OUT_DIR / "decisions.csv", C.ROOT / "coord" / "artifacts" / "decisions.csv"):
+            if fallback_csv.is_file():
+                idx_file = fallback_csv
+                break
+        else:
+            return []
     raw_idx = pd.read_csv(idx_file, usecols=lambda c: c in ("frame_id", "video", "split", "path"))
     v_df = raw_idx[raw_idx["video"].astype(str) == str(video)].drop_duplicates(subset=["frame_id"])
     sorted_fids = sorted(v_df["frame_id"].astype(str).tolist())

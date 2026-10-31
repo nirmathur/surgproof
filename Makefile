@@ -7,7 +7,7 @@ SRC ?= gt_corrupted
 all: gt corrupted eval recheck render
 
 setup:
-	$(PY) -m pip install -r requirements.txt -r web/requirements.txt
+	$(PY) -m pip install -r requirements.txt -r web/requirements.txt || $(PY) -m pip install --break-system-packages -r requirements.txt -r web/requirements.txt
 	@if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi
 
 run:

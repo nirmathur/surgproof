@@ -1415,7 +1415,9 @@ def _json_list(v) -> list:
 
 def render_narrator_claims() -> bool:
     """Render narrator/out/claims.parquet (coordination/contracts/narrator_outputs.md). Returns False if absent."""
-    claims = load_parquet_fresh(NARRATOR_OUT / "claims.parquet")
+    narr_base = (O / "narrator") if O.resolve() != (C.ROOT / "out").resolve() else NARRATOR_OUT
+    claims_path = (O / "claims.parquet") if (O / "claims.parquet").exists() else (narr_base / "claims.parquet")
+    claims = load_parquet_fresh(claims_path)
     if claims is None or claims.empty:
         return False
     if "source" in claims.columns and set(claims["source"].unique()) <= {"mock"}:
@@ -1463,7 +1465,12 @@ def render_narration():
     )
     if render_narrator_claims():
         return
-    files = sorted(O.glob("narration_*.json")) + sorted((COORD_ARTIFACTS).glob("narration_*.json"))
+    seen_narr = set()
+    files = [
+        p
+        for p in (sorted(O.glob("narration_*.json")) + sorted((COORD_ARTIFACTS).glob("narration_*.json")))
+        if not (p.name in seen_narr or seen_narr.add(p.name))
+    ]
     if not files:
         st.info("**[PLACEHOLDER — Awaiting `narrator/out/claims.parquet` (narrator lane) or `out/narration_<video>.json` (narrate.py)]**")
         return
