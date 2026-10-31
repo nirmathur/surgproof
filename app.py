@@ -392,17 +392,20 @@ def compute_amber_loop_progression(
             for idx_r, r in enumerate(per_r):
                 if isinstance(r, dict):
                     rn = r.get("round", idx_r)
-                    na_test = int(r.get("ambers_remaining", 0))
-                    na_all = int(all_arr[idx_r]) if idx_r < len(all_arr) else na_test
+                    na_5 = int(r.get("ambers_remaining_excl_liver", r.get("ambers_remaining", 0)))
+                    na_all6 = int(r.get("ambers_remaining", na_5))
+                    na_all = int(all_arr[idx_r]) if idx_r < len(all_arr) else na_all6
                     lbl = "Round 0 · Initial Double-Check" if int(rn) == 0 else f"Round {rn} · Argon Amber Loop"
                     out.append({
                         "round": lbl,
-                        "ambers_remaining": na_test,
-                        "n_amber": na_test,
+                        "ambers_remaining": na_5,
+                        "ambers_remaining_5_informative": na_5,
+                        "ambers_remaining_all_6": na_all6,
+                        "n_amber": na_5,
                         "ambers_all_splits": na_all,
-                        "resolved_count": int(r.get("resolved_in_round", 0)),
-                        "resolved_precision": r.get("resolved_in_round_precision"),
-                        "cumulative_accepted_precision": r.get("cumulative_accepted_precision"),
+                        "resolved_count": int(r.get("resolved_in_round_excl_liver", r.get("resolved_in_round", 0))),
+                        "resolved_precision": r.get("resolved_in_round_precision_excl_liver", r.get("resolved_in_round_precision")),
+                        "cumulative_accepted_precision": r.get("cumulative_accepted_precision_excl_liver", r.get("cumulative_accepted_precision")),
                     })
             if out:
                 return out
@@ -1462,10 +1465,13 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.subheader("🛡️ Human Gate (#14)")
+    st.subheader("🎯 AI Video Studio & Human Gate")
+    annotate_page_path = C.ROOT / "pages" / "1_Annotate.py"
+    if annotate_page_path.is_file():
+        st.page_link("pages/1_Annotate.py", label="Open AI Video Annotation Studio (video12)", icon="🎯")
     gate_page_path = C.ROOT / "pages" / "2_Human_gate.py"
     if gate_page_path.is_file():
-        st.page_link("pages/2_Human_gate.py", label="Open Human Gate (AMBER Queue)", icon="🛡️")
+        st.page_link("pages/2_Human_gate.py", label="Open Final Pass & Release Dataset", icon="🛡️")
     else:
         st.markdown(
             "👉 **[Human Gate (`pages/2_Human_gate.py`)](/Human_gate)** — "
