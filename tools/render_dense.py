@@ -19,13 +19,13 @@ def font(s):
 
 def render(clip):
     video = clip.split("_")[0]
-    ann = [json.loads(l) for l in open(f"{R}/out/dense/{clip}/annotations.jsonl")]
+    ann = [json.loads(l) for l in open(f"{R}/out/{os.environ.get('DENSE','dense')}/{clip}/annotations.jsonl")]
     by = {}
     for a in ann: by.setdefault(a["frame"], []).append(a)
     frames = sorted(glob.glob(f"{R}/raw/CholecSeg8k/{video}/{clip}/*_endo.png"))
     score = None
-    if os.path.exists(f"{R}/out/dense_results.json"):
-        d = json.load(open(f"{R}/out/dense_results.json"))["clips"].get(clip)
+    if os.path.exists(f"{R}/out/{os.environ.get('DENSE','dense')}_results.json"):
+        d = json.load(open(f"{R}/out/{os.environ.get('DENSE','dense')}_results.json"))["clips"].get(clip)
         if d and d.get("mean_iou") is not None: score = d
     tmp = tempfile.mkdtemp()
     f_t, f_s, f_c = font(30), font(24), font(22)
@@ -56,7 +56,7 @@ def render(clip):
             t = f"mask IoU vs human ground truth {score['mean_iou']:.2f} · n={score['n_mask_scored']} masks, scored afterwards"
             tw = d.textlength(t, font=f_s); d.text((W - tw - 40, H - 64), t, font=f_s, fill=(140, 146, 156))
         canvas.save(f"{tmp}/{i:04d}.png")
-    out = f"{R}/out/promo/dense_{clip}.mp4"
+    out = f"{R}/out/promo/{os.environ.get('DENSE','dense')}_{clip}.mp4"
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-framerate", "25", "-i", f"{tmp}/%04d.png",
                     "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", out], check=True)
     print(out)

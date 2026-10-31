@@ -7,7 +7,7 @@ from PIL import Image
 R = os.path.expanduser("~/surgatlas")
 WV = {"liver": 21, "grasper": 31, "l_hook": 32, "gallbladder": 22}
 res = {}
-for ann in glob.glob(f"{R}/out/dense/*/annotations.jsonl"):
+for ann in glob.glob(f"{R}/out/{os.environ.get('DENSE','dense')}/*/annotations.jsonl"):
     clip = os.path.basename(os.path.dirname(ann)); video = clip.split("_")[0]
     rows = [json.loads(l) for l in open(ann)]
     per = {l: [] for l in WV}; pres = {"tp": 0, "fp": 0, "fn": 0, "tn": 0}
@@ -28,5 +28,5 @@ for ann in glob.glob(f"{R}/out/dense/*/annotations.jsonl"):
                  "presence_accuracy": round((pres["tp"] + pres["tn"]) / max(sum(pres.values()), 1), 4), "presence_counts": pres}
 allm = [res[c]["mean_iou"] for c in res if res[c]["mean_iou"] is not None]
 out = {"clips": res, "note": "every frame of each clip annotated by the AI (no human); scored afterwards vs CholecSeg8k per-frame masks"}
-json.dump(out, open(f"{R}/out/dense_results.json", "w"), indent=1)
+json.dump(out, open(f"{R}/out/{os.environ.get('DENSE','dense')}_results.json", "w"), indent=1)
 print(json.dumps({c: {k: v for k, v in d.items() if k != "presence_counts"} for c, d in res.items()}, indent=1))
