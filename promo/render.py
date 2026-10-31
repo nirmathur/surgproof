@@ -244,8 +244,11 @@ def _load_target_frame_and_boxes() -> Tuple[Image.Image, List[Dict[str, Any]]]:
                         item["box"] = [int(x) for x in parsed]
                 except Exception:
                     pass
-                # Preserve pre-loop AMBER status for liver (pv_match=False, trust=0.49) per DESIGN.md Beat 4A
-                if k != "liver":
+                # Read Round-0 double-check status (status_round_0) so Shot 4 shows pre-loop Green/Amber/Red
+                st0 = by_key[k].get("status_round_0")
+                if st0 in ("accept", "AMBER", "reject"):
+                    item["status"] = st0
+                elif k != "liver":
                     st = by_key[k].get("status", "")
                     if st in ("accept", "AMBER", "reject"):
                         item["status"] = st
@@ -548,50 +551,34 @@ def render_shot_03_labels(shot: ShotSpec, out_mp4: Path) -> Path:
 
 
 def _load_amber_round_counts(out_dir: Path = OUT_DIR) -> List[Tuple[str, int]]:
-    """Read per-round amber counts from out/amber_rounds.jsonl (deduped by label_id, round)."""
-    r0 = 37
-    rounds_path = out_dir / "amber_rounds.jsonl"
-    if rounds_path.is_file():
+    """Read real per-round amber counts strictly from out/results.json['amber_loop'] or out/decisions.csv."""
+    res_path = out_dir / "results.json"
+    if res_path.is_file():
         try:
-            seen_r1: Dict[str, str] = {}
-            seen_r2: Dict[str, str] = {}
-            seen_r3: Dict[str, str] = {}
-            for line in rounds_path.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                obj = json.loads(line)
-                lid = str(obj.get("label_id", ""))
-                rd = int(obj.get("round", 0))
-                verdict = str(obj.get("verdict", "")).upper()
-                if rd == 1:
-                    seen_r1[lid] = verdict
-                elif rd == 2:
-                    seen_r2[lid] = verdict
-                elif rd == 3:
-                    seen_r3[lid] = verdict
-            if seen_r1:
-                r0 = len(seen_r1)
-                c1 = sum(1 for v in seen_r1.values() if v == "AMBER")
-                c2 = sum(1 for v in seen_r2.values() if v == "AMBER") if seen_r2 else max(2, c1 // 3)
-                if c2 >= c1 and c1 > 2:
-                    c2 = max(2, c1 // 2)
-                c3 = sum(1 for v in seen_r3.values() if v == "AMBER") if seen_r3 else 1
-                if c3 >= c2 and c2 > 1:
-                    c3 = 1
+            data = json.loads(res_path.read_text(encoding="utf-8"))
+            amber_loop = data.get("amber_loop")
+            if isinstance(amber_loop, dict):
+                for key_name in ("ambers_by_round_all", "ambers_by_round_test"):
+                    arr = amber_loop.get(key_name)
+                    if isinstance(arr, list) and len(arr) >= 2:
+                        return [(f"Round {idx}", int(v)) for idx, v in enumerate(arr[:4])]
+        except Exception:
+            pass
+
+    dec_csv = out_dir / "decisions.csv"
+    if dec_csv.is_file():
+        try:
+            with open(dec_csv, "r", encoding="utf-8") as f:
+                rows = list(csv.DictReader(f))
+            if rows and "status_round_0" in rows[0]:
                 return [
-                    ("Round 0", r0),
-                    ("Round 1", c1),
-                    ("Round 2", c2),
-                    ("Round 3", c3),
+                    (f"Round {rd}", sum(1 for r in rows if r.get(f"status_round_{rd}") == "AMBER"))
+                    for rd in range(4)
                 ]
         except Exception:
             pass
-    return [
-        ("Round 0", r0),
-        ("Round 1", 14),
-        ("Round 2", 4),
-        ("Round 3", 1),
-    ]
+
+    return []
 
 
 # ---------------- Shot 4: Self-Verification & Amber Loop (10.0s) ----------------
@@ -601,7 +588,7 @@ def render_shot_04_verify(shot: ShotSpec, out_mp4: Path) -> Path:
     frame_rect_size = (688, 387)
     base_frame = _rounded_image(raw_frame, frame_rect_size, radius=8)
     amber_rounds = _load_amber_round_counts(OUT_DIR)
-    max_amber = max(1, amber_rounds[0][1])
+    max_amber = max(1, amber_rounds[0][1]) if amber_rounds else 1
 
     f_meta = load_sf_font(13, weight=500)
     f_row = load_sf_font(17, weight=500)
@@ -666,15 +653,15 @@ def render_shot_04_verify(shot: ShotSpec, out_mp4: Path) -> Path:
                 draw.rounded_rectangle((px, row_y, px + tw, row_y + 22), radius=6, fill=tag_bg, outline=tag_stroke, width=1)
                 draw.text((px + 8, row_y + 3), v_label, font=f_tag, fill=tag_stroke)
 
-        # Beat 4B (t >= 4.2s): Shrinking multi-round Amber Loop
-        if t >= 4.2:
-            loop_u = ease_out((t - 4.2) / 0.4)
+        # Beat 4B (t >= 3.8s): Shrinking multi-round Amber Loop
+        if t >= 3.8 and amber_rounds:
+            loop_u = ease_out((t - 3.8) / 0.4)
             hdr_col = blend_with_bg(TEXT_MUTED, loop_u, BG_CARD)
             line_col = blend_with_bg(BORDER_HAIRLINE, loop_u, BG_CARD)
             draw.line((856, 376, 1144, 376), fill=line_col, width=1)
             draw.text((856, 390), "AMBER RE-CHECK LOOP", font=f_meta, fill=hdr_col)
 
-            round_times = (4.4, 5.2, 6.0, 6.8)
+            round_times = (4.0, 4.6, 5.2, 5.8)
             for r_idx, ((r_label, r_count), rt0) in enumerate(zip(amber_rounds, round_times)):
                 if t < rt0:
                     continue
