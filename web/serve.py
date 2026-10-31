@@ -876,32 +876,33 @@ class SurgProofRequestHandler(SimpleHTTPRequestHandler):
                 from web import server as unified_server
 
                 if route == "/api/overview":
-                    self._send_json(HTTPStatus.OK, unified_server.overview())
+                    resp = unified_server.overview()
+                    if hasattr(resp, "body"):
+                        body = bytes(resp.body)
+                        self.send_response(HTTPStatus.OK)
+                        self.send_header("Content-Type", "application/json; charset=utf-8")
+                        self.send_header("Content-Length", str(len(body)))
+                        self.end_headers()
+                        self.wfile.write(body)
+                    else:
+                        self._send_json(HTTPStatus.OK, resp)
                     return
                 if route == "/api/clips":
                     self._send_json(HTTPStatus.OK, unified_server.clips())
                     return
                 if route.startswith("/api/clip/"):
                     cid = route.split("/api/clip/", 1)[1]
-                    self._send_json(HTTPStatus.OK, unified_server.clip_bundle(cid))
+                    self._send_json(HTTPStatus.OK, unified_server.clip(cid))
                     return
                 if route == "/api/labels":
-                    video = (qs.get("video") or [None])[0]
-                    status_f = (qs.get("status") or [None])[0]
-                    key_f = (qs.get("key") or [None])[0]
-                    limit_f = int((qs.get("limit") or ["400"])[0])
-                    self._send_json(
-                        HTTPStatus.OK,
-                        unified_server.labels(video=video, status=status_f, key=key_f, limit=limit_f),
-                    )
+                    self._send_json(HTTPStatus.OK, unified_server.labels())
                     return
                 if route == "/api/narration":
-                    clip_f = (qs.get("clip_id") or [None])[0]
-                    self._send_json(HTTPStatus.OK, unified_server.narration(clip_id=clip_f))
+                    self._send_json(HTTPStatus.OK, unified_server.narration())
                     return
                 if route.startswith("/api/frame/") and route.endswith(".jpg"):
                     fid = route[len("/api/frame/") : -len(".jpg")]
-                    resp = unified_server.frame_jpg(fid)
+                    resp = unified_server.frame(fid)
                     body = resp.body
                     self.send_response(HTTPStatus.OK)
                     self.send_header("Content-Type", "image/jpeg")

@@ -64,8 +64,4 @@ if command -v lsof >/dev/null 2>&1; then
   fi
 fi
 
-if python3 -c "import uvicorn, fastapi" >/dev/null 2>&1; then
-  exec python3 -m uvicorn web.server:app --host "$HOST" --port "$PORT"
-else
-  exec python3 web/serve.py --host "$HOST" --port "$PORT"
-fi
+exec python3 web/serve.py --host "$HOST" --port "$PORT"
