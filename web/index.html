@@ -21,6 +21,14 @@
           <span>SurgProof</span>
         </div>
         <span class="brand-claim">No human labels. Only proof.</span>
+        <select class="btn btn-sm" id="sel-video" aria-label="Held-out test video selector" title="Switch held-out test video (video12, video09, video17, video28, video48, video55)">
+          <option value="video12">video12 · Held-Out Test</option>
+          <option value="video09">video09 · Held-Out Test</option>
+          <option value="video17">video17 · Held-Out Test</option>
+          <option value="video28">video28 · Held-Out Test</option>
+          <option value="video48">video48 · Held-Out Test</option>
+          <option value="video55">video55 · Held-Out Test</option>
+        </select>
         <span class="brand-tag" id="video-badge">video12 · Held-Out Test Split</span>
       </div>
 
@@ -44,6 +52,10 @@
           <span class="pulse-dot" aria-hidden="true"></span>
           <span id="live-status-text">Agent Live: polling</span>
         </div>
+        <button class="btn btn-accept" id="btn-guided-mode" type="button" title="Walk through all 7 promo beats live on the selected video (W)">
+          <span>▶ Run Pipeline (7 Beats)</span>
+          <kbd>W</kbd>
+        </button>
         <button class="btn btn-primary" id="btn-stream-agent" type="button" title="Stream / replay agent spatial annotations into the timeline">
           <span>Run / Stream Agent</span>
           <kbd>R</kbd>
@@ -61,12 +73,50 @@
     <main class="workspace-main">
       <!-- Centre Canvas Area -->
       <section class="viewport-pane" aria-label="Surgical frame viewport">
+        <!-- 7-Beat Guided Pipeline Walkthrough Banner (Promo North Star) -->
+        <div class="guided-beat-banner" id="guided-beat-banner" style="display:none;padding:8px 14px;background:var(--bg-elevated);border-bottom:1px solid var(--border-hairline);flex-direction:column;gap:6px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;" id="guided-beat-pills">
+              <button class="btn btn-sm guided-step-btn" data-beat="1" type="button">1 · Raw Video</button>
+              <button class="btn btn-sm guided-step-btn" data-beat="2" type="button">2 · Self-Written Manual</button>
+              <button class="btn btn-sm guided-step-btn" data-beat="3" type="button">3 · Frame Labels</button>
+              <button class="btn btn-sm guided-step-btn" data-beat="4" type="button">4 · Amber Loop</button>
+              <button class="btn btn-sm guided-step-btn" data-beat="5" type="button">5 · AI Masks &amp; Polygons</button>
+              <button class="btn btn-sm guided-step-btn" data-beat="6" type="button">6 · Final Pass</button>
+              <button class="btn btn-sm guided-step-btn" data-beat="7" type="button">7 · Held-Out Proof</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <button class="btn btn-sm" id="btn-beat-prev" type="button">◀ Beat</button>
+              <button class="btn btn-sm btn-primary" id="btn-beat-autoplay" type="button">▶ Auto-Play</button>
+              <button class="btn btn-sm" id="btn-beat-next" type="button">Beat ▶</button>
+              <button class="btn btn-sm" id="btn-beat-close" type="button">✕ Free Toolbox</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+            <div>
+              <strong id="guided-beat-title" style="color:var(--text-primary);font-size:13px;">Beat 1 · Surgical video. No labels.</strong>
+              <span id="guided-beat-desc" style="color:var(--text-secondary);font-size:12px;margin-left:8px;">Today: a human at every step. SurgProof: none.</span>
+            </div>
+            <span id="guided-beat-meta" style="font-family:var(--font-mono);font-size:11px;color:var(--verdict-accept);">Live on held-out test split</span>
+          </div>
+        </div>
+
         <div class="viewport-toolbar">
           <div class="layer-toggles">
             <label class="toggle-chip" title="Overlay semi-transparent AI segmentation masks from out/masks/">
               <input type="checkbox" id="chk-ai-masks" checked />
               <span>AI Masks (<span id="mask-status-label">pending</span>)</span>
               <kbd>M</kbd>
+            </label>
+            <select class="btn btn-sm" id="sel-mask-round" aria-label="Mask self-correction round" title="Switch self-correction mask round (R0 = out/masks/, R1 = out/masks_r1/, R2 = out/masks_r2/)">
+              <option value="0">Mask R0</option>
+              <option value="1">Mask R1</option>
+              <option value="2">Mask R2</option>
+            </select>
+            <label class="toggle-chip" title="Draw AI polygon outlines (polygon_px) from out/polygons/">
+              <input type="checkbox" id="chk-ai-polygons" checked />
+              <span>Polygons (<span id="polygon-status-label">pending</span>)</span>
+              <kbd>P</kbd>
             </label>
             <label class="toggle-chip" title="Draw AI bounding boxes [ymin, xmin, ymax, xmax] coloured by double-check verdict">
               <input type="checkbox" id="chk-ai-boxes" checked />
@@ -84,7 +134,7 @@
               <kbd>T</kbd>
             </label>
             <label class="toggle-chip" title="Show per-structure verdict chips on frame HUD">
-              <input type="checkbox" id="chk-hud-chips" checked />
+              <input type="checkbox" id="chk-hud-chips" />
               <span>Verdict HUD</span>
               <kbd>H</kbd>
             </label>
@@ -93,7 +143,7 @@
           <div class="layer-toggles">
             <label class="toggle-chip gt-toggle" title="Scoring View Only: overlay CholecSeg8k ground-truth watershed segmentation mask for post-hoc evaluation">
               <input type="checkbox" id="chk-show-gt" />
-              <span>Scoring View: Show Ground Truth</span>
+              <span>Scoring (ground truth)</span>
               <kbd>G</kbd>
             </label>
             <button class="btn btn-sm" id="btn-zoom-reset" type="button" title="Reset canvas zoom (0)">100%</button>

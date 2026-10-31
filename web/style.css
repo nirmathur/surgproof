@@ -1072,8 +1072,14 @@ kbd {
   flex-shrink: 1 !important;
 }
 
-.metric-pill:nth-child(n+3) {
+.metric-pill:nth-child(n+2) {
   display: none !important;
+}
+
+.metric-pill.hero-metric,
+#headline-metric {
+  flex-shrink: 0 !important;
+  overflow: visible !important;
 }
 
 .topbar-actions {
@@ -1136,4 +1142,77 @@ kbd {
   min-width: 0 !important;
   width: auto !important;
 }
+
+/* ==========================================================================
+   9. Motion Spec & Monospace HUD Density Reduction (14:37 Review Item #4)
+      - Single restrained chip style (var(--font-sans), #171A24 fill, #232734 border)
+      - Fewer words per card (hide noisy coordinate/pending chips beyond top 3)
+      - Remove duplicate transport / header chrome
+      - Smooth cubic-bezier(0.22, 1, 0.36, 1) motion transitions
+   ========================================================================== */
+@keyframes spFadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#objects > *,
+.inspector-scroll > *,
+.gate-item-card {
+  animation: spFadeSlideIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: background-color 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.btn,
+.toggle-chip,
+.filter-tab,
+.verdict-pill,
+.round-pill,
+.funnel-step,
+.track-cell,
+.tl-cell {
+  transition: background-color 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+              color 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+/* Unified single chip style in sans-serif (reduce monospace HUD density) */
+.label-meta span,
+.funnel-step,
+.round-pill,
+.brand-tag,
+.phase-pill,
+.frame-readout {
+  font-family: var(--font-sans) !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  background-color: #171A24 !important;
+  border: 1px solid #232734 !important;
+  color: #D8DCE6 !important;
+  border-radius: 6px !important;
+  padding: 2px 8px !important;
+}
+
+/* Keep at most 2 concise metadata chips per object card (conf + agreement) */
+.label-meta span:nth-child(n+3) {
+  display: none !important;
+}
+
+/* Hide duplicate secondary transport controls & verbose subtitle in Final Pass drawer */
+.tl-toolbar .tl-transport,
+.sp-vc-hud-bar,
+#final-pass-drawer .drawer-header p {
+  display: none !important;
+}
+
 
