@@ -21,7 +21,9 @@ from verify.engine import (
     apply_argon_verdict,
     argon_revise,
     enrich_results_excl_liver,
+    export_verified_dataset_jsonl,
     prepare_verifier_dataframe,
+    run_amber_loop,
     status,
     summarize_decisions_zero_label,
     trust,
@@ -177,7 +179,7 @@ def test_apply_argon_verdict_bands():
     assert d.loc[2, "final_present"] == 0
 
     # High-confidence Argon confirmation of absence -> accept
-    apply_argon_verdict(d, 3, {"present": False, "confidence": 0.90, "reasoning": "clearly absent"})
+    apply_argon_verdict(d, 3, {"present": False, "confidence": 0.95, "reasoning": "clearly absent"})
     assert d.loc[3, "status"] == "accept"
     assert d.loc[3, "final_present"] == 0
     assert 0.70 < d.loc[3, "trust"] < 0.75
@@ -289,3 +291,93 @@ def test_accept_on_real_blank_labels_in_tmp(tmp_path):
     assert set(df["status"].unique()).issubset({"accept", "AMBER", "reject"})
     assert summary["n_total"] == 1680
     assert summary["test_5_informative_excl_liver"]["n"] == 1400
+
+
+def test_three_round_amber_loop_shrinks_ambers_and_logs(tmp_path, monkeypatch):
+    """Verify the 3-round Argon Amber Loop shrinks AMBERs round by round (R0 -> R1 -> R2 -> R3) and writes logs."""
+    monkeypatch.setattr(accept.gem, "img_part", lambda p, max_side=768, crop=None: ("part", b"bytes"))
+
+    raw = pd.DataFrame([
+        # Row 0: clear accept in Round 0
+        {
+            "frame_id": "v1_1",
+            "video": "video01",
+            "split": "test",
+            "key": "grasper",
+            "present": 1,
+            "conf": 0.95,
+            "pv_match": True,
+            "p_wrong": 0.05,
+            "box": [100, 100, 400, 400],
+            "evidence": "jaws",
+            "critic": "ok",
+        },
+        # Row 1: AMBER in R0 -> resolved to accept in R1 (absent claim confirmed with conf 0.90)
+        {
+            "frame_id": "v1_1",
+            "video": "video01",
+            "split": "test",
+            "key": "cystic_duct",
+            "present": 0,
+            "conf": 0.90,
+            "pv_match": None,
+            "p_wrong": 0.35,
+            "box": [],
+            "evidence": "not exposed",
+            "critic": "maybe hidden",
+        },
+        # Row 2: AMBER in R0 -> stays AMBER in R1 (conf 0.72), resolved in R2 (conf 0.85)
+        {
+            "frame_id": "v1_1",
+            "video": "video01",
+            "split": "test",
+            "key": "blood",
+            "present": 0,
+            "conf": 0.88,
+            "pv_match": None,
+            "p_wrong": 0.35,
+            "box": [],
+            "evidence": "clean field",
+            "critic": "reddish liver",
+        },
+        # Row 3: AMBER in R0 -> stays AMBER in R1 & R2, resolved in R3 (3-vote consensus rejects false positive)
+        {
+            "frame_id": "v1_1",
+            "video": "video01",
+            "split": "test",
+            "key": "l_hook",
+            "present": 1,
+            "conf": 0.85,
+            "pv_match": False,
+            "p_wrong": 0.15,
+            "box": [200, 200, 500, 500],
+            "evidence": "shaft",
+            "critic": "suction cannula",
+        },
+    ])
+    idx = pd.DataFrame([{"frame_id": "v1_1", "path": "/tmp/v1_1.png", "split": "test", "video": "video01"}])
+    d = prepare_verifier_dataframe(raw, idx)
+    assert (d["status_round_0"] == "AMBER").sum() == 3
+
+    async def fake_loop_call(prompt, *, model=None, images=(), schema=None, tag="", temperature=0.0, sample=0):
+        if "'cystic_duct'" in prompt:
+            return {"present": False, "confidence": 0.95, "reasoning": "R1 confirmed absent"}
+        if "'blood'" in prompt:
+            if tag == "argon-revise":
+                return {"present": False, "confidence": 0.72, "reasoning": "R1 tentative absent"}
+            return {"present": False, "confidence": 0.91, "reasoning": "R2 confirmed absent"}
+        if "'l_hook'" in prompt:
+            return {"present": False, "confidence": 0.72, "reasoning": "suction not hook"}
+        return {"present": True, "confidence": 0.90, "reasoning": "ok"}
+
+    logs = asyncio.run(run_amber_loop(d, {"procedure": "lap chole"}, argon_budget=50, max_rounds=3, call_fn=fake_loop_call))
+    summary = summarize_decisions_zero_label(d)
+    curve = summary["amber_loop"]["ambers_by_round_test"]
+    assert curve == [3, 2, 1, 0], f"Expected shrinking AMBER curve [3, 2, 1, 0], got {curve}"
+    assert len(logs) == 6  # R1: 3 items, R2: 2 items, R3: 1 item
+
+    ds_path = tmp_path / "verified_dataset.jsonl"
+    n_written = export_verified_dataset_jsonl(d, {"sources": [{"url": "https://youtube.com/watch?v=test"}]}, ds_path)
+    assert n_written == 3
+    assert ds_path.exists()
+
