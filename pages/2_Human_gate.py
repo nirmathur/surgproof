@@ -1,14 +1,17 @@
-"""SurgProof Human Gate (pages/2_Human_gate.py) — Issue #14.
+"""SurgProof Release Dataset Sign-Off / Human Gate (pages/2_Human_gate.py) — Issue #14.
 
 Judging test: "People stay in control" — a visible human approval step that blocks
-dataset export until a human reviews every AMBER label.
+dataset release until a human acts.
+
+Positioning (VISION.md):
+SurgProof removes the human from seeding (manual learned from public video), labelling,
+correction (the multi-round Amber Loop), and review (independent double-check).
+The output is a verified dataset (out/verified_dataset.jsonl + per-label provenance).
+People stay in control with a FINAL PASS before anything becomes proper data:
+the human reviews any AMBERs left after the Amber Loop plus a random audit sample
+of auto-accepted labels (with their evidence crops), and only then releases the dataset.
 
 Strictly zero-leakage: never reads, joins, or displays ground truth.
-Reads out/decisions.csv (falling back to running zero-label verification on
-out/labels_manual.jsonl or coord/artifacts/labels_smoke.jsonl if decisions.csv
-is not yet written; never invents decisions).
-Logs who, when, what to out/gate_log.jsonl (and mirrors to out/human_gate_log.jsonl).
-Writes out/verified_dataset.jsonl ONLY when the AMBER queue is empty.
 """
 from __future__ import annotations
 
@@ -53,6 +56,7 @@ SAFE_DECISION_COLS = [
     "final_present",
     "final_by",
     "argon_reasoning",
+    "amber_round",
 ]
 
 SAFE_INDEX_COLS = {"frame_id", "path", "video", "split", "clip"}
@@ -180,7 +184,6 @@ def sanitize_decisions_df(raw_df: pd.DataFrame | None, idx_df: pd.DataFrame | No
 
     df = raw_df.copy()
 
-    # Populate required alias pairs
     if "conf" not in df.columns and "confidence" in df.columns:
         df["conf"] = df["confidence"]
     if "confidence" not in df.columns and "conf" in df.columns:
@@ -194,7 +197,6 @@ def sanitize_decisions_df(raw_df: pd.DataFrame | None, idx_df: pd.DataFrame | No
     if "video_id" not in df.columns and "video" in df.columns:
         df["video_id"] = df["video"]
 
-    # Keep only primary sample == 0 if multi-sample JSONL was loaded
     if "sample" in df.columns:
         s_num = pd.to_numeric(df["sample"], errors="coerce").fillna(0).astype(int)
         df["sample"] = s_num
@@ -261,7 +263,6 @@ def sanitize_decisions_df(raw_df: pd.DataFrame | None, idx_df: pd.DataFrame | No
     if "argon_reasoning" not in df.columns:
         df["argon_reasoning"] = ""
 
-    # Attach safe frame_path / video / split from index.csv if missing
     if idx_df is not None and not idx_df.empty and "frame_id" in idx_df.columns:
         idx_sub = idx_df.drop_duplicates(subset=["frame_id"]).set_index("frame_id")
         if "path" in idx_sub.columns:
@@ -278,7 +279,6 @@ def sanitize_decisions_df(raw_df: pd.DataFrame | None, idx_df: pd.DataFrame | No
             if missing_sp.any():
                 df.loc[missing_sp, "split"] = df.loc[missing_sp, "frame_id"].map(idx_sub["split"]).fillna("test")
 
-    # Enforce strict allowlist so no non-contract columns ever survive
     keep = [c for c in SAFE_DECISION_COLS if c in df.columns]
     return df[keep].copy()
 
@@ -339,7 +339,109 @@ def load_decisions_from_source(
 
 
 # ==============================================================================
-# 2. Audit Log (out/gate_log.jsonl + out/human_gate_log.jsonl) & Lock Engine
+# 2. Amber Loop Funnel (out/amber_rounds.jsonl) & Random Audit Sampler
+# ==============================================================================
+def load_amber_rounds(out_dir: Path | None = None, coord_dir: Path | None = None) -> list[dict]:
+    """Load per-round Amber Loop resolution trace from out/amber_rounds.jsonl if present."""
+    o_dir = Path(out_dir) if out_dir is not None else C.OUT_DIR
+    c_dir = Path(coord_dir) if coord_dir is not None else (C.ROOT / "coord" / "artifacts")
+    for cand in (o_dir / "amber_rounds.jsonl", c_dir / "amber_rounds.jsonl"):
+        if cand.is_file() and cand.stat().st_size > 0:
+            return _read_jsonl_file(cand)
+    return []
+
+
+def compute_amber_funnel(
+    dec_df: pd.DataFrame | None,
+    amber_rounds: list[dict] | None = None,
+    n_amber_pending_after_human: int | None = None,
+) -> list[dict]:
+    """Compute the round-by-round shrinking AMBER funnel (Initial Double-Check -> Amber Loop Rounds -> Human Sign-Off)."""
+    if dec_df is None or dec_df.empty:
+        return []
+    df = sanitize_decisions_df(dec_df)
+    initial_trusts = [compute_zero_label_trust(r) for r in df.itertuples()]
+    initial_statuses = [map_trust_to_status(t) for t in initial_trusts]
+    r0_amber = sum(1 for s in initial_statuses if s == "AMBER")
+    final_amber = int((df["status"].map(normalize_status) == "AMBER").sum())
+    n_argon_resolved = max(0, r0_amber - final_amber)
+
+    stages: list[dict] = [
+        {
+            "stage": "Round 0 · Independent Double-Check",
+            "ambers_remaining": int(r0_amber),
+            "resolved_in_step": 0,
+            "note": "Disagreement or low confidence routed to AMBER",
+        }
+    ]
+
+    rounds_list = amber_rounds or []
+    if rounds_list:
+        by_round: dict[int, list[dict]] = {}
+        for rec in rounds_list:
+            if not isinstance(rec, dict):
+                continue
+            r_num = int(rec.get("round", 1) or 1)
+            by_round.setdefault(r_num, []).append(rec)
+        running_amber = r0_amber
+        for r_num in sorted(by_round.keys()):
+            evts = by_round[r_num]
+            resolved_here = sum(
+                1
+                for e in evts
+                if normalize_status(e.get("verdict", e.get("status", "AMBER"))) in ("accept", "reject")
+            )
+            running_amber = max(final_amber, running_amber - resolved_here)
+            stages.append({
+                "stage": f"Amber Loop · Round {r_num} (Argon + Manual + Crop)",
+                "ambers_remaining": int(running_amber),
+                "resolved_in_step": int(resolved_here),
+                "note": f"Argon re-examined {len(evts)} AMBER(s), resolved {resolved_here}",
+            })
+    else:
+        stages.append({
+            "stage": "Amber Loop · Argon Re-Examination",
+            "ambers_remaining": int(final_amber),
+            "resolved_in_step": int(n_argon_resolved),
+            "note": f"Argon reviewed uncertain band -> {final_amber} residual AMBER(s) remain",
+        })
+
+    if n_amber_pending_after_human is not None:
+        stages.append({
+            "stage": "Final Pass · Release Dataset Sign-Off",
+            "ambers_remaining": int(n_amber_pending_after_human),
+            "resolved_in_step": int(max(0, final_amber - n_amber_pending_after_human)),
+            "note": "Human clears residual AMBERs & signs off release",
+        })
+    return stages
+
+
+def sample_accepted_for_audit(
+    dec_df: pd.DataFrame | None,
+    n_sample: int = 6,
+    seed: int = 0,
+) -> pd.DataFrame:
+    """Deterministically sample auto-accepted labels (prioritizing positive claims with boxes) for human spot-check."""
+    if dec_df is None or dec_df.empty or n_sample <= 0:
+        return pd.DataFrame(columns=SAFE_DECISION_COLS)
+    df = sanitize_decisions_df(dec_df)
+    acc = df[df["status"].map(normalize_status) == "accept"].copy()
+    if acc.empty:
+        return acc
+    has_box = [parse_box(b) is not None and int(fp) == 1 for b, fp in zip(acc["box"], acc["final_present"])]
+    acc["_has_box"] = has_box
+    with_box = acc[acc["_has_box"]].drop(columns=["_has_box"])
+    without_box = acc[~acc["_has_box"]].drop(columns=["_has_box"])
+
+    if len(with_box) >= n_sample:
+        return with_box.sample(n=n_sample, random_state=seed).reset_index(drop=True)
+    needed = n_sample - len(with_box)
+    rest = without_box.sample(n=min(needed, len(without_box)), random_state=seed) if not without_box.empty else without_box
+    return pd.concat([with_box, rest], ignore_index=True)
+
+
+# ==============================================================================
+# 3. Audit Log (out/gate_log.jsonl + out/human_gate_log.jsonl) & Lock Engine
 # ==============================================================================
 def _default_log_paths(out_dir: Path | None = None) -> tuple[Path, Path]:
     o_dir = Path(out_dir) if out_dir is not None else C.OUT_DIR
@@ -379,7 +481,6 @@ def load_gate_log(log_path: Path | str | None = None, out_dir: Path | None = Non
     if not primary_recs:
         return mirror_recs
 
-    # Merge preserving chronological order without duplicating identical (t, frame_id, key, action) events
     seen = set()
     merged = []
     for rec in primary_recs + mirror_recs:
@@ -445,7 +546,6 @@ def record_gate_decision(
         target.parent.mkdir(parents=True, exist_ok=True)
         with open(target, "a", encoding="utf-8") as f:
             f.write(line)
-        # If caller explicitly passed gate_log.jsonl or human_gate_log.jsonl in out_dir, also mirror to its sibling
         if target.name == "gate_log.jsonl":
             sib = target.parent / "human_gate_log.jsonl"
             with open(sib, "a", encoding="utf-8") as f:
@@ -558,14 +658,30 @@ def compute_amber_queue(
     return pending_df, cleared_df, summary
 
 
-def build_verified_dataset_records(dec_df: pd.DataFrame | None, gate_log: list[dict]) -> list[dict]:
-    """Build the list of verified dataset rows (auto-accepted + human-cleared AMBERs)."""
+def build_verified_dataset_records(
+    dec_df: pd.DataFrame | None,
+    gate_log: list[dict],
+    amber_rounds: list[dict] | None = None,
+) -> list[dict]:
+    """Build the list of verified dataset rows (auto-accepted + human-cleared AMBERs) with full provenance."""
     if dec_df is None or dec_df.empty:
         return []
     df = sanitize_decisions_df(dec_df)
     latest_by_item = _latest_active_decisions_by_item(gate_log)
-    records: list[dict] = []
 
+    rounds_by_item: dict[tuple[str, str], list[dict]] = {}
+    for rm in amber_rounds or []:
+        if isinstance(rm, dict):
+            rfid = str(rm.get("frame_id", "")).strip()
+            rkey = str(rm.get("key", "")).strip()
+            if rfid and rkey:
+                rounds_by_item.setdefault((rfid, rkey), []).append({
+                    "round": int(rm.get("round", 1) or 1),
+                    "verdict": str(rm.get("verdict", rm.get("status", ""))),
+                    "reason": str(rm.get("reason", rm.get("reasoning", ""))),
+                })
+
+    records: list[dict] = []
     for r in df.itertuples():
         ns = normalize_status(getattr(r, "status", ""))
         fid = str(r.frame_id)
@@ -576,10 +692,43 @@ def build_verified_dataset_records(dec_df: pd.DataFrame | None, gate_log: list[d
         trust_val = round(_safe_prob(getattr(r, "trust", 0.0), default=0.0), 4)
         rationale = str(getattr(r, "rationale", getattr(r, "evidence", "")) or "")
         box_val = parse_box(getattr(r, "box", None)) or []
+        model_id = str(getattr(r, "model", C.FLASH) or C.FLASH)
+        p_hash = str(getattr(r, "prompt_hash", "") or "")
+        pv_m = getattr(r, "pv_match", None)
+        pv_c = getattr(r, "pv_conf", None)
+        pw_val = round(_safe_prob(getattr(r, "p_wrong", 0.5), default=0.5), 4)
+        critic_str = str(getattr(r, "critic", "") or "")
+        item_rounds = rounds_by_item.get((fid, key), [])
+
+        double_check_prov = {
+            "pv_match": bool(_pv_ok(pv_m)) if pd.notna(pv_m) else None,
+            "pv_conf": round(_safe_prob(pv_c, default=0.0), 4) if pd.notna(pv_c) else None,
+            "p_wrong": pw_val,
+            "critic": critic_str,
+            "trust": trust_val,
+        }
 
         if ns == "accept":
-            final_p = int(_safe_present(getattr(r, "final_present", getattr(r, "present", 0))))
-            final_by = str(getattr(r, "final_by", "flash") or "flash")
+            # Check if human spot-checked or corrected this auto-accepted item during audit
+            if (fid, key) in latest_by_item:
+                h = latest_by_item[(fid, key)]
+                act = str(h.get("action", h.get("human_action", h.get("what", "approve"))))
+                if act.lower() in ("reject", "reject_exclude", "exclude"):
+                    continue
+                h_pres = h.get("human_present")
+                final_p = int(_safe_present(h_pres)) if h_pres is not None else int(_safe_present(getattr(r, "final_present", getattr(r, "present", 0))))
+                final_by = "human" if h_pres is not None and int(h_pres) != int(_safe_present(getattr(r, "final_present", 0))) else str(getattr(r, "final_by", "flash") or "flash")
+                rev_name = str(h.get("reviewer", h.get("who", "Clinical Reviewer")))
+                app_at = str(h.get("timestamp", h.get("when", "")))
+                v_src = "human_audit_verified"
+            else:
+                final_p = int(_safe_present(getattr(r, "final_present", getattr(r, "present", 0))))
+                final_by = str(getattr(r, "final_by", "flash") or "flash")
+                rev_name = None
+                app_at = None
+                act = None
+                v_src = f"agent_{final_by}"
+
             records.append({
                 "frame_id": fid,
                 "video": vid,
@@ -596,10 +745,24 @@ def build_verified_dataset_records(dec_df: pd.DataFrame | None, gate_log: list[d
                 "original_status": "accept",
                 "status": "accept",
                 "final_by": final_by,
-                "verification_source": f"agent_{final_by}",
-                "reviewer": None,
-                "approved_at": None,
-                "human_action": None,
+                "verification_source": v_src,
+                "reviewer": rev_name,
+                "approved_at": app_at,
+                "human_action": act,
+                "provenance": {
+                    "seeding": "self_written_manual (out/manual.json)",
+                    "labeller_model": model_id,
+                    "prompt_hash": p_hash,
+                    "double_check": double_check_prov,
+                    "amber_loop_rounds": item_rounds,
+                    "release_gate": {
+                        "original_status": "accept",
+                        "final_by": final_by,
+                        "reviewer": rev_name,
+                        "human_action": act,
+                        "approved_at": app_at,
+                    },
+                },
             })
         elif ns == "AMBER" and (fid, key) in latest_by_item:
             h = latest_by_item[(fid, key)]
@@ -607,6 +770,8 @@ def build_verified_dataset_records(dec_df: pd.DataFrame | None, gate_log: list[d
             act = str(h.get("action", h.get("human_action", h.get("what", "approve"))))
             if h_pres is not None and act.lower() not in ("reject", "reject_exclude", "exclude"):
                 final_p = int(_safe_present(h_pres))
+                rev_name = str(h.get("reviewer", h.get("who", "Clinical Reviewer")))
+                app_at = str(h.get("timestamp", h.get("when", "")))
                 records.append({
                     "frame_id": fid,
                     "video": vid,
@@ -624,9 +789,23 @@ def build_verified_dataset_records(dec_df: pd.DataFrame | None, gate_log: list[d
                     "status": "accept",
                     "final_by": "human",
                     "verification_source": "human_gate",
-                    "reviewer": str(h.get("reviewer", h.get("who", "Clinical Reviewer"))),
-                    "approved_at": str(h.get("timestamp", h.get("when", ""))),
+                    "reviewer": rev_name,
+                    "approved_at": app_at,
                     "human_action": act,
+                    "provenance": {
+                        "seeding": "self_written_manual (out/manual.json)",
+                        "labeller_model": model_id,
+                        "prompt_hash": p_hash,
+                        "double_check": double_check_prov,
+                        "amber_loop_rounds": item_rounds,
+                        "release_gate": {
+                            "original_status": "AMBER",
+                            "final_by": "human",
+                            "reviewer": rev_name,
+                            "human_action": act,
+                            "approved_at": app_at,
+                        },
+                    },
                 })
     return records
 
@@ -635,6 +814,7 @@ def export_verified_dataset(
     dec_df: pd.DataFrame | None,
     gate_log: list[dict],
     out_path: Path | str | None = None,
+    amber_rounds: list[dict] | None = None,
 ) -> list[dict]:
     """Write out/verified_dataset.jsonl ONLY if the AMBER queue is empty; raise PermissionError if locked."""
     _, _, summary = compute_amber_queue(dec_df, gate_log)
@@ -646,13 +826,13 @@ def export_verified_dataset(
             "Clear all AMBER items before exporting out/verified_dataset.jsonl."
         )
 
-    records = build_verified_dataset_records(dec_df, gate_log)
+    rounds_data = amber_rounds if amber_rounds is not None else load_amber_rounds()
+    records = build_verified_dataset_records(dec_df, gate_log, amber_rounds=rounds_data)
     target = Path(out_path) if out_path is not None else (C.OUT_DIR / "verified_dataset.jsonl")
     target.parent.mkdir(parents=True, exist_ok=True)
     payload_jsonl = "\n".join(json.dumps(r) for r in records) + ("\n" if records else "")
     target.write_text(payload_jsonl, encoding="utf-8")
 
-    # Also write verified_export.json envelope in the same directory for compatibility with app.py
     envelope = {
         "project": "SurgProof",
         "exported_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -665,7 +845,7 @@ def export_verified_dataset(
 
 
 # ==============================================================================
-# 3. Frame Image & Bounding Box Rendering (Zero Ground Truth)
+# 4. Frame Image & Bounding Box Rendering (Zero Ground Truth)
 # ==============================================================================
 def parse_box(raw_box: Any) -> list[float] | None:
     """Safely parse a normalized [ymin, xmin, ymax, xmax] box in 0..1000."""
@@ -717,8 +897,9 @@ def render_amber_card_image(
     path_str: str | Path | None,
     row: Any,
     frame_id: str = "",
+    badge_status: str = "AMBER",
 ) -> tuple[Image.Image, Image.Image | None]:
-    """Return (annotated full frame, optional zoomed crop of bbox) for an AMBER claim."""
+    """Return (annotated full frame, optional zoomed crop of bbox) for a claim."""
     base_im = resolve_frame_image(path_str, frame_id=frame_id)
     im = base_im.copy()
     w, h = im.size
@@ -729,7 +910,6 @@ def render_amber_card_image(
         y0, x0, y1, x1 = box
         px0, py0 = int(x0 * w / 1000.0), int(y0 * h / 1000.0)
         px1, py1 = int(x1 * w / 1000.0), int(y1 * h / 1000.0)
-        # Extract padded crop before drawing border
         pad_x = max(12, int((px1 - px0) * 0.12))
         pad_y = max(12, int((py1 - py0) * 0.12))
         cx0, cy0 = max(0, px0 - pad_x), max(0, py0 - pad_y)
@@ -738,9 +918,9 @@ def render_amber_card_image(
             crop_im = base_im.crop((cx0, cy0, cx1, cy1))
 
         d = ImageDraw.Draw(im)
-        colour = STATUS_COLORS["AMBER"]
+        colour = STATUS_COLORS.get(badge_status, STATUS_COLORS["AMBER"])
         d.rectangle([px0, py0, px1, py1], outline=colour, width=4)
-        label_txt = f"AMBER: {getattr(row, 'key', '')}"
+        label_txt = f"{badge_status}: {getattr(row, 'key', '')}"
         d.rectangle([px0, max(0, py0 - 22), min(w, px0 + len(label_txt) * 8 + 12), py0], fill=colour)
         d.text((px0 + 5, max(2, py0 - 19)), label_txt, fill=(255, 255, 255))
 
@@ -748,7 +928,7 @@ def render_amber_card_image(
 
 
 # ==============================================================================
-# 4. Streamlit Page UI (pages/2_Human_gate.py)
+# 5. Streamlit Page UI (pages/2_Human_gate.py)
 # ==============================================================================
 def _inject_keyboard_shortcuts() -> None:
     """Bind A/Y (Approve), C/N (Correct/Flip), and J/K (Next/Prev) in the parent Streamlit document."""
@@ -797,10 +977,10 @@ def _inject_keyboard_shortcuts() -> None:
 
 
 def render_human_gate_page() -> None:
-    """Render the Streamlit Human Gate page (`pages/2_Human_gate.py`)."""
+    """Render the Streamlit Release Dataset Sign-Off / Human Gate page (`pages/2_Human_gate.py`)."""
     try:
         st.set_page_config(
-            page_title="SurgProof — Human Gate (People Stay in Control)",
+            page_title="SurgProof — Release Dataset Sign-Off (Human Gate)",
             page_icon="🛡️",
             layout="wide",
         )
@@ -828,67 +1008,73 @@ def render_human_gate_page() -> None:
             font-weight: 600;
             margin-bottom: 12px;
         }
-        .kbd-pill {
-            background: #1e293b;
-            color: #f8fafc;
-            padding: 2px 8px;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 0.85em;
+        .pos-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            font-size: 0.93rem;
         }
         </style>
         """,
         unsafe_allow_html=True,
     )
 
-    # Sidebar navigation & status
     with st.sidebar:
         if (C.ROOT / "app.py").is_file():
             try:
-                st.page_link("app.py", label="← Back to SurgProof Home", icon="🏠")
+                st.page_link("app.py", label="← Back to SurgProof Pipeline", icon="🏠")
             except Exception:
                 pass
-        st.subheader("🛡️ Human Gate Controls")
+        st.subheader("🛡️ Release Dataset Sign-Off")
         reviewer_name = st.text_input(
-            "Reviewer Identity (who)",
-            value="Clinical Reviewer (Surgical Gate)",
-            help="Recorded on every approval or correction in out/gate_log.jsonl.",
+            "Sign-Off Reviewer Identity (who)",
+            value="Clinical Reviewer (Dataset Sign-Off)",
+            help="Recorded on every approval, correction, or release sign-off in out/gate_log.jsonl.",
         )
         st.caption(
             "**Keyboard Shortcuts (Live Demo Speed Mode):**\n"
             "- Press **`A`** (or **`Y`**) → **Approve** model's call\n"
             "- Press **`C`** (or **`N`**) → **Correct / Flip** label (`1 ↔ 0`)\n"
-            "- Press **`J` / `K`** → Skip Next / Prev AMBER card\n"
+            "- Press **`J` / `K`** → Next / Prev AMBER card\n"
             "- Press **`Z`** → Undo last human decision"
         )
 
-    st.title("🛡️ Human Gate — People Stay in Control")
+    st.title("🛡️ Release Dataset Sign-Off — People Stay in Control")
     st.markdown(
-        "The zero-label verifier routes high-trust predictions to **`accept`**, low-trust claims to **`reject`**, "
-        "and uncertain predictions to **`AMBER`**. **Dataset export is strictly blocked until a human approves or corrects every `AMBER` item.**"
+        "<div class='pos-card'>"
+        "<b>Why this matters:</b> Existing surgical annotation suites (e.g. Supervisely / SAM / MixFormer / TAP-Net) require a human at every step: "
+        "drawing the first box, fixing tracking drift, tagging actions by hand, and reviewing every frame.<br>"
+        "<b>SurgProof removes the human from dataset creation:</b> autonomous seeding (<code>out/manual.json</code>), bulk labelling, "
+        "independent double-check on every label, and a multi-round <b>Amber Loop</b> that resolves uncertain claims. "
+        "<b>People stay in control at the final release gate:</b> review any residual <code>AMBER</code> items plus a spot-check sample of auto-accepted labels before releasing <code>out/verified_dataset.jsonl</code>."
+        "</div>",
+        unsafe_allow_html=True,
     )
 
     sources = discover_decision_sources()
     gate_log = load_gate_log()
+    amber_rounds = load_amber_rounds()
 
     if not sources:
         st.markdown(
-            "<div class='gate-banner-locked'>🔒 EXPORT LOCKED — Awaiting verifier decisions (<code>out/decisions.csv</code>) or smoke labels.</div>",
+            "<div class='gate-banner-locked'>🔒 ACTION BLOCKED (RELEASE LOCKED) — Awaiting verifier decisions (<code>out/decisions.csv</code>) or smoke labels.</div>",
             unsafe_allow_html=True,
         )
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Auto-Accepted (accept)", "PENDING")
         m2.metric("Auto-Rejected (reject)", "PENDING")
-        m3.metric("AMBER Pending Human", "PENDING")
-        m4.metric("AMBER Cleared by Human", len(gate_log))
+        m3.metric("Residual AMBER Queue", "PENDING")
+        m4.metric("Cleared by Human", len(gate_log))
         st.button(
-            "🔒 Export verified dataset (LOCKED — awaiting verifier decisions)",
+            "🔒 Release dataset — Export verified dataset (LOCKED — awaiting verifier decisions)",
+            key="btn_export_verified_dataset",
             disabled=True,
             width="stretch",
         )
         return
 
-    # Source selection (defaults to out/decisions.csv if present)
     if len(sources) > 1:
         src_labels = [s[0] for s in sources]
         picked_label = st.radio(
@@ -909,46 +1095,67 @@ def render_human_gate_page() -> None:
     m1, m2, m3, m4, m5 = st.columns(5)
     m1.metric("Auto-Accepted (accept)", summary["n_accept"])
     m2.metric("Auto-Rejected (reject)", summary["n_reject"])
-    m3.metric("AMBER Queue Pending", summary["n_amber_pending"])
+    m3.metric("Residual AMBER Pending", summary["n_amber_pending"])
     m4.metric("AMBER Cleared by Human", f"{summary['n_amber_cleared']} / {summary['n_amber_total']}")
     m5.metric(
-        "Human Breakdown",
+        "Human Sign-Off Log",
         f"{summary['n_human_approved']} approved · {summary['n_human_corrected']} corrected",
     )
 
-    # Progress bar toward unlocking export
+    # Shrinking Amber Loop Funnel (Hero Moment per VISION.md)
+    funnel_stages = compute_amber_funnel(
+        dec_df,
+        amber_rounds=amber_rounds,
+        n_amber_pending_after_human=summary["n_amber_pending"],
+    )
+    if funnel_stages:
+        with st.expander("📉 Multi-Round Amber Loop Funnel (Double-Check → Argon Loop → Human Release Gate)", expanded=True):
+            f_cols = st.columns(len(funnel_stages))
+            for idx_f, stg in enumerate(funnel_stages):
+                delta_str = (
+                    f"-{stg['resolved_in_step']} resolved"
+                    if stg["resolved_in_step"] > 0
+                    else stg["note"]
+                )
+                f_cols[idx_f].metric(
+                    stg["stage"],
+                    f"{stg['ambers_remaining']} AMBER",
+                    delta=delta_str,
+                    delta_color="inverse" if stg["resolved_in_step"] > 0 else "off",
+                )
+
     if summary["n_amber_total"] > 0:
         frac_done = summary["n_amber_cleared"] / max(1, summary["n_amber_total"])
         st.progress(
             frac_done,
             text=(
-                f"AMBER Review Progress: {summary['n_amber_cleared']} / {summary['n_amber_total']} cleared "
-                f"({summary['n_amber_pending']} remaining)"
+                f"Residual AMBER Sign-Off Progress: {summary['n_amber_cleared']} / {summary['n_amber_total']} cleared "
+                f"({summary['n_amber_pending']} remaining before dataset release unlocks)"
             ),
         )
 
-    # Strict Export Lock Gate Bar
+    # Strict Release / Export Lock Gate Bar
     export_path = C.OUT_DIR / "verified_dataset.jsonl"
     if summary["export_unlocked"]:
         st.markdown(
-            f"<div class='gate-banner-unlocked'>🔓 HUMAN GATE CLEARED — All {summary['n_amber_total']} AMBER label(s) reviewed. "
-            f"Verified dataset export (<code>out/verified_dataset.jsonl</code>) is UNLOCKED.</div>",
+            f"<div class='gate-banner-unlocked'>🔓 READY TO RELEASE DATASET — All {summary['n_amber_total']} residual AMBER label(s) cleared "
+            f"(0 pending). <b>Release dataset / Export verified dataset (<code>out/verified_dataset.jsonl</code>)</b> is UNLOCKED.</div>",
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
             f"<div class='gate-banner-locked'>🔒 ACTION BLOCKED (PEOPLE STAY IN CONTROL) — "
-            f"<b>{summary['n_amber_pending']} AMBER label(s)</b> require human approval or correction before "
-            f"<code>out/verified_dataset.jsonl</code> can be exported.</div>",
+            f"<b>{summary['n_amber_pending']} residual AMBER label(s)</b> require human approval or correction before "
+            f"releasing <code>out/verified_dataset.jsonl</code>.</div>",
             unsafe_allow_html=True,
         )
 
     exp_col1, exp_col2 = st.columns([2, 1])
     with exp_col1:
         export_btn_label = (
-            f"🔓 Export verified dataset -> out/verified_dataset.jsonl ({summary['n_accept'] + summary['n_amber_cleared']} verified rows)"
+            f"🔓 Release dataset — Export verified dataset -> out/verified_dataset.jsonl ({summary['n_accept'] + summary['n_amber_cleared']} verified rows + provenance)"
             if summary["export_unlocked"]
-            else f"🔒 Export verified dataset (DISABLED — clear {summary['n_amber_pending']} pending AMBER item(s) to unlock)"
+            else f"🔒 Release dataset — Export verified dataset (DISABLED — clear {summary['n_amber_pending']} pending AMBER item(s) to unlock)"
         )
         if st.button(
             export_btn_label,
@@ -957,13 +1164,23 @@ def render_human_gate_page() -> None:
             disabled=not summary["export_unlocked"],
             width="stretch",
         ):
-            exported_rows = export_verified_dataset(dec_df, gate_log, out_path=export_path)
+            exported_rows = export_verified_dataset(
+                dec_df,
+                gate_log,
+                out_path=export_path,
+                amber_rounds=amber_rounds,
+            )
             st.success(
-                f"✅ Wrote **{len(exported_rows)}** verified labels to `{export_path}` (`out/verified_dataset.jsonl`)."
+                f"✅ Dataset released! Wrote **{len(exported_rows)}** verified labels with full per-label provenance to `{export_path}` (`out/verified_dataset.jsonl`)."
             )
     with exp_col2:
         if summary["export_unlocked"]:
-            records_now = export_verified_dataset(dec_df, gate_log, out_path=export_path)
+            records_now = export_verified_dataset(
+                dec_df,
+                gate_log,
+                out_path=export_path,
+                amber_rounds=amber_rounds,
+            )
             jsonl_bytes = ("\n".join(json.dumps(r) for r in records_now) + "\n").encode("utf-8")
             st.download_button(
                 "⬇️ Download verified_dataset.jsonl",
@@ -986,7 +1203,7 @@ def render_human_gate_page() -> None:
     st.divider()
 
     # ==========================================================================
-    # Rapid Focus Deck (Fast <60s clearing of 20 AMBERs with Keyboard or Big Buttons)
+    # Part 1: Rapid Focus Deck + Full Residual AMBER Queue
     # ==========================================================================
     if not pending_df.empty:
         _inject_keyboard_shortcuts()
@@ -1013,7 +1230,7 @@ def render_human_gate_page() -> None:
 
         head_c1, head_c2 = st.columns([3, 2])
         with head_c1:
-            st.subheader(f"⚡ Rapid Review Deck — Pending AMBER #{cursor + 1} of {len(pending_df)}")
+            st.subheader(f"⚡ Residual AMBER Review Deck — Item #{cursor + 1} of {len(pending_df)}")
         with head_c2:
             nav1, nav2, nav3 = st.columns(3)
             with nav1:
@@ -1048,10 +1265,11 @@ def render_human_gate_page() -> None:
                     active_row.get("frame_path", ""),
                     active_row,
                     frame_id=fid,
+                    badge_status="AMBER",
                 )
                 st.image(full_im, caption=f"Frame {fid} ({vid}, split={split_val})", width="stretch")
                 if crop_im is not None:
-                    st.image(crop_im, caption=f"Zoomed region of interest: {k}", width=240)
+                    st.image(crop_im, caption=f"Zoomed evidence crop: {k}", width=240)
 
             with fc_info:
                 pres_badge = "PRESENT (1)" if model_pres == 1 else "ABSENT (0)"
@@ -1113,7 +1331,6 @@ def render_human_gate_page() -> None:
                         )
                         st.rerun()
 
-                # Batch accelerators for live 3-minute demo
                 same_frame_pending = pending_df[pending_df["frame_id"] == fid]
                 b_col1, b_col2 = st.columns(2)
                 with b_col1:
@@ -1162,10 +1379,7 @@ def render_human_gate_page() -> None:
                             )
                         st.rerun()
 
-        # ======================================================================
-        # Full Pending AMBER Queue List (Every AMBER label shown with image, label, conf, rationale)
-        # ======================================================================
-        st.subheader(f"All Pending AMBER Items ({len(pending_df)})")
+        st.subheader(f"All Pending Residual AMBER Items ({len(pending_df)})")
         for idx, r in enumerate(pending_df.itertuples()):
             r_fid = str(r.frame_id)
             r_k = str(r.key)
@@ -1184,7 +1398,12 @@ def render_human_gate_page() -> None:
             with st.container(border=True):
                 qc1, qc2, qc3 = st.columns([1.1, 2.1, 1.2])
                 with qc1:
-                    card_im, _ = render_amber_card_image(getattr(r, "frame_path", ""), r, frame_id=r_fid)
+                    card_im, _ = render_amber_card_image(
+                        getattr(r, "frame_path", ""),
+                        r,
+                        frame_id=r_fid,
+                        badge_status="AMBER",
+                    )
                     st.image(card_im, width="stretch")
                 with qc2:
                     st.markdown(f"**#{idx + 1} · `{r_k}` ({r_name}) — Frame `{r_fid}` (`{r_vid}`)**")
@@ -1235,10 +1454,46 @@ def render_human_gate_page() -> None:
                         st.rerun()
 
     # ==========================================================================
-    # Cleared AMBER Items & Audit Log (out/gate_log.jsonl)
+    # Part 2: Random Audit Sample of Auto-Accepted Labels (VISION.md Final Pass)
+    # ==========================================================================
+    audit_sample_df = sample_accepted_for_audit(dec_df, n_sample=6, seed=0)
+    if not audit_sample_df.empty:
+        with st.expander(
+            f"🔍 Final Pass Spot-Check: Random Audit Sample of Auto-Accepted Labels ({len(audit_sample_df)} of {summary['n_accept']} `accept` labels with evidence crops)",
+            expanded=pending_df.empty,
+        ):
+            st.caption(
+                "Per VISION.md: Before releasing the dataset, the human reviewer can inspect a random sample of auto-accepted labels alongside their zoomed evidence crops."
+            )
+            audit_cols = st.columns(3)
+            for a_idx, a_row in enumerate(audit_sample_df.itertuples()):
+                col_a = audit_cols[a_idx % 3]
+                a_fid = str(a_row.frame_id)
+                a_k = str(a_row.key)
+                a_pres = int(_safe_present(getattr(a_row, "final_present", getattr(a_row, "present", 0))))
+                a_conf = float(_safe_prob(getattr(a_row, "conf", 0.0)))
+                a_trust = float(_safe_prob(getattr(a_row, "trust", 0.0)))
+                a_rat = str(getattr(a_row, "rationale", getattr(a_row, "evidence", "")))
+                full_im_a, crop_im_a = render_amber_card_image(
+                    getattr(a_row, "frame_path", ""),
+                    a_row,
+                    frame_id=a_fid,
+                    badge_status="accept",
+                )
+                with col_a:
+                    with st.container(border=True):
+                        st.image(crop_im_a if crop_im_a is not None else full_im_a, width="stretch")
+                        st.markdown(
+                            f"**`{a_k}`** (`{a_fid}`) — **`{'PRESENT (1)' if a_pres else 'ABSENT (0)'}`**\n\n"
+                            f"Conf `{a_conf * 100:.0f}%` · Trust `{a_trust:.2f}`\n\n"
+                            f"*{a_rat}*"
+                        )
+
+    # ==========================================================================
+    # Part 3: Cleared AMBER Items, Provenance Preview & Audit Log
     # ==========================================================================
     if not cleared_df.empty:
-        with st.expander(f"✅ Cleared AMBER Items ({len(cleared_df)})", expanded=pending_df.empty):
+        with st.expander(f"✅ Human-Cleared AMBER Items ({len(cleared_df)})", expanded=pending_df.empty):
             show_cols = [
                 c
                 for c in [
@@ -1256,6 +1511,20 @@ def render_human_gate_page() -> None:
                 if c in cleared_df.columns
             ]
             st.dataframe(cleared_df[show_cols], width="stretch")
+
+    if summary["export_unlocked"]:
+        preview_records = build_verified_dataset_records(dec_df, gate_log, amber_rounds=amber_rounds)
+        if preview_records:
+            with st.expander(
+                f"📦 Verified Dataset & Per-Label Provenance Preview (`out/verified_dataset.jsonl`, {len(preview_records)} rows)",
+                expanded=True,
+            ):
+                src_counts = pd.Series([r["verification_source"] for r in preview_records]).value_counts().to_dict()
+                st.markdown(
+                    "**Dataset Provenance Breakdown:** "
+                    + " · ".join(f"`{k}`: **{v}**" for k, v in src_counts.items())
+                )
+                st.json(preview_records[0])
 
     if gate_log:
         with st.expander(f"📜 Human Gate Audit Log (`out/gate_log.jsonl`, {len(gate_log)} events)", expanded=False):

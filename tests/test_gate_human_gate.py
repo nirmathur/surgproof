@@ -468,4 +468,78 @@ def test_clear_20_real_smoke_ambers_via_ui_and_export_verified_dataset(tmp_path,
     assert verified_jsonl.is_file()
     verified_rows = [json.loads(ln) for ln in verified_jsonl.read_text(encoding="utf-8").splitlines() if ln.strip()]
     assert len(verified_rows) == initial_summary["n_accept"] + initial_summary["n_amber_total"]
+    for vr in verified_rows:
+        assert "provenance" in vr
+        assert vr["provenance"]["seeding"] == "self_written_manual (out/manual.json)"
+        assert "double_check" in vr["provenance"]
+        assert "release_gate" in vr["provenance"]
+
+
+def test_amber_loop_funnel_and_accepted_audit_sample():
+    """Verify multi-round Amber Loop funnel calculation and deterministic accepted audit sampling."""
+    gate = _load_gate_module()
+    dec_df = pd.DataFrame([
+        {
+            "frame_id": f"f{i}",
+            "video": "video12",
+            "split": "test",
+            "key": "grasper",
+            "present": 1,
+            "final_present": 1,
+            "conf": 0.95,
+            "p_wrong": 0.05,
+            "pv_match": True,
+            "box": "[100, 100, 400, 400]",
+            "status": "accept",
+            "final_by": "flash",
+            "rationale": "jaws visible",
+        }
+        for i in range(8)
+    ] + [
+        {
+            "frame_id": "f8",
+            "video": "video12",
+            "split": "test",
+            "key": "cystic_duct",
+            "present": 1,
+            "final_present": 1,
+            "conf": 0.90,
+            "p_wrong": 0.10,
+            "pv_match": False,  # initial trust = 0.90 * 0.90 * 0.5 = 0.405 -> Round 0 AMBER
+            "box": "[200, 200, 500, 500]",
+            "status": "accept",  # resolved by Argon in Round 1
+            "final_by": "argon",
+            "rationale": "resolved by Argon loop",
+        },
+        {
+            "frame_id": "f9",
+            "video": "video12",
+            "split": "test",
+            "key": "blood",
+            "present": 1,
+            "final_present": 1,
+            "conf": 0.85,
+            "p_wrong": 0.10,
+            "pv_match": False,  # initial trust = 0.85 * 0.90 * 0.5 = 0.3825 -> Round 0 AMBER
+            "box": "[300, 300, 600, 600]",
+            "status": "AMBER",  # still AMBER after loop
+            "final_by": "argon",
+            "rationale": "still ambiguous",
+        },
+    ])
+    amber_rounds = [
+        {"frame_id": "f8", "key": "cystic_duct", "round": 1, "verdict": "accept", "reason": "Confirmed on tighter crop"},
+        {"frame_id": "f9", "key": "blood", "round": 1, "verdict": "AMBER", "reason": "Still ambiguous"},
+    ]
+    funnel = gate.compute_amber_funnel(dec_df, amber_rounds=amber_rounds, n_amber_pending_after_human=0)
+    assert len(funnel) == 3
+    assert funnel[0]["ambers_remaining"] == 2
+    assert funnel[1]["ambers_remaining"] == 1
+    assert funnel[1]["resolved_in_step"] == 1
+    assert funnel[2]["ambers_remaining"] == 0
+
+    sample_df = gate.sample_accepted_for_audit(dec_df, n_sample=5, seed=0)
+    assert len(sample_df) == 5
+    assert (sample_df["status"] == "accept").all()
+
 
