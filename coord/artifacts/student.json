@@ -1,0 +1,657 @@
+{
+  "mean_acc_by_source": {
+    "single": 0.8893,
+    "verified": 0.9014,
+    "oracle_upper_bound": 0.8814
+  },
+  "mean_f1_by_source": {
+    "single": 0.4952,
+    "verified": 0.509,
+    "oracle_upper_bound": 0.4909
+  },
+  "mean_auroc_by_source": {
+    "single": 0.666,
+    "verified": 0.6871,
+    "oracle_upper_bound": 0.6797
+  },
+  "mean_n_train_by_source": {
+    "single": 630.0,
+    "verified": 599.2,
+    "oracle_upper_bound": 630.0
+  },
+  "bootstrap_ci_by_source": {
+    "single": {
+      "mean_acc": 0.8893,
+      "ci_95": [
+        0.8439,
+        0.9537
+      ],
+      "n_bootstrap": 2000,
+      "cluster_unit": "video",
+      "n_clusters": 6
+    },
+    "verified": {
+      "mean_acc": 0.9014,
+      "ci_95": [
+        0.856,
+        0.955
+      ],
+      "n_bootstrap": 2000,
+      "cluster_unit": "video",
+      "n_clusters": 6
+    },
+    "oracle_upper_bound": {
+      "mean_acc": 0.8814,
+      "ci_95": [
+        0.836,
+        0.9383
+      ],
+      "n_bootstrap": 2000,
+      "cluster_unit": "video",
+      "n_clusters": 6
+    }
+  },
+  "video_bootstrap_ci": {
+    "single": {
+      "mean_acc": 0.8893,
+      "ci_95": [
+        0.8439,
+        0.9537
+      ],
+      "n_bootstrap": 2000,
+      "cluster_unit": "video",
+      "n_clusters": 6
+    },
+    "verified": {
+      "mean_acc": 0.9014,
+      "ci_95": [
+        0.856,
+        0.955
+      ],
+      "n_bootstrap": 2000,
+      "cluster_unit": "video",
+      "n_clusters": 6
+    },
+    "oracle_upper_bound": {
+      "mean_acc": 0.8814,
+      "ci_95": [
+        0.836,
+        0.9383
+      ],
+      "n_bootstrap": 2000,
+      "cluster_unit": "video",
+      "n_clusters": 6
+    }
+  },
+  "paired_bootstrap_verified_vs_single": {
+    "delta_mean_acc": 0.0121,
+    "ci_95": [
+      -0.0033,
+      0.0253
+    ],
+    "p_verified_gt_single": 0.938,
+    "n_bootstrap": 2000,
+    "cluster_unit": "video"
+  },
+  "core_balanced_3_labels": [
+    "grasper",
+    "l_hook",
+    "gallbladder"
+  ],
+  "core_balanced_3_mean_acc_by_source": {
+    "single": 0.8191,
+    "verified": 0.8369,
+    "oracle_upper_bound": 0.8036
+  },
+  "core_balanced_3_mean_f1_by_source": {
+    "single": 0.8254,
+    "verified": 0.8484,
+    "oracle_upper_bound": 0.8181
+  },
+  "core_balanced_3_mean_auroc_by_source": {
+    "single": 0.8784,
+    "verified": 0.8767,
+    "oracle_upper_bound": 0.8298
+  },
+  "headline_labels": [
+    "grasper",
+    "l_hook",
+    "gallbladder",
+    "cystic_duct",
+    "blood"
+  ],
+  "excluded_uninformative_labels": [
+    "liver"
+  ],
+  "excluded_label_note": "liver is present in 100% of CholecSeg8k frames (carries zero discriminative information). It is reported in per_label['liver'] and excluded from headline mean_acc_by_source. On the test split, cystic_duct (1/280 pos) and blood (0/280 pos) test false-positive suppression (specificity), while grasper, l_hook, and gallbladder have balanced positive/negative test support.",
+  "non_headline_all6_mean_acc_by_source": {
+    "single": 0.9077,
+    "verified": 0.9179,
+    "oracle_upper_bound": 0.9012
+  },
+  "evaluation_split": "test",
+  "n_test_frames": 280,
+  "n_test_videos": 6,
+  "upper_bounds": [
+    "oracle_upper_bound"
+  ],
+  "upper_bound_note": "oracle_upper_bound is trained on human ground-truth labels on train videos and is reported as an UPPER BOUND ONLY (not part of the zero-human-label claim).",
+  "source_metadata": {
+    "single": {
+      "is_upper_bound": false,
+      "uses_human_labels": false,
+      "description": "Every single-pass Gemini label on train videos (unfiltered baseline)"
+    },
+    "verified": {
+      "is_upper_bound": false,
+      "uses_human_labels": false,
+      "description": "Only train labels accepted by the zero-human-label verification pipeline"
+    },
+    "oracle_upper_bound": {
+      "is_upper_bound": true,
+      "uses_human_labels": true,
+      "description": "UPPER BOUND ONLY: trained on human ground-truth labels on train videos (not part of claim)"
+    }
+  },
+  "per_label": {
+    "grasper": {
+      "single": {
+        "n_train": 630,
+        "n_pos_train": 456,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 201,
+        "pos_rate_train": 0.7238,
+        "pos_rate_test_gt": 0.7179,
+        "acc": 0.8893,
+        "balanced_acc": 0.8307,
+        "f1": 0.926,
+        "pred_pos_rate_test": 0.7786,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.9506,
+        "acc_ci_95": [
+          0.8429,
+          0.9526
+        ]
+      },
+      "verified": {
+        "n_train": 608,
+        "n_pos_train": 442,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 201,
+        "pos_rate_train": 0.727,
+        "pos_rate_test_gt": 0.7179,
+        "acc": 0.8929,
+        "balanced_acc": 0.8447,
+        "f1": 0.9275,
+        "pred_pos_rate_test": 0.7607,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.9574,
+        "acc_ci_95": [
+          0.8433,
+          0.9565
+        ]
+      },
+      "oracle_upper_bound": {
+        "n_train": 630,
+        "n_pos_train": 456,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 201,
+        "pos_rate_train": 0.7238,
+        "pos_rate_test_gt": 0.7179,
+        "acc": 0.8964,
+        "balanced_acc": 0.851,
+        "f1": 0.9298,
+        "pred_pos_rate_test": 0.7571,
+        "is_upper_bound": true,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.9577,
+        "acc_ci_95": [
+          0.8433,
+          0.9609
+        ]
+      }
+    },
+    "l_hook": {
+      "single": {
+        "n_train": 630,
+        "n_pos_train": 172,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 92,
+        "pos_rate_train": 0.273,
+        "pos_rate_test_gt": 0.3286,
+        "acc": 0.825,
+        "balanced_acc": 0.7781,
+        "f1": 0.7066,
+        "pred_pos_rate_test": 0.2679,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.9306,
+        "acc_ci_95": [
+          0.65,
+          0.9762
+        ]
+      },
+      "verified": {
+        "n_train": 617,
+        "n_pos_train": 159,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 92,
+        "pos_rate_train": 0.2577,
+        "pos_rate_test_gt": 0.3286,
+        "acc": 0.8536,
+        "balanced_acc": 0.8188,
+        "f1": 0.763,
+        "pred_pos_rate_test": 0.2893,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.9361,
+        "acc_ci_95": [
+          0.7265,
+          0.976
+        ]
+      },
+      "oracle_upper_bound": {
+        "n_train": 630,
+        "n_pos_train": 162,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 92,
+        "pos_rate_train": 0.2571,
+        "pos_rate_test_gt": 0.3286,
+        "acc": 0.8214,
+        "balanced_acc": 0.7782,
+        "f1": 0.7059,
+        "pred_pos_rate_test": 0.2786,
+        "is_upper_bound": true,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.9302,
+        "acc_ci_95": [
+          0.6735,
+          0.97
+        ]
+      }
+    },
+    "liver": {
+      "single": {
+        "n_train": 630,
+        "n_pos_train": 622,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 280,
+        "pos_rate_train": 0.9873,
+        "pos_rate_test_gt": 1.0,
+        "acc": 1.0,
+        "balanced_acc": null,
+        "f1": 1.0,
+        "pred_pos_rate_test": 1.0,
+        "is_upper_bound": false,
+        "informative": false,
+        "excluded_from_headline": true
+      },
+      "verified": {
+        "n_train": 248,
+        "n_pos_train": 246,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 280,
+        "pos_rate_train": 0.9919,
+        "pos_rate_test_gt": 1.0,
+        "acc": 1.0,
+        "balanced_acc": null,
+        "f1": 1.0,
+        "pred_pos_rate_test": 1.0,
+        "is_upper_bound": false,
+        "informative": false,
+        "excluded_from_headline": true
+      },
+      "oracle_upper_bound": {
+        "n_train": 630,
+        "n_pos_train": 630,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 280,
+        "pos_rate_train": 1.0,
+        "pos_rate_test_gt": 1.0,
+        "acc": 1.0,
+        "balanced_acc": null,
+        "f1": 1.0,
+        "pred_pos_rate_test": 1.0,
+        "is_upper_bound": true,
+        "informative": false,
+        "excluded_from_headline": true,
+        "single_class_fallback": true
+      }
+    },
+    "gallbladder": {
+      "single": {
+        "n_train": 630,
+        "n_pos_train": 543,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 194,
+        "pos_rate_train": 0.8619,
+        "pos_rate_test_gt": 0.6929,
+        "acc": 0.7429,
+        "balanced_acc": 0.5814,
+        "f1": 0.8435,
+        "pred_pos_rate_test": 0.95,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.7541,
+        "acc_ci_95": [
+          0.4677,
+          0.9605
+        ]
+      },
+      "verified": {
+        "n_train": 576,
+        "n_pos_train": 501,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 194,
+        "pos_rate_train": 0.8698,
+        "pos_rate_test_gt": 0.6929,
+        "acc": 0.7643,
+        "balanced_acc": 0.6163,
+        "f1": 0.8546,
+        "pred_pos_rate_test": 0.9286,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.7366,
+        "acc_ci_95": [
+          0.4968,
+          0.9605
+        ]
+      },
+      "oracle_upper_bound": {
+        "n_train": 630,
+        "n_pos_train": 553,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 194,
+        "pos_rate_train": 0.8778,
+        "pos_rate_test_gt": 0.6929,
+        "acc": 0.6929,
+        "balanced_acc": 0.5,
+        "f1": 0.8186,
+        "pred_pos_rate_test": 1.0,
+        "is_upper_bound": true,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.6015,
+        "acc_ci_95": [
+          0.3885,
+          0.9605
+        ]
+      }
+    },
+    "cystic_duct": {
+      "single": {
+        "n_train": 630,
+        "n_pos_train": 20,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 1,
+        "pos_rate_train": 0.0317,
+        "pos_rate_test_gt": 0.0036,
+        "acc": 0.9964,
+        "balanced_acc": 0.5,
+        "f1": 0.0,
+        "pred_pos_rate_test": 0.0,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.0287,
+        "acc_ci_95": [
+          0.988,
+          1.0
+        ]
+      },
+      "verified": {
+        "n_train": 608,
+        "n_pos_train": 13,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 1,
+        "pos_rate_train": 0.0214,
+        "pos_rate_test_gt": 0.0036,
+        "acc": 0.9964,
+        "balanced_acc": 0.5,
+        "f1": 0.0,
+        "pred_pos_rate_test": 0.0,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.1183,
+        "acc_ci_95": [
+          0.988,
+          1.0
+        ]
+      },
+      "oracle_upper_bound": {
+        "n_train": 630,
+        "n_pos_train": 30,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 1,
+        "pos_rate_train": 0.0476,
+        "pos_rate_test_gt": 0.0036,
+        "acc": 0.9964,
+        "balanced_acc": 0.5,
+        "f1": 0.0,
+        "pred_pos_rate_test": 0.0,
+        "is_upper_bound": true,
+        "informative": true,
+        "excluded_from_headline": false,
+        "auroc": 0.2294,
+        "acc_ci_95": [
+          0.988,
+          1.0
+        ]
+      }
+    },
+    "blood": {
+      "single": {
+        "n_train": 630,
+        "n_pos_train": 84,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 0,
+        "pos_rate_train": 0.1333,
+        "pos_rate_test_gt": 0.0,
+        "acc": 0.9929,
+        "balanced_acc": null,
+        "f1": 0.0,
+        "pred_pos_rate_test": 0.0071,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "acc_ci_95": [
+          0.9824,
+          1.0
+        ]
+      },
+      "verified": {
+        "n_train": 587,
+        "n_pos_train": 53,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 0,
+        "pos_rate_train": 0.0903,
+        "pos_rate_test_gt": 0.0,
+        "acc": 1.0,
+        "balanced_acc": null,
+        "f1": 0.0,
+        "pred_pos_rate_test": 0.0,
+        "is_upper_bound": false,
+        "informative": true,
+        "excluded_from_headline": false,
+        "acc_ci_95": [
+          1.0,
+          1.0
+        ]
+      },
+      "oracle_upper_bound": {
+        "n_train": 630,
+        "n_pos_train": 85,
+        "n_test_scorable": 280,
+        "n_pos_test_gt": 0,
+        "pos_rate_train": 0.1349,
+        "pos_rate_test_gt": 0.0,
+        "acc": 1.0,
+        "balanced_acc": null,
+        "f1": 0.0,
+        "pred_pos_rate_test": 0.0,
+        "is_upper_bound": true,
+        "informative": true,
+        "excluded_from_headline": false,
+        "acc_ci_95": [
+          1.0,
+          1.0
+        ]
+      }
+    }
+  },
+  "external_test_evaluation": {
+    "cholect50": {
+      "n_test_frames": 120,
+      "scorable_labels": [
+        "grasper",
+        "l_hook"
+      ],
+      "mean_acc_by_source": {
+        "single": 0.725,
+        "verified": 0.6875,
+        "oracle_upper_bound": 0.6917
+      },
+      "mean_auroc_by_source": {
+        "single": 0.7674,
+        "verified": 0.7596,
+        "oracle_upper_bound": 0.7581
+      },
+      "per_label": {
+        "grasper": {
+          "single": {
+            "n_test_scorable": 120,
+            "n_pos_test_gt": 83,
+            "acc": 0.8,
+            "f1": 0.8621,
+            "is_upper_bound": false,
+            "auroc": 0.8271
+          },
+          "verified": {
+            "n_test_scorable": 120,
+            "n_pos_test_gt": 83,
+            "acc": 0.75,
+            "f1": 0.8193,
+            "is_upper_bound": false,
+            "auroc": 0.8255
+          },
+          "oracle_upper_bound": {
+            "n_test_scorable": 120,
+            "n_pos_test_gt": 83,
+            "acc": 0.7417,
+            "f1": 0.8121,
+            "is_upper_bound": true,
+            "auroc": 0.8209
+          }
+        },
+        "l_hook": {
+          "single": {
+            "n_test_scorable": 120,
+            "n_pos_test_gt": 76,
+            "acc": 0.65,
+            "f1": 0.7123,
+            "is_upper_bound": false,
+            "auroc": 0.7078
+          },
+          "verified": {
+            "n_test_scorable": 120,
+            "n_pos_test_gt": 76,
+            "acc": 0.625,
+            "f1": 0.6809,
+            "is_upper_bound": false,
+            "auroc": 0.6938
+          },
+          "oracle_upper_bound": {
+            "n_test_scorable": 120,
+            "n_pos_test_gt": 76,
+            "acc": 0.6417,
+            "f1": 0.7034,
+            "is_upper_bound": true,
+            "auroc": 0.6953
+          }
+        }
+      }
+    },
+    "endoscapes2023": {
+      "n_test_frames": 59,
+      "scorable_labels": [
+        "cystic_duct",
+        "gallbladder"
+      ],
+      "mean_acc_by_source": {
+        "single": 0.5424,
+        "verified": 0.5424,
+        "oracle_upper_bound": 0.5424
+      },
+      "mean_auroc_by_source": {
+        "single": 0.82,
+        "verified": 0.8475,
+        "oracle_upper_bound": 0.8585
+      },
+      "per_label": {
+        "gallbladder": {
+          "single": {
+            "n_test_scorable": 59,
+            "n_pos_test_gt": 58,
+            "acc": 0.9831,
+            "f1": 0.9915,
+            "is_upper_bound": false,
+            "auroc": 0.9483
+          },
+          "verified": {
+            "n_test_scorable": 59,
+            "n_pos_test_gt": 58,
+            "acc": 0.9831,
+            "f1": 0.9915,
+            "is_upper_bound": false,
+            "auroc": 1.0
+          },
+          "oracle_upper_bound": {
+            "n_test_scorable": 59,
+            "n_pos_test_gt": 58,
+            "acc": 0.9831,
+            "f1": 0.9915,
+            "is_upper_bound": true,
+            "auroc": 1.0
+          }
+        },
+        "cystic_duct": {
+          "single": {
+            "n_test_scorable": 59,
+            "n_pos_test_gt": 53,
+            "acc": 0.1017,
+            "f1": 0.0,
+            "is_upper_bound": false,
+            "auroc": 0.6918
+          },
+          "verified": {
+            "n_test_scorable": 59,
+            "n_pos_test_gt": 53,
+            "acc": 0.1017,
+            "f1": 0.0,
+            "is_upper_bound": false,
+            "auroc": 0.695
+          },
+          "oracle_upper_bound": {
+            "n_test_scorable": 59,
+            "n_pos_test_gt": 53,
+            "acc": 0.1017,
+            "f1": 0.0,
+            "is_upper_bound": true,
+            "auroc": 0.717
+          }
+        }
+      }
+    }
+  }
+}

@@ -236,13 +236,48 @@ def _accepted_summary(sub_df: pd.DataFrame) -> dict:
     escalated_mask = sub_df.status.isin(["reject", "escalate", "AMBER", "amber", "reanalyse"])
     amber_mask = sub_df.status.isin(["AMBER", "amber", "reanalyse"])
     reject_mask = sub_df.status.isin(["reject", "escalate"])
-    return {
+    out = {
         "coverage": round(len(acc_t) / len(sub_df), 3) if len(sub_df) else 0.0,
         "accuracy": round(float(acc_t.final_correct.mean()), 4) if len(acc_t) else None,
+        "raw_accuracy": round(float(sub_df.correct.mean()), 4) if len(sub_df) else None,
+        "n_accepted": int(len(acc_t)),
+        "n_total": int(len(sub_df)),
         "escalated_share": round(float(escalated_mask.mean()), 3) if len(sub_df) else 0.0,
         "amber_share": round(float(amber_mask.mean()), 3) if len(sub_df) else 0.0,
         "rejected_share": round(float(reject_mask.mean()), 3) if len(sub_df) else 0.0,
     }
+    if len(sub_df) > 0 and "frame_id" in sub_df.columns:
+        vcol = sub_df["video"] if "video" in sub_df.columns else sub_df["frame_id"].astype(str).str.split("_").str[0]
+        vids = list(pd.unique(vcol))
+        if len(vids) >= 2 and len(acc_t) > 0:
+            v_masks = [vcol.values == v for v in vids]
+            acc_flag = (sub_df.status == "accept").values.astype(float)
+            fin_corr = (acc_flag * sub_df.final_correct.values.astype(float))
+            raw_corr = sub_df.correct.values.astype(float)
+            v_n = np.array([float(m.sum()) for m in v_masks])
+            v_acc_n = np.array([float(acc_flag[m].sum()) for m in v_masks])
+            v_fin_c = np.array([float(fin_corr[m].sum()) for m in v_masks])
+            v_raw_c = np.array([float(raw_corr[m].sum()) for m in v_masks])
+            rng = np.random.default_rng(C.SEED)
+            draws = rng.integers(0, len(vids), size=(2000, len(vids)))
+            tot_d = np.maximum(v_n[draws].sum(axis=1), 1.0)
+            acc_n_d = np.maximum(v_acc_n[draws].sum(axis=1), 1.0)
+            acc_draws = v_fin_c[draws].sum(axis=1) / acc_n_d
+            raw_draws = v_raw_c[draws].sum(axis=1) / tot_d
+            cov_draws = v_acc_n[draws].sum(axis=1) / tot_d
+            gain_draws = acc_draws - raw_draws
+            out["bootstrap_ci_95"] = {
+                "accepted_accuracy_ci_95": [round(float(np.percentile(acc_draws, 2.5)), 4), round(float(np.percentile(acc_draws, 97.5)), 4)],
+                "raw_accuracy_ci_95": [round(float(np.percentile(raw_draws, 2.5)), 4), round(float(np.percentile(raw_draws, 97.5)), 4)],
+                "coverage_ci_95": [round(float(np.percentile(cov_draws, 2.5)), 4), round(float(np.percentile(cov_draws, 97.5)), 4)],
+                "verification_gain_pp": round(float(out["accuracy"] - out["raw_accuracy"]), 4),
+                "verification_gain_ci_95": [round(float(np.percentile(gain_draws, 2.5)), 4), round(float(np.percentile(gain_draws, 97.5)), 4)],
+                "p_gain_gt_0": round(float((gain_draws > 0).mean()), 4),
+                "n_bootstrap": 2000,
+                "cluster_unit": "video",
+                "n_clusters": int(len(vids)),
+            }
+    return out
 
 
 def evaluate_decisions(data_dir: Path | None = None, out_dir: Path | None = None) -> dict:
