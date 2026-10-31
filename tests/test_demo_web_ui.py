@@ -27,12 +27,17 @@ def test_web_ui_files_exist_and_have_required_toolbox_elements():
     js = js_path.read_text()
 
     required_ids = [
+        "viewer",
+        "objects",
+        "timeline",
         "frame-canvas",
-        "timeline-tracks",
-        "inspector-cards",
+        "sel-video",
+        "btn-guided-mode",
+        "guided-beat-banner",
         "btn-stream-agent",
         "btn-final-pass",
         "chk-ai-masks",
+        "chk-ai-polygons",
         "chk-ai-boxes",
         "chk-ai-tips",
         "chk-show-gt",
@@ -42,9 +47,11 @@ def test_web_ui_files_exist_and_have_required_toolbox_elements():
     for dom_id in required_ids:
         assert f'id="{dom_id}"' in html, f"Missing #{dom_id} in web/index.html"
 
-    # Must poll live.json every 2 seconds and read video12.json
-    assert "video12.json" in js
+    # Must poll live.json every 2 seconds, read video bundles, render polygon_px, and support 7-beat guided mode
+    assert "video12" in js
     assert "live.json" in js
+    assert "polygon_px" in js
+    assert "setGuidedBeat" in js
     assert "pollLiveAnnotations" in js
     assert "2000" in js
 
