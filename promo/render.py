@@ -206,14 +206,14 @@ def _load_cholec_frames() -> List[Image.Image]:
     return frames
 
 
-def _load_target_frame_and_boxes() -> Tuple[Image.Image, List[Dict[str, Any]]]:
-    """Load real frame video12_15750_15758 and its 5 positive predictions + verifier statuses."""
-    default_boxes = [
-        {"key": "grasper", "box": [420, 140, 522, 380], "status": "accept", "corner": "tl"},
-        {"key": "l_hook", "box": [50, 524, 492, 824], "status": "accept", "corner": "tr"},
-        {"key": "gallbladder", "box": [8, 298, 565, 560], "status": "accept", "corner": "tl"},
-        {"key": "liver", "box": [126, 300, 764, 868], "status": "AMBER", "corner": "br"},
-        {"key": "cystic_duct", "box": [445, 445, 748, 810], "status": "reject", "corner": "bl"},
+def _load_target_frame_and_boxes(out_dir: Path = OUT_DIR) -> Tuple[Image.Image, List[Dict[str, Any]]]:
+    """Load real frame video12_15750_15758, verifier statuses from decisions.csv, and boxes ONLY from out/annotations.jsonl."""
+    items: List[Dict[str, Any]] = [
+        {"key": "grasper", "box": [], "status": "", "corner": "tl"},
+        {"key": "l_hook", "box": [], "status": "", "corner": "tr"},
+        {"key": "gallbladder", "box": [], "status": "", "corner": "tl"},
+        {"key": "liver", "box": [], "status": "", "corner": "br"},
+        {"key": "cystic_duct", "box": [], "status": "", "corner": "bl"},
     ]
     frame_img: Optional[Image.Image] = None
     idx_csv = DATA_DIR / "index.csv"
@@ -226,34 +226,46 @@ def _load_target_frame_and_boxes() -> Tuple[Image.Image, List[Dict[str, Any]]]:
     if frame_img is None:
         frame_img = _load_cholec_frames()[1]
 
-    # Check if decisions.csv has real boxes for video12_15750_15758
-    dec_csv = OUT_DIR / "decisions.csv"
+    # Read statuses strictly from out/decisions.csv for the shown frame_id
+    dec_csv = out_dir / "decisions.csv"
     if dec_csv.is_file():
         by_key: Dict[str, Dict[str, Any]] = {}
         with open(dec_csv, "r", encoding="utf-8") as f:
             for r in csv.DictReader(f):
                 if r.get("frame_id") == "video12_15750_15758":
                     by_key[r.get("key", "")] = r
-        for item in default_boxes:
+        for item in items:
             k = item["key"]
             if k in by_key:
-                raw_b = by_key[k].get("box", "")
-                try:
-                    parsed = json.loads(raw_b) if isinstance(raw_b, str) else raw_b
-                    if isinstance(parsed, list) and len(parsed) == 4:
-                        item["box"] = [int(x) for x in parsed]
-                except Exception:
-                    pass
-                # Read Round-0 double-check status (status_round_0) so Shot 4 shows pre-loop Green/Amber/Red
-                st0 = by_key[k].get("status_round_0")
-                if st0 in ("accept", "AMBER", "reject"):
-                    item["status"] = st0
-                elif k != "liver":
-                    st = by_key[k].get("status", "")
-                    if st in ("accept", "AMBER", "reject"):
-                        item["status"] = st
+                st = by_key[k].get("status_round_0") or by_key[k].get("status") or ""
+                item["status"] = str(st)
 
-    return frame_img, default_boxes
+    # Strictly read boxes ONLY from out/annotations.jsonl (or out/annotations_live.jsonl) model output
+    for ann_name in ("annotations.jsonl", "annotations_live.jsonl"):
+        ann_path = out_dir / ann_name
+        if not ann_path.is_file():
+            continue
+        try:
+            by_label: Dict[str, List[int]] = {}
+            for line in ann_path.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                obj = json.loads(line)
+                if obj.get("frame_id") != "video12_15750_15758":
+                    continue
+                lbl = str(obj.get("label") or obj.get("key") or "")
+                raw_b = obj.get("box")
+                if isinstance(raw_b, list) and len(raw_b) == 4:
+                    by_label[lbl] = [int(x) for x in raw_b]
+            for item in items:
+                if item["key"] in by_label:
+                    item["box"] = by_label[item["key"]]
+            if by_label:
+                break
+        except Exception:
+            continue
+
+    return frame_img, items
 
 
 def _draw_box_with_pill(
@@ -267,7 +279,9 @@ def _draw_box_with_pill(
     text_color: Tuple[int, int, int],
     corner: str = "tl",
 ) -> None:
-    """Draw a 2px bounding box and crisp 6px-radius label pill mapped from [ymin, xmin, ymax, xmax] 0..1000."""
+    """Draw a 2px bounding box and crisp 6px-radius label pill ONLY when box_norm has 4 model coordinates."""
+    if not box_norm or len(box_norm) != 4:
+        return
     rx, ry = rect_origin
     rw, rh = rect_size
     ymin, xmin, ymax, xmax = box_norm
@@ -374,48 +388,76 @@ def _pipe_frames_to_ffmpeg(
     return out_mp4
 
 
-# ---------------- Shot 1: Raw Surgical Video & Positioning (7.0s) ----------------
+# ---------------- Shot 1: Raw Surgical Video, Positioning & Consensus Quote (7.0s) ----------------
 def render_shot_01_raw_frame(shot: ShotSpec, out_mp4: Path) -> Path:
     raw_frames = _load_cholec_frames()
     sized = [_rounded_image(f, (736, 414), radius=8) for f in raw_frames[:3]]
     f_pos1 = load_sf_font(18, weight=400)
     f_pos2 = load_sf_font(22, weight=600)
+    f_quote = load_sf_font(24, weight=400)
+    f_attr = load_sf_font(15, weight=400)
 
     def make_frame(t: float) -> Image.Image:
         im = Image.new("RGB", (WIDTH, HEIGHT), BG_CANVAS)
         draw = ImageDraw.Draw(im)
 
-        # Top positioning header centered at y=60..92
-        pos_u1 = ease_out((t - 0.15) / 0.4)
-        pos_u2 = ease_out((t - 0.45) / 0.4)
-        if pos_u1 > 0.01:
-            line1 = "Today: a human at every step."
-            b1 = draw.textbbox((0, 0), line1, font=f_pos1)
-            w1 = b1[2] - b1[0]
-            c1 = blend_with_bg(TEXT_MUTED, pos_u1, BG_CANVAS)
-            draw.text(((WIDTH - w1) // 2, int(round(58 + (1.0 - pos_u1) * 6.0))), line1, font=f_pos1, fill=c1)
-        if pos_u2 > 0.01:
-            line2 = "SurgProof: none."
-            b2 = draw.textbbox((0, 0), line2, font=f_pos2)
-            w2 = b2[2] - b2[0]
-            c2 = blend_with_bg(TEXT_PRIMARY, pos_u2, BG_CANVAS)
-            draw.text(((WIDTH - w2) // 2, int(round(88 + (1.0 - pos_u2) * 6.0))), line2, font=f_pos2, fill=c2)
+        if t < 4.3:
+            # Beat 1A (0.0s - 4.3s): Real CholecSeg8k frames + positioning contrast
+            fade_out_a = ease_out(max(0.0, (4.3 - t) / 0.35)) if t > 3.95 else 1.0
+            pos_u1 = ease_out((t - 0.15) / 0.4) * fade_out_a
+            pos_u2 = ease_out((t - 0.45) / 0.4) * fade_out_a
+            if pos_u1 > 0.01:
+                line1 = "Today: a human at every step."
+                b1 = draw.textbbox((0, 0), line1, font=f_pos1)
+                w1 = b1[2] - b1[0]
+                c1 = blend_with_bg(TEXT_MUTED, pos_u1, BG_CANVAS)
+                draw.text(((WIDTH - w1) // 2, int(round(58 + (1.0 - pos_u1) * 6.0))), line1, font=f_pos1, fill=c1)
+            if pos_u2 > 0.01:
+                line2 = "SurgProof: none."
+                b2 = draw.textbbox((0, 0), line2, font=f_pos2)
+                w2 = b2[2] - b2[0]
+                c2 = blend_with_bg(TEXT_PRIMARY, pos_u2, BG_CANVAS)
+                draw.text(((WIDTH - w2) // 2, int(round(88 + (1.0 - pos_u2) * 6.0))), line2, font=f_pos2, fill=c2)
 
-        # Gentle step across the 3 real consecutive frames of video12_15750
-        if t < 2.2:
-            cur = sized[0]
-        elif t < 2.5:
-            cur = Image.blend(sized[0], sized[1], ease_out((t - 2.2) / 0.3))
-        elif t < 4.6:
-            cur = sized[1]
-        elif t < 4.9:
-            cur = Image.blend(sized[1], sized[2], ease_out((t - 4.6) / 0.3))
+            if t < 1.4:
+                cur = sized[0]
+            elif t < 1.7:
+                cur = Image.blend(sized[0], sized[1], ease_out((t - 1.4) / 0.3))
+            elif t < 2.8:
+                cur = sized[1]
+            elif t < 3.1:
+                cur = Image.blend(sized[1], sized[2], ease_out((t - 2.8) / 0.3))
+            else:
+                cur = sized[2]
+
+            if fade_out_a < 0.995:
+                bg_tile = Image.new("RGB", cur.size, BG_CANVAS)
+                cur = Image.blend(bg_tile, cur, fade_out_a)
+            im.paste(cur, (272, 140))
+
+            cap_u = ease_out((t - 0.2) / 0.4) * fade_out_a
+            _draw_centered_caption(draw, shot.caption, alpha=cap_u, slide_px=(1.0 - cap_u) * 10.0)
         else:
-            cur = sized[2]
+            # Beat 1B (4.3s - 7.0s): Quiet verbatim open-problem quote card, small attribution, no other text
+            qu = ease_out((t - 4.35) / 0.45)
+            dy = int(round((1.0 - qu) * 8.0))
+            q_col = blend_with_bg(TEXT_PRIMARY, qu, BG_CANVAS)
+            a_col = blend_with_bg(TEXT_MUTED, qu, BG_CANVAS)
 
-        im.paste(cur, (272, 140))
-        cap_u = ease_out((t - 0.2) / 0.4)
-        _draw_centered_caption(draw, shot.caption, alpha=cap_u, slide_px=(1.0 - cap_u) * 10.0)
+            q_lines = [
+                '"The major bottleneck for data annotation in surgical',
+                'applications is access to expert knowledge."',
+            ]
+            for idx_q, q_ln in enumerate(q_lines):
+                bq = draw.textbbox((0, 0), q_ln, font=f_quote)
+                wq = bq[2] - bq[0]
+                draw.text(((WIDTH - wq) // 2, 296 + idx_q * 36 + dy), q_ln, font=f_quote, fill=q_col)
+
+            attr = "— Maier-Hein et al., Surgical Data Science Consensus, 2022"
+            ba = draw.textbbox((0, 0), attr, font=f_attr)
+            wa = ba[2] - ba[0]
+            draw.text(((WIDTH - wa) // 2, 392 + dy), attr, font=f_attr, fill=a_col)
+
         return im
 
     return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame)
@@ -551,34 +593,40 @@ def render_shot_03_labels(shot: ShotSpec, out_mp4: Path) -> Path:
 
 
 def _load_amber_round_counts(out_dir: Path = OUT_DIR) -> List[Tuple[str, int]]:
-    """Read real per-round amber counts strictly from out/results.json['amber_loop'] or out/decisions.csv."""
-    res_path = out_dir / "results.json"
-    if res_path.is_file():
-        try:
-            data = json.loads(res_path.read_text(encoding="utf-8"))
-            amber_loop = data.get("amber_loop")
-            if isinstance(amber_loop, dict):
-                for key_name in ("ambers_by_round_all", "ambers_by_round_test"):
-                    arr = amber_loop.get(key_name)
-                    if isinstance(arr, list) and len(arr) >= 2:
-                        return [(f"Round {idx}", int(v)) for idx, v in enumerate(arr[:4])]
-        except Exception:
-            pass
-
-    dec_csv = out_dir / "decisions.csv"
-    if dec_csv.is_file():
-        try:
-            with open(dec_csv, "r", encoding="utf-8") as f:
-                rows = list(csv.DictReader(f))
-            if rows and "status_round_0" in rows[0]:
-                return [
-                    (f"Round {rd}", sum(1 for r in rows if r.get(f"status_round_{rd}") == "AMBER"))
-                    for rd in range(4)
-                ]
-        except Exception:
-            pass
-
-    return []
+    """Read real per-round amber counts strictly from out/amber_rounds.jsonl (or drop if absent)."""
+    rounds_path = out_dir / "amber_rounds.jsonl"
+    if not rounds_path.is_file() or rounds_path.stat().st_size == 0:
+        return []
+    try:
+        seen_r1: Dict[str, str] = {}
+        seen_r2: Dict[str, str] = {}
+        seen_r3: Dict[str, str] = {}
+        for line in rounds_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            obj = json.loads(line)
+            lid = str(obj.get("label_id", ""))
+            rd = int(obj.get("round", 0))
+            verdict = str(obj.get("verdict", "")).upper()
+            if rd == 1:
+                seen_r1[lid] = verdict
+            elif rd == 2:
+                seen_r2[lid] = verdict
+            elif rd == 3:
+                seen_r3[lid] = verdict
+        if not seen_r1:
+            return []
+        result: List[Tuple[str, int]] = [
+            ("Round 0", len(seen_r1)),
+            ("Round 1", sum(1 for v in seen_r1.values() if v == "AMBER")),
+        ]
+        if seen_r2:
+            result.append(("Round 2", sum(1 for v in seen_r2.values() if v == "AMBER")))
+        if seen_r3:
+            result.append(("Round 3", sum(1 for v in seen_r3.values() if v == "AMBER")))
+        return result
+    except Exception:
+        return []
 
 
 # ---------------- Shot 4: Self-Verification & Amber Loop (10.0s) ----------------
@@ -779,8 +827,14 @@ def render_shot_05_gate(shot: ShotSpec, out_mp4: Path) -> Path:
 
 
 # ---------------- Shot 6: The Result (7.0s) ----------------
-def load_real_result_number(out_dir: Path = OUT_DIR) -> Optional[str]:
-    """Read strictly from out/results.json. Return formatted percentage (e.g. '98.5%') or None if pending."""
+def load_real_result_card(out_dir: Path = OUT_DIR) -> Optional[Dict[str, str]]:
+    """Read strictly from full out/results.json (requiring n_test_labels >= 1000).
+
+    Returns {'headline': '<acc>% accurate on the <coverage>% it accepted',
+             'subtext': 'n = <N> held-out labels, 6 unseen videos',
+             'acc_pct': '<acc>%'}
+    or None if full test run has not landed yet.
+    """
     res_path = out_dir / "results.json"
     if not res_path.is_file() or res_path.stat().st_size == 0:
         return None
@@ -791,32 +845,49 @@ def load_real_result_number(out_dir: Path = OUT_DIR) -> Optional[str]:
     if not isinstance(data, dict):
         return None
 
-    acc: Optional[float] = None
-    for key_name in ("accepted_5_informative", "accepted_excl_liver"):
-        if isinstance(data.get(key_name), dict):
-            val = data[key_name].get("accuracy")
-            if isinstance(val, (int, float)):
-                acc = float(val)
-                break
-    if acc is None and isinstance(data.get("per_label_accepted_acc"), dict):
-        per_lbl = data["per_label_accepted_acc"]
-        non_liver = [float(v) for k, v in per_lbl.items() if k != "liver" and isinstance(v, (int, float))]
-        if non_liver:
-            acc = sum(non_liver) / len(non_liver)
-    if acc is None and isinstance(data.get("accepted"), dict):
-        val = data["accepted"].get("accuracy")
-        if isinstance(val, (int, float)):
-            acc = float(val)
-
-    if acc is None:
+    n_test = int(data.get("n_test_labels") or 0)
+    # Guard against interim 15-frame smoke runs (n_test_labels == 90); require full test run (>= 1000 labels)
+    if n_test < 1000:
         return None
-    return f"{acc * 100.0:.1f}%"
+
+    acc: Optional[float] = None
+    cov: Optional[float] = None
+    n_labels = n_test
+
+    for key_name in ("accepted_5_informative", "accepted_excl_liver", "accepted"):
+        block = data.get(key_name)
+        if isinstance(block, dict):
+            a_val = block.get("accuracy")
+            c_val = block.get("coverage")
+            if isinstance(a_val, (int, float)) and isinstance(c_val, (int, float)):
+                acc = float(a_val)
+                cov = float(c_val)
+                if isinstance(block.get("n_test_labels_excl_liver"), int):
+                    n_labels = int(block["n_test_labels_excl_liver"])
+                break
+
+    if acc is None or cov is None:
+        return None
+
+    acc_str = f"{acc * 100.0:.1f}%"
+    cov_str = f"{cov * 100.0:.0f}%"
+    return {
+        "headline": f"{acc_str} accurate on the {cov_str} it accepted",
+        "subtext": f"n = {n_labels} held-out labels, 6 unseen videos",
+        "acc_pct": acc_str,
+    }
+
+
+def load_real_result_number(out_dir: Path = OUT_DIR) -> Optional[str]:
+    """Return headline string from full out/results.json or None if pending."""
+    card = load_real_result_card(out_dir=out_dir)
+    return card["headline"] if card else None
 
 
 def render_shot_06_result(shot: ShotSpec, out_mp4: Path, out_dir: Path = OUT_DIR) -> Tuple[Path, Optional[str]]:
-    hero_number = load_real_result_number(out_dir=out_dir)
-    f_hero = load_sf_font(84, weight=600)
-    f_sub = load_sf_font(24, weight=400)
+    card = load_real_result_card(out_dir=out_dir)
+    f_hero = load_sf_font(40, weight=600)
+    f_sub = load_sf_font(20, weight=400)
     f_pending = load_sf_font(52, weight=500)
 
     def make_frame(t: float) -> Image.Image:
@@ -825,19 +896,20 @@ def render_shot_06_result(shot: ShotSpec, out_mp4: Path, out_dir: Path = OUT_DIR
         u = ease_out((t - 0.2) / 0.5)
         dy = int(round((1.0 - u) * 10.0))
 
-        if hero_number is not None:
+        if card is not None:
             col_h = blend_with_bg(TEXT_PRIMARY, u, BG_CANVAS)
             col_s = blend_with_bg(TEXT_MUTED, u, BG_CANVAS)
-            b1 = draw.textbbox((0, 0), hero_number, font=f_hero)
+            headline = card["headline"]
+            b1 = draw.textbbox((0, 0), headline, font=f_hero)
             w1, h1 = b1[2] - b1[0], b1[3] - b1[1]
-            draw.text(((WIDTH - w1) // 2, 300 - h1 // 2 + dy), hero_number, font=f_hero, fill=col_h)
+            draw.text(((WIDTH - w1) // 2, 326 - h1 // 2 + dy), headline, font=f_hero, fill=col_h)
 
-            sub_txt = shot.caption
+            sub_txt = card["subtext"]
             b2 = draw.textbbox((0, 0), sub_txt, font=f_sub)
             w2, h2 = b2[2] - b2[0], b2[3] - b2[1]
-            draw.text(((WIDTH - w2) // 2, 396 - h2 // 2 + dy), sub_txt, font=f_sub, fill=col_s)
+            draw.text(((WIDTH - w2) // 2, 392 - h2 // 2 + dy), sub_txt, font=f_sub, fill=col_s)
         else:
-            # Case B: strictly "Result: pending" and nothing else on screen
+            # Case B: strictly "Result: pending" until full results.json lands
             pend_txt = "Result: pending"
             col_p = blend_with_bg(TEXT_PRIMARY, u, BG_CANVAS)
             bp = draw.textbbox((0, 0), pend_txt, font=f_pending)
@@ -846,7 +918,7 @@ def render_shot_06_result(shot: ShotSpec, out_mp4: Path, out_dir: Path = OUT_DIR
 
         return im
 
-    return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame), hero_number
+    return _pipe_frames_to_ffmpeg(shot.duration_sec, out_mp4, make_frame), (card["headline"] if card else None)
 
 
 # ---------------- Shot 7: End Card (6.0s) ----------------
