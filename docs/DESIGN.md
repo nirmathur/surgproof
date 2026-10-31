@@ -81,18 +81,42 @@ One row per `(frame_id, key)` (NO `truth`, `correct`, `final_correct`, or `gt_*`
     - `"accept"` — high-trust verified label (Green; used for specialist student distillation and grounded narration)
     - `"AMBER"` — uncertain / abstained label queued for the **Human Gate** (#14) (Amber; `app.py` also accepts legacy `"reanalyse"` as `"AMBER"`)
     - `"reject"` — low-trust / rejected claim (Red; `app.py` and `eval/` also accept legacy `"escalate"` as `"reject"`)
-  - `final_present` (`int`: `0 | 1`): final predicted presence after verifier / Argon revision
+  - `final_present` (`int`: `0 | 1`): final predicted presence after verifier / Argon Amber loop
   - `final_by` (`str`): `"flash"` | `"argon"` | `"human"`
+  - *(Optional second-pass & loop tracking columns)*: `pass2_present` (`int`), `pass2_conf` (`float`), `pass2_agree` (`bool`), `initial_status` (`"accept" | "AMBER" | "reject"`), `resolved_round` (`int`: `0..3`).
 
-### 1C. Human Gate Audit Log (`out/human_gate_log.jsonl`, Issue #14)
-Written by `app.py` when a human reviewer clears `AMBER` items in the Human Gate queue (`"Export verified dataset"` stays disabled until the `AMBER` queue count is `0`):
+### 1C. Argon Amber Loop Log (`out/amber_rounds.jsonl`, `VISION.md`)
+Every label is double-checked by an independent second pass; disagreements or low-confidence items start as `AMBER`. Before any human sees them, Argon re-examines each `AMBER` for up to `N=3` rounds (Round 1: zoomed crop + manual criteria; Round 2: tighter crop + differential vs `confused_with`; Round 3: fresh vote consensus) to shrink `AMBER` -> `0`:
 ```json
-{"t": 1730379000.0, "reviewer": "Nir Mathur (KCL)", "frame_id": "video01_00080_80", "key": "cystic_duct", "action": "approve", "human_present": 1}
+{
+  "label_id": "video01_00080_80__cystic_duct",
+  "frame_id": "video01_00080_80",
+  "video": "video01",
+  "split": "test",
+  "key": "cystic_duct",
+  "round": 1,
+  "verdict": "accept",
+  "present": 1,
+  "conf": 0.91,
+  "reason": "Tighter hepatocystic crop confirms tubular continuity into gallbladder neck."
+}
 ```
+- `verdict`: `"accept"` | `"reject"` | `"AMBER"`.
+
+### 1D. Human Final Pass & Dataset Release (`pages/2_Human_gate.py` -> `out/verified_dataset.jsonl`, `out/human_gate_log.jsonl`, `out/gate_log.jsonl`)
+- **Final Pass rule (`VISION.md`)**: Before anything becomes proper data, the human reviews:
+  1. Any residual `AMBER` items remaining after the N-round Argon Amber loop, AND
+  2. A random audit sample (e.g. 20 items) of auto-accepted labels with their evidence crops.
+- **`Release dataset` / `Export verified dataset` lock**: Disabled until all residual `AMBER` items and the audit sample are signed off.
+- **`out/human_gate_log.jsonl` & `out/gate_log.jsonl`**:
+```json
+{"t": 1730379000.0, "reviewer": "reviewer_id", "frame_id": "video01_00080_80", "key": "cystic_duct", "item_type": "amber | audit_sample", "action": "approve | flip | reject", "human_present": 1}
+```
+- **`out/verified_dataset.jsonl`**: Released dataset rows (`frame_id, video, split, key, final_present, box, trust, final_by, manual_sources, audit_signed_off_by, released_at`).
 
 ---
 
-### 1D. Post-Decision Evaluation: `out/results.json`, `out/eval_audit.json`, `out/eval_report.md` (`eval/score_decisions.py` & `eval/audit.py`)
+### 1E. Post-Decision Evaluation: `out/results.json`, `out/eval_audit.json`, `out/eval_report.md` (`eval/score_decisions.py` & `eval/audit.py`)
 Runs AFTER `out/decisions.csv` exists, joining `data/index.csv` (`gt_<key>`) on `split == "test"` (`upper_bound_calibrated` fits on `split == "calib"` only):
 ```json
 {
@@ -184,3 +208,30 @@ DINOv2 linear probes trained on `split == "train"` using each label source (`sin
 }
 ```
 - `out/student_probs.csv`: `frame_id` (test split) + `<key>__<source>` probability columns.
+
+---
+
+## 5. Live Full Annotation Stream (`localize.py` / `verify_localize.py` -> `app.py`)
+Beyond presence labels, `nir-localize` draws bounding boxes (`[ymin, xmin, ymax, xmax]` in `0..1000`) for tools and anatomy, instrument tip points (`[y, x]` in `0..1000`), and the surgical phase of each frame, double-checked with an Argon Amber loop and streamed live:
+- **`out/annotations_live.jsonl` & `out/annotations.jsonl`**:
+```json
+{
+  "frame_id": "video12_15750_15758",
+  "video": "video12",
+  "split": "test",
+  "img_path": "raw/.../frame_15758_endo.png",
+  "label": "grasper",
+  "box": [180, 410, 620, 790],
+  "tip": [490, 560],
+  "phase": "2. Calot's (Hepatocystic) Triangle Dissection",
+  "conf": 0.94,
+  "pass1": {"box": [180, 410, 620, 790], "tip": [490, 560], "conf": 0.92},
+  "pass2": {"box": [185, 415, 615, 785], "tip": [488, 558], "conf": 0.95, "iou": 0.89},
+  "round": 0,
+  "status": "accept",
+  "ts": 1730380500.0
+}
+```
+- **`out/localize_rounds.jsonl`**: per-round disagreement resolution records (`frame_id, label, round, iou, verdict, reason`).
+- **`out/localize_results.json`**: post-loop held-out `test` evaluation against watershed-mask-derived bounding boxes and instrument masks (never read during localization/verification).
+
