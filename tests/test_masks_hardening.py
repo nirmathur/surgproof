@@ -637,6 +637,12 @@ def test_bundle_holds_everything_the_card_promises(bundle):
     assert want <= bundle["names"], want - bundle["names"]
 
 
+def test_bundled_dataset_is_byte_for_byte_the_released_one(bundle):
+    assert bundle["read"]("annotations/released_coco.json") == (bundle["job"] / "released_coco.json").read_bytes()
+    assert bundle["read"]("annotations/provenance.jsonl") == (bundle["job"] / "provenance.jsonl").read_bytes()
+    assert bundle["read"]("annotated.mp4") == (bundle["job"] / "annotated.mp4").read_bytes()
+
+
 def test_every_coco_image_in_the_bundle_resolves(bundle):
     c = json.loads(bundle["read"]("annotations/released_coco.json"))
     assert c["images"]
