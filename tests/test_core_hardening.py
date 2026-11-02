@@ -510,3 +510,15 @@ def test_no_verified_wording_reaches_the_user_or_the_model():
     assert "verified" not in RUN.__doc__.lower()
     source = (ROOT / "surgproof" / "run.py").read_text().lower()
     assert "verified" not in source
+
+
+def test_sampling_first_still_asks_every_keyframe_exactly_once(isolated, stub_stages, monkeypatch):
+    seen = counting_provider(monkeypatch, cost=0.0)
+    job = isolated / "jobs" / "all"
+    PL.run(make_video(isolated / "v.mp4", seconds=12), job, stop_after="detect")
+    keyframes = [k["kf"] for k in json.load(open(job / "meta.json"))["keyframes"]]
+    rows = PL.read_jsonl(job / "detect.jsonl")
+    assert len(keyframes) > PL.GATE_SAMPLE and sum(p.startswith("This is one frame") for p in seen) == len(keyframes)
+    assert [r["kf"] for r in rows if r["label"] == "liver"] == keyframes  # in order, none missing, none repeated
+    assert len(rows) == len(keyframes) * len(P.LABELS)
+    assert [r["kf"] for r in PL.read_jsonl(job / "phase.jsonl")] == keyframes
