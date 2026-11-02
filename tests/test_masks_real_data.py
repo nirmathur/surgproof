@@ -95,6 +95,10 @@ def test_export_of_the_real_clip_has_keyframe_and_propagated_annotations(job):
     c = json.loads((job / "dataset_coco.json").read_text())
     kinds = [a["attributes"]["propagated"] for a in c["annotations"]]
     assert any(kinds) and not all(kinds)
-    assert len({a["image_id"] for a in c["annotations"]}) == len(FRAMES)
+    # Every frame stays an image. One with no annotation (past the last keyframe, so no second flow) says why.
+    assert [i["frame_index"] for i in c["images"]] == list(range(len(FRAMES)))
+    annotated = {a["image_id"] for a in c["annotations"]}
+    for img in c["images"]:
+        assert img["id"] in annotated or img["attributes"]["excluded_amber"], img["frame_index"]
     X.final_pass_queue(job)
     assert X.final_pass_state(job)["locked"]

@@ -2,108 +2,55 @@
 
 # SurgProof
 
-### Surgical video in. A verified dataset out. No human labels.
+### A local research tool that drafts labels and masks for laparoscopic cholecystectomy video, for a person to review.
 
-<img src="docs/media/hero.gif" width="860" alt="Held-out laparoscopic cholecystectomy. Every frame annotated by the AI."/>
-
-<sub>Held-out surgery the system never saw while being built. Every box drawn by the AI.</sub>
-
-<br/>
-
-[**▶ Watch the 95-second launch film**](https://drive.google.com/open?id=1J4i0N2xO0hFPUYMMrmd-IzgJMXdYW4Eq) &nbsp;·&nbsp; [How it works](docs/WORKFLOW.md) &nbsp;·&nbsp; [Results](#the-proof) &nbsp;·&nbsp; [Run it](#run-it)
-
-![Gemini 4 Argon](https://img.shields.io/badge/agent-Gemini%204%20Argon-4285F4?style=flat-square)
-![Integrity](https://img.shields.io/badge/integrity%20checker-0%20FAIL-40C88C?style=flat-square)
-![Held-out](https://img.shields.io/badge/held--out-96.6%25%20on%2093.2%25%20accepted-40C88C?style=flat-square)
 ![Code licence](https://img.shields.io/badge/code-MIT-lightgrey?style=flat-square)
 
 </div>
 
 ---
 
-## Why this exists
+## Scope and limits
 
-Every surgical AI model is only as good as its labelled data, and that data is made by surgeons drawing on video frame by frame. They don't have the time. The field says so itself:
+**Read this first.**
 
-> *"The major bottleneck for data annotation in surgical applications is access to expert knowledge."*
-> Maier-Hein et al., 2022
-
-The best annotation tools today (Supervisely, CVAT, Encord) make labelling faster, but a person still seeds every object, fixes every tracking error and reviews every frame.
-
-**SurgProof takes the person out of the loop and keeps them in charge.** The AI does the labelling, the checking and the correcting. A human signs off once, at the end, before anything is released.
-
-## What it looks like
-
-<table>
-<tr>
-<td width="50%"><img src="docs/media/fin55.jpg"/><br/><sub><b>Every frame, every structure.</b> Gallbladder, liver, grasper and L-hook, tracked through a held-out clip at 25 fps.</sub></td>
-<td width="50%"><img src="docs/media/watch_15.jpg"/><br/><sub><b>Watch mode.</b> The AI's masks on the real video, with narration that only says what was verified, and admits what wasn't.</sub></td>
-</tr>
-<tr>
-<td width="50%"><img src="docs/media/rw_30.jpg"/><br/><sub><b>The annotation toolbox.</b> Phase, verdicts, a multi-track timeline and the evidence behind every label.</sub></td>
-<td width="50%"><img src="docs/media/launch_still.jpg"/><br/><sub><b>From the launch film.</b></sub></td>
-</tr>
-</table>
+- **One procedure.** Laparoscopic cholecystectomy only. Other procedures are out of scope, and footage that does not look like this procedure should fail rather than produce labels.
+- **Public or simulator footage only. No real patient video.** Frames are sent to a third-party model (Anthropic, through Claude Code).
+- **One user, on one machine.** It runs on 127.0.0.1. It is not hardened for a network, for several users or for production.
+- **Research only.** It is not a medical device and must not inform patient care. Nothing here is a clinical assessment.
+- **Everything the AI makes is a draft.** Masks are rough. Narration is an AI draft restricted to what the labels say. Propagated frames are estimates, and most have not been seen by anyone.
+- **A person's sign-off covers only what that person saw.** The final pass reviews amber labels plus an audit sample, not the whole video.
+- **Small evidence.** See the results below: few videos, wide intervals, and some labels that could not be measured.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    A[Public teaching<br/>video] --> B[Learn<br/>writes its own manual]
-    B --> C[Label<br/>every frame]
-    C --> D{Second pass<br/>agrees?}
-    D -- yes --> E[Accept / reject]
-    D -- no --> F[Amber loop<br/>re-check on tighter crops]
-    F --> E
-    E --> G[Draw masks<br/>3 drafts, majority vote]
-    G --> H[Self-correct<br/>fixes its own outline]
-    H --> I[Human final pass<br/>one sign-off]
-    I --> J[(Verified dataset)]
-```
+1. **Ingest.** Your video is normalised to frames, and keyframes are taken once a second.
+2. **Detect.** The model reports presence and an outline for gallbladder, liver, grasper, L-hook, cystic duct and blood on each keyframe.
+3. **Second pass.** A different model looks again without seeing the first answer. It also names the surgical phase.
+4. **Amber.** A label stays amber when the passes disagree or are unsure. A tighter crop can accept a label as present, but it can never settle one as absent: that, and anything left unsure, goes to a person.
+5. **Masks and propagation.** Accepted outlines become draft masks, carried to the frames in between by optical flow.
+6. **Narration.** Subtitles are checked sentence by sentence against the labels. A sentence that fails is dropped.
+7. **Final pass.** A person clears the ambers and an audit sample drawn from accepted labels, AI rejects and propagated frames. Too many audit failures block the release until everything has been reviewed.
 
-1. **Learn.** Gemini 4 Argon watches a public laparoscopic cholecystectomy teaching video and writes its own manual: what each instrument and organ looks like, with the source cited.
-2. **Label.** For every frame: is the grasper there? The L-hook? The gallbladder, cystic duct, blood?
-3. **Check itself.** A second, independent pass looks again. Where the two disagree, the label goes amber, and Argon keeps re-examining it on tighter crops until it can decide.
-4. **Draw.** Three independent outline drafts per object. A pixel is kept if two of the three agree.
-5. **Correct itself.** The model is shown its own outline and asked to fix it. The fix is kept only if two correction passes agree.
-6. **Hand over.** A person reviews only what's left unsure, plus a random audit sample, and releases the dataset.
+## Results
 
-The full write-up is in [docs/WORKFLOW.md](docs/WORKFLOW.md).
+Real model runs, scored by `surgproof/eval.py` against CholecSeg8k ground truth that the pipeline never reads. The clips had not been scored before, and one keyframe per second was used. The numbers are in [docs/e2e_status/qa_results.json](docs/e2e_status/qa_results.json).
 
-## The proof
+| Held-out set | videos / clips / keyframes | Final accuracy, mean over videos | 95% CI over videos | labels decided | coverage | left amber | Pooled on the same labels: final | detect alone | second pass alone |
+|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
+| Videos never scored before (primary) | 3 / 10 / 36 | 0.932 | 0.785 to 1.000 | 183 | 0.847 | 33 | 0.929 | 0.934 | 0.940 |
+| All unused clips, all 6 held-out videos | 6 / 21 / 74 | 0.957 | 0.906 to 1.000 | 351 | 0.790 | 93 | 0.952 | 0.952 | 0.943 |
 
-Everything below is measured on **held-out surgery videos** the system never saw while it was being built. Human ground truth is used only to score the results afterwards; the AI never touches it. Every number was recomputed independently from the raw output files.
+**What that does and does not show:**
 
-<div align="center">
-
-| | |
-|:--|:--|
-| **96.6%** | accurate on the 93.2% of labels it accepted. n = 1,400 labels from 6 unseen videos, per-video 95% CI 93.6% to 99.4% |
-| **99.4 / 99.1 / 95.6%** | presence accuracy when the AI annotates every frame of three held-out clips at 25 fps |
-| **0.55 → 0.60** | mask overlap (IoU) with human outlines, first draft → self-corrected (n = 578 masks, all 6 test videos) |
-
-</div>
-
-**We measured our own method and fixed it.** Our first rule for combining mask drafts, keeping only the overlap of two, made masks *worse*, because the AI's outlines tend to under-cover the object. On the calibration split (the only data we tune on), 3-draft majority voting scored IoU 0.69 against 0.56 for the overlap rule, and a union of five drafts reached 0.75. On the full test set, voting scores 0.59 (n = 608), above the first draft, so the next step is combining voting with self-correction.
-
-<details>
-<summary><b>How we keep it honest</b></summary>
-
-- `lanes/integrity.py` fails the build if any screen or video shows a hand-typed box, verdict or number; if ground truth leaks into anything the AI reads; if a label can't be traced back to a recorded model response; or if a narrated sentence isn't backed by an accepted label.
-- An independent re-labelling audit with a different prompt agreed with the system on 23 of 24 random accepted labels, and the system was right on all 24.
-- Results on external datasets (Endoscapes2023, CholecT50) are reported separately and scored only on the structures those datasets actually label.
-
-</details>
-
-<details>
-<summary><b>Honest limits</b></summary>
-
-- Six test videos is a small sample; that's why every headline number carries its n and a confidence interval.
-- Masks are zero-shot first drafts. Instruments are traced well (L-hook IoU about 0.8); large organs like the liver are harder (about 0.5). The next step is training a small segmentation model on the AI's own verified masks.
-- Gemini may have seen public Cholec80 frames during pretraining, which is why external datasets are scored separately.
-- Annotating every frame costs about 300 model calls per second of video. Keyframes plus optical-flow propagation cut that tenfold; on one clip, IoU dropped from 0.66 to 0.55.
-
-</details>
+- **Accuracy counts only the labels the system decided.** About a fifth went to a person instead (coverage above).
+- **The double-check did not beat one pass.** On the same labels, final accuracy is no better than detect alone. What it adds is routing doubtful labels to a person.
+- **Cystic duct does not work.** The held-out set has no keyframe with a cystic duct. On the one video that has them (video01, train split), both passes missed all of them: 0 of 11 found by detect, 0 of 11 by the second pass.
+- **Blood is barely measured.** The held-out set has no blood, so its sensitivity is unknown there. There were no false positives on 74 held-out keyframes. On video01, a single video, detect found 26 of 27 and the second pass 27 of 27. One video gives no confidence interval.
+- **Phase accuracy is not measured.** There are no phase labels for these clips on this machine. The two passes agreed on the phase on only 23 of 74 held-out keyframes, so treat every phase shown as a guess.
+- **Accepted by the amber loop is much weaker than accepted by both passes.** On all 6 videos, labels both passes called present were right 141 of 141 times; labels accepted only after the amber loop were right 33 of 42. Every false accept came from that route.
+- **Masks are rough.** Mean IoU counting errors as 0 is 0.555 over 6 videos (95% CI 0.325 to 0.785), and 0.198 on the worst video. These masks came from before the masks hardening round.
+- **Six videos is very few.** Keyframes one second apart inside one operation are strongly correlated, and nothing here speaks to other surgeons, hospitals or cameras. Rows overlap: the 6-video row contains the primary row, plus unused clips from three videos that were examined earlier.
 
 ## Run it
 
@@ -112,12 +59,14 @@ You need Python 3.10+, `ffmpeg`, and [Claude Code](https://claude.com/claude-cod
 ```bash
 git clone https://github.com/nirmathur/surgproof && cd surgproof
 make setup                       # private .venv with the app's dependencies
-make serve                       # http://localhost:8600
+make serve                       # http://127.0.0.1:8600, this machine only
 ```
 
-Drop a laparoscopic video (mp4 or mov, up to 5 minutes) on the Upload page. The job page shows each stage live, then offers **Watch** (the video at full frame rate with the AI's boxes, masks, phase and narration), **Final pass** (a person clears what is left amber plus a random audit sample) and **Download** (annotated MP4, COCO JSON, provenance). The COCO dataset stays locked until the final pass is finished and released.
+Drop a laparoscopic cholecystectomy video (mp4 or mov, up to 5 minutes, public or simulator footage only) on the Upload page. Frames are sent to a third-party model, so never upload real patient video. The job page shows each stage as it runs, then offers **Watch** (the video with the AI's draft boxes, masks, phase and narration), **Final pass** (a person clears what is left amber plus an audit sample) and **Download** (annotated MP4, COCO JSON, provenance). The COCO dataset stays locked until the final pass is finished and released.
 
-Model usage is real money or plan credit: a 6-second clip (6 keyframes) used $0.16 to $0.36 and took 4 to 7 minutes on a busy machine, measured on three clips. Budget for more on long videos, and leave disk space for them (about 1 to 2 MB per second of video).
+On first run, `make serve` prints a one-time setup code to create your local account. The Upload page then asks you to accept the notice and state where the footage came from.
+
+Model usage is real money or plan credit: about $0.06 per keyframe across the runs above, and a job stops at a cost cap of $25 unless you set `SURGPROOF_MAX_COST_USD`. A 5-minute video at one keyframe per second is an estimated $17, and has not been run for real. Leave disk space too: about 1 to 3 MB per second of video.
 
 The same pipeline from the command line:
 
@@ -128,18 +77,18 @@ The same pipeline from the command line:
 <details>
 <summary><b>Score it against ground truth</b></summary>
 
-Only videos assembled from the held-out CholecSeg8k clips have ground truth. The scorer is separate from the pipeline, and the pipeline never reads ground truth.
+Only videos assembled from CholecSeg8k clips have ground truth. The scorer is separate from the pipeline, and the pipeline never reads ground truth. This example uses the calibration split, because scoring a held-out clip spends it.
 
 ```bash
 .venv/bin/python -m pip install huggingface_hub
 .venv/bin/python -c "from huggingface_hub import hf_hub_download; hf_hub_download('minwoosun/CholecSeg8k','data/CholecSeg8k.zip',repo_type='dataset',local_dir='raw')"
 (cd raw && unzip -q data/CholecSeg8k.zip)
-.venv/bin/python tools/make_test_video.py --video video12 --seconds 6 --out test_videos/video12_6s.mp4
-.venv/bin/python -m surgproof.run test_videos/video12_6s.mp4 --out jobs/video12_6s
-.venv/bin/python -m surgproof.eval jobs/video12_6s
+.venv/bin/python tools/make_test_video.py --split calib --video video27 --seconds 6 --out test_videos/calib27.mp4
+.venv/bin/python -m surgproof.run test_videos/calib27.mp4 --out jobs/calib27
+.venv/bin/python -m surgproof.eval jobs/calib27
 ```
 
-It prints presence accuracy and mask IoU with n, and writes `jobs/video12_6s/eval_report.json`. It refuses to score a video with no registered ground truth, keyframes that do not match the frames they claim to be, or a mock run.
+It prints presence accuracy and mask IoU with n, and writes `jobs/calib27/eval_report.json`. `python -m surgproof.eval aggregate` pools scored jobs by video, with intervals over videos. It refuses to score a video with no registered ground truth, keyframes that do not match the frames they claim to be, or a mock run.
 
 </details>
 
@@ -148,16 +97,16 @@ It prints presence accuracy and mask IoU with n, and writes `jobs/video12_6s/eva
 
 ```bash
 SURGPROOF_VLM=mock .venv/bin/python -m surgproof.run path/to/video.mp4 --out jobs/mock_run   # plumbing only: every row is tagged mock
-.venv/bin/python -m pytest -q tests/test_e2e.py tests/test_qa_eval.py tests/test_qa_make_test_video.py tests/test_qa_redteam.py tests/test_qa_http_redteam.py tests/test_qa_inputs.py
+.venv/bin/python -m pytest -q tests/test_e2e.py tests/test_qa_eval.py tests/test_qa_make_test_video.py tests/test_qa_redteam.py tests/test_qa_http_redteam.py tests/test_qa_hardening.py tests/test_qa_inputs.py
 SURGPROOF_E2E_REAL=1 .venv/bin/python -m pytest -q -s tests/test_e2e.py -k real              # the real thing: spends model credit
 ```
 
 </details>
 
 <details>
-<summary><b>The research toolbox and the original pipeline</b></summary>
+<summary><b>The earlier research pipeline</b></summary>
 
-The numbers under [The proof](#the-proof) came from this earlier Gemini 4 Argon pipeline, not from the drop-in-a-video pipeline above.
+This is a separate, earlier Gemini 4 Argon pipeline. Nothing in the results above came from it, and no number from it applies to the app above.
 
 ```bash
 make setup-full                  # adds torch, streamlit and more; copies .env.example to .env (add your GEMINI_API_KEY)
@@ -171,12 +120,12 @@ PORT=8601 python3 web/serve.py   # toolbox at http://localhost:8601, Watch mode 
 
 ## Where it goes next
 
-The same loop works on any procedure that has a public teaching video. Next we want Critical View of Safety checks, mask propagation across whole operations, and one-click export to COCO, Supervisely and CVAT, so an AI-made dataset drops straight into the tools surgical teams already use.
+More held-out videos with blood and cystic duct, phase ground truth so phase can be scored at all, and better masks.
 
 ## Prior work
 
-SurgAtlas (a large dataset of public surgical videos), SurgVLP, SurgSLOT and Med-Gemini. What's new here is taking the human annotator and checker out of the loop entirely, with every claim traceable to a recorded model response.
+SurgVLP, SurgSLOT, Med-Gemini and the SurgAtlas public video dataset.
 
 ---
 
-<sub>Data: CholecSeg8k, Endoscapes2023 and CholecT50 (CC BY-NC-SA 4.0), not redistributed here. Launch film music: "COME" by BOCrew (CC BY 3.0). Code: MIT.</sub>
+<sub>Data: CholecSeg8k, Endoscapes2023 and CholecT50 (CC BY-NC-SA 4.0), not redistributed here. Code: MIT.</sub>

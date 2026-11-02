@@ -1,0 +1,2777 @@
+{
+ "how": "Real runs of core 20b9c94 (prompts.py sha256 0c717e759fc9) with masks 75107e6. Numbers come from surgproof.eval aggregate. Train is reported apart and only for labels the other splits lack.",
+ "spend_usd_this_round": 5.63,
+ "keyframes_per_second": 1.0,
+ "groups": {
+  "heldout_never_scored_3_videos": {
+   "splits": [
+    "test"
+   ],
+   "videos": [
+    "video09",
+    "video17",
+    "video48"
+   ],
+   "n_videos": 3,
+   "n_jobs": 6,
+   "n_clips": 10,
+   "clips": [
+    "video09_00832",
+    "video09_00912",
+    "video09_00992",
+    "video17_01563",
+    "video17_01643",
+    "video17_01803",
+    "video17_01963",
+    "video48_00561",
+    "video48_00641",
+    "video48_00801"
+   ],
+   "n_keyframes": 36,
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "presence_detect_raw": {
+    "pooled": {
+     "n": 216,
+     "tp": 72,
+     "fp": 5,
+     "fn": 12,
+     "tn": 127,
+     "accuracy": 0.9213,
+     "majority_baseline": 0.6111,
+     "balanced_accuracy": 0.9096,
+     "precision": 0.9351,
+     "recall": 0.8571
+    },
+    "n_videos": 3,
+    "video_mean_accuracy": 0.9256,
+    "ci95_over_videos": [
+     0.8424,
+     1.0
+    ],
+    "by_video": {
+     "video09": 0.9333,
+     "video17": 0.8889,
+     "video48": 0.9545
+    },
+    "n_expected": 216,
+    "n_amber": 0,
+    "per_label": {
+     "grasper": {
+      "pooled": {
+       "n": 36,
+       "tp": 17,
+       "fp": 0,
+       "fn": 5,
+       "tn": 14,
+       "accuracy": 0.8611,
+       "majority_baseline": 0.6111,
+       "balanced_accuracy": 0.8864,
+       "precision": 1.0,
+       "recall": 0.7727
+      },
+      "sensitivity": {
+       "n_videos": 2,
+       "n": 22,
+       "video_mean": 0.7727,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video17": 0.6364,
+        "video48": 0.9091
+       }
+      },
+      "specificity": {
+       "n_videos": 2,
+       "n": 14,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0
+       }
+      }
+     },
+     "l_hook": {
+      "pooled": {
+       "n": 36,
+       "tp": 0,
+       "fp": 1,
+       "fn": 0,
+       "tn": 35,
+       "accuracy": 0.9722,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 0.0,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 36,
+       "video_mean": 0.9697,
+       "ci95_over_videos": [
+        0.8393,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0,
+        "video48": 0.9091
+       }
+      }
+     },
+     "liver": {
+      "pooled": {
+       "n": 36,
+       "tp": 34,
+       "fp": 0,
+       "fn": 2,
+       "tn": 0,
+       "accuracy": 0.9444,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 0.9444
+      },
+      "sensitivity": {
+       "n_videos": 3,
+       "n": 36,
+       "video_mean": 0.9556,
+       "ci95_over_videos": [
+        0.7643,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 0.8667,
+        "video48": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "gallbladder": {
+      "pooled": {
+       "n": 36,
+       "tp": 21,
+       "fp": 4,
+       "fn": 5,
+       "tn": 6,
+       "accuracy": 0.75,
+       "majority_baseline": 0.7222,
+       "balanced_accuracy": 0.7038,
+       "precision": 0.84,
+       "recall": 0.8077
+      },
+      "sensitivity": {
+       "n_videos": 2,
+       "n": 26,
+       "video_mean": 0.8212,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video17": 0.7333,
+        "video48": 0.9091
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 10,
+       "video_mean": 0.6,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video09": 0.6
+       }
+      }
+     },
+     "cystic_duct": {
+      "pooled": {
+       "n": 36,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 36,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 36,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0,
+        "video48": 1.0
+       }
+      }
+     },
+     "blood": {
+      "pooled": {
+       "n": 36,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 36,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 36,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0,
+        "video48": 1.0
+       }
+      }
+     }
+    }
+   },
+   "presence_verify_raw": {
+    "pooled": {
+     "n": 216,
+     "tp": 73,
+     "fp": 3,
+     "fn": 11,
+     "tn": 129,
+     "accuracy": 0.9352,
+     "majority_baseline": 0.6111,
+     "balanced_accuracy": 0.9232,
+     "precision": 0.9605,
+     "recall": 0.869
+    },
+    "n_videos": 3,
+    "video_mean_accuracy": 0.9412,
+    "ci95_over_videos": [
+     0.8206,
+     1.0
+    ],
+    "by_video": {
+     "video09": 0.95,
+     "video17": 0.8889,
+     "video48": 0.9848
+    },
+    "n_expected": 216,
+    "n_amber": 0,
+    "per_label": {
+     "grasper": {
+      "pooled": {
+       "n": 36,
+       "tp": 19,
+       "fp": 0,
+       "fn": 3,
+       "tn": 14,
+       "accuracy": 0.9167,
+       "majority_baseline": 0.6111,
+       "balanced_accuracy": 0.9318,
+       "precision": 1.0,
+       "recall": 0.8636
+      },
+      "sensitivity": {
+       "n_videos": 2,
+       "n": 22,
+       "video_mean": 0.8636,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video17": 0.7273,
+        "video48": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 2,
+       "n": 14,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0
+       }
+      }
+     },
+     "l_hook": {
+      "pooled": {
+       "n": 36,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 36,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 36,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0,
+        "video48": 1.0
+       }
+      }
+     },
+     "liver": {
+      "pooled": {
+       "n": 36,
+       "tp": 33,
+       "fp": 0,
+       "fn": 3,
+       "tn": 0,
+       "accuracy": 0.9167,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 0.9167
+      },
+      "sensitivity": {
+       "n_videos": 3,
+       "n": 36,
+       "video_mean": 0.9222,
+       "ci95_over_videos": [
+        0.7498,
+        1.0
+       ],
+       "by_video": {
+        "video09": 0.9,
+        "video17": 0.8667,
+        "video48": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "gallbladder": {
+      "pooled": {
+       "n": 36,
+       "tp": 21,
+       "fp": 2,
+       "fn": 5,
+       "tn": 8,
+       "accuracy": 0.8056,
+       "majority_baseline": 0.7222,
+       "balanced_accuracy": 0.8038,
+       "precision": 0.913,
+       "recall": 0.8077
+      },
+      "sensitivity": {
+       "n_videos": 2,
+       "n": 26,
+       "video_mean": 0.8212,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video17": 0.7333,
+        "video48": 0.9091
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 10,
+       "video_mean": 0.8,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video09": 0.8
+       }
+      }
+     },
+     "cystic_duct": {
+      "pooled": {
+       "n": 36,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 36,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 36,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0,
+        "video48": 1.0
+       }
+      }
+     },
+     "blood": {
+      "pooled": {
+       "n": 36,
+       "tp": 0,
+       "fp": 1,
+       "fn": 0,
+       "tn": 35,
+       "accuracy": 0.9722,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 0.0,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 36,
+       "video_mean": 0.9778,
+       "ci95_over_videos": [
+        0.8822,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 0.9333,
+        "video48": 1.0
+       }
+      }
+     }
+    }
+   },
+   "presence_final": {
+    "pooled": {
+     "n": 183,
+     "tp": 71,
+     "fp": 6,
+     "fn": 7,
+     "tn": 99,
+     "accuracy": 0.929,
+     "majority_baseline": 0.5738,
+     "balanced_accuracy": 0.9266,
+     "precision": 0.9221,
+     "recall": 0.9103
+    },
+    "n_videos": 3,
+    "video_mean_accuracy": 0.9319,
+    "ci95_over_videos": [
+     0.7846,
+     1.0
+    ],
+    "by_video": {
+     "video09": 0.9038,
+     "video17": 0.8919,
+     "video48": 1.0
+    },
+    "n_expected": 216,
+    "n_amber": 33,
+    "per_label": {
+     "grasper": {
+      "pooled": {
+       "n": 32,
+       "tp": 17,
+       "fp": 0,
+       "fn": 2,
+       "tn": 13,
+       "accuracy": 0.9375,
+       "majority_baseline": 0.5938,
+       "balanced_accuracy": 0.9474,
+       "precision": 1.0,
+       "recall": 0.8947
+      },
+      "sensitivity": {
+       "n_videos": 2,
+       "n": 19,
+       "video_mean": 0.875,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video17": 0.75,
+        "video48": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 2,
+       "n": 13,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0
+       }
+      }
+     },
+     "l_hook": {
+      "pooled": {
+       "n": 31,
+       "tp": 0,
+       "fp": 1,
+       "fn": 0,
+       "tn": 30,
+       "accuracy": 0.9677,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 0.0,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 31,
+       "video_mean": 0.9722,
+       "ci95_over_videos": [
+        0.8527,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 0.9167,
+        "video48": 1.0
+       }
+      }
+     },
+     "liver": {
+      "pooled": {
+       "n": 34,
+       "tp": 33,
+       "fp": 0,
+       "fn": 1,
+       "tn": 0,
+       "accuracy": 0.9706,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 0.9706
+      },
+      "sensitivity": {
+       "n_videos": 3,
+       "n": 34,
+       "video_mean": 0.9744,
+       "ci95_over_videos": [
+        0.864,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 0.9231,
+        "video48": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "gallbladder": {
+      "pooled": {
+       "n": 31,
+       "tp": 21,
+       "fp": 5,
+       "fn": 4,
+       "tn": 1,
+       "accuracy": 0.7097,
+       "majority_baseline": 0.8065,
+       "balanced_accuracy": 0.5033,
+       "precision": 0.8077,
+       "recall": 0.84
+      },
+      "sensitivity": {
+       "n_videos": 2,
+       "n": 25,
+       "video_mean": 0.8667,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video17": 0.7333,
+        "video48": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 6,
+       "video_mean": 0.1667,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video09": 0.1667
+       }
+      }
+     },
+     "cystic_duct": {
+      "pooled": {
+       "n": 21,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 21,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 21,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0,
+        "video48": 1.0
+       }
+      }
+     },
+     "blood": {
+      "pooled": {
+       "n": 34,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 34,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 34,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0,
+        "video48": 1.0
+       }
+      }
+     }
+    },
+    "coverage": 0.8472
+   },
+   "by_route": {
+    "amber_said_present": {
+     "n": 19,
+     "tp": 13,
+     "fp": 6,
+     "fn": 0,
+     "tn": 0,
+     "accuracy": 0.6842,
+     "majority_baseline": 0.6842,
+     "balanced_accuracy": 0.5,
+     "precision": 0.6842,
+     "recall": 1.0,
+     "status_counts": {
+      "accept": 19,
+      "reject": 0,
+      "AMBER": 0
+     }
+    },
+    "both_passes_present": {
+     "n": 58,
+     "tp": 58,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "accuracy": 1.0,
+     "majority_baseline": 1.0,
+     "balanced_accuracy": null,
+     "precision": 1.0,
+     "recall": 1.0,
+     "status_counts": {
+      "accept": 58,
+      "reject": 0,
+      "AMBER": 0
+     }
+    },
+    "amber_said_absent": {
+     "n": 24,
+     "tp": 0,
+     "fp": 0,
+     "fn": 2,
+     "tn": 22,
+     "accuracy": 0.9167,
+     "majority_baseline": 0.9167,
+     "balanced_accuracy": 0.5,
+     "precision": null,
+     "recall": 0.0,
+     "status_counts": {
+      "accept": 0,
+      "reject": 0,
+      "AMBER": 24
+     }
+    },
+    "both_passes_absent": {
+     "n": 106,
+     "tp": 0,
+     "fp": 0,
+     "fn": 7,
+     "tn": 99,
+     "accuracy": 0.934,
+     "majority_baseline": 0.934,
+     "balanced_accuracy": 0.5,
+     "precision": null,
+     "recall": 0.0,
+     "status_counts": {
+      "accept": 0,
+      "reject": 106,
+      "AMBER": 0
+     }
+    },
+    "amber_unresolved": {
+     "n": 0,
+     "accuracy": null,
+     "status_counts": {
+      "accept": 0,
+      "reject": 0,
+      "AMBER": 9
+     }
+    }
+   },
+   "same_labels": {
+    "final": {
+     "pooled": {
+      "n": 183,
+      "tp": 71,
+      "fp": 6,
+      "fn": 7,
+      "tn": 99,
+      "accuracy": 0.929,
+      "majority_baseline": 0.5738,
+      "balanced_accuracy": 0.9266,
+      "precision": 0.9221,
+      "recall": 0.9103
+     },
+     "video_mean_accuracy": 0.9319,
+     "ci95_over_videos": [
+      0.7846,
+      1.0
+     ]
+    },
+    "detect": {
+     "pooled": {
+      "n": 183,
+      "tp": 70,
+      "fp": 4,
+      "fn": 8,
+      "tn": 101,
+      "accuracy": 0.9344,
+      "majority_baseline": 0.5738,
+      "balanced_accuracy": 0.9297,
+      "precision": 0.9459,
+      "recall": 0.8974
+     },
+     "video_mean_accuracy": 0.937,
+     "ci95_over_videos": [
+      0.8367,
+      1.0
+     ]
+    },
+    "verify": {
+     "pooled": {
+      "n": 183,
+      "tp": 69,
+      "fp": 2,
+      "fn": 9,
+      "tn": 103,
+      "accuracy": 0.9399,
+      "majority_baseline": 0.5738,
+      "balanced_accuracy": 0.9328,
+      "precision": 0.9718,
+      "recall": 0.8846
+     },
+     "video_mean_accuracy": 0.9447,
+     "ci95_over_videos": [
+      0.8104,
+      1.0
+     ]
+    }
+   },
+   "iou_with_errors": {
+    "video_mean": 0.474,
+    "ci95_over_videos": [
+     0.0,
+     1.0
+    ],
+    "by_video": {
+     "video09": 0.1979,
+     "video17": 0.5167,
+     "video48": 0.7074
+    }
+   },
+   "phase": {
+    "accuracy": null,
+    "why_not_scored": "CholecSeg8k has no phase labels and no Cholec80 phase annotations are on this machine, so phase accuracy is unmeasured. Agreement between the two passes is shown instead; it is not accuracy.",
+    "n": 36,
+    "agree": 6,
+    "unknown": 0
+   },
+   "narration_segment_sources": {
+    "claude-sonnet-5-5": 6
+   }
+  },
+  "heldout_all_unspent_6_videos": {
+   "splits": [
+    "test"
+   ],
+   "videos": [
+    "video09",
+    "video12",
+    "video17",
+    "video28",
+    "video48",
+    "video55"
+   ],
+   "n_videos": 6,
+   "n_jobs": 11,
+   "n_clips": 21,
+   "clips": [
+    "video09_00832",
+    "video09_00912",
+    "video09_00992",
+    "video12_15830",
+    "video12_19660",
+    "video12_19740",
+    "video12_19900",
+    "video12_19980",
+    "video17_01563",
+    "video17_01643",
+    "video17_01803",
+    "video17_01963",
+    "video28_00160",
+    "video28_00240",
+    "video28_00320",
+    "video28_00400",
+    "video28_00480",
+    "video48_00561",
+    "video48_00641",
+    "video48_00801",
+    "video55_00668"
+   ],
+   "n_keyframes": 74,
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "presence_detect_raw": {
+    "pooled": {
+     "n": 444,
+     "tp": 182,
+     "fp": 14,
+     "fn": 18,
+     "tn": 230,
+     "accuracy": 0.9279,
+     "majority_baseline": 0.5495,
+     "balanced_accuracy": 0.9263,
+     "precision": 0.9286,
+     "recall": 0.91
+    },
+    "n_videos": 6,
+    "video_mean_accuracy": 0.9381,
+    "ci95_over_videos": [
+     0.8988,
+     0.9774
+    ],
+    "by_video": {
+     "video09": 0.9333,
+     "video12": 0.9352,
+     "video17": 0.8889,
+     "video28": 0.9167,
+     "video48": 0.9545,
+     "video55": 1.0
+    },
+    "n_expected": 444,
+    "n_amber": 0,
+    "per_label": {
+     "grasper": {
+      "pooled": {
+       "n": 74,
+       "tp": 47,
+       "fp": 0,
+       "fn": 7,
+       "tn": 20,
+       "accuracy": 0.9054,
+       "majority_baseline": 0.7297,
+       "balanced_accuracy": 0.9352,
+       "precision": 1.0,
+       "recall": 0.8704
+      },
+      "sensitivity": {
+       "n_videos": 5,
+       "n": 54,
+       "video_mean": 0.8824,
+       "ci95_over_videos": [
+        0.6971,
+        1.0
+       ],
+       "by_video": {
+        "video12": 0.8667,
+        "video17": 0.6364,
+        "video28": 1.0,
+        "video48": 0.9091,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 4,
+       "n": 20,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 1.0,
+        "video17": 1.0,
+        "video28": 1.0
+       }
+      }
+     },
+     "l_hook": {
+      "pooled": {
+       "n": 74,
+       "tp": 14,
+       "fp": 7,
+       "fn": 3,
+       "tn": 50,
+       "accuracy": 0.8649,
+       "majority_baseline": 0.7703,
+       "balanced_accuracy": 0.8504,
+       "precision": 0.6667,
+       "recall": 0.8235
+      },
+      "sensitivity": {
+       "n_videos": 2,
+       "n": 17,
+       "video_mean": 0.8846,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video12": 0.7692,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 5,
+       "n": 57,
+       "video_mean": 0.8518,
+       "ci95_over_videos": [
+        0.6359,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 0.6,
+        "video17": 1.0,
+        "video28": 0.75,
+        "video48": 0.9091
+       }
+      }
+     },
+     "liver": {
+      "pooled": {
+       "n": 74,
+       "tp": 72,
+       "fp": 0,
+       "fn": 2,
+       "tn": 0,
+       "accuracy": 0.973,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 0.973
+      },
+      "sensitivity": {
+       "n_videos": 6,
+       "n": 74,
+       "video_mean": 0.9778,
+       "ci95_over_videos": [
+        0.9206,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 1.0,
+        "video17": 0.8667,
+        "video28": 1.0,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "gallbladder": {
+      "pooled": {
+       "n": 74,
+       "tp": 49,
+       "fp": 7,
+       "fn": 6,
+       "tn": 12,
+       "accuracy": 0.8243,
+       "majority_baseline": 0.7432,
+       "balanced_accuracy": 0.7612,
+       "precision": 0.875,
+       "recall": 0.8909
+      },
+      "sensitivity": {
+       "n_videos": 5,
+       "n": 55,
+       "video_mean": 0.8999,
+       "ci95_over_videos": [
+        0.7615,
+        1.0
+       ],
+       "by_video": {
+        "video12": 1.0,
+        "video17": 0.7333,
+        "video28": 0.8571,
+        "video48": 0.9091,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 2,
+       "n": 19,
+       "video_mean": 0.6333,
+       "ci95_over_videos": [
+        0.2098,
+        1.0
+       ],
+       "by_video": {
+        "video09": 0.6,
+        "video28": 0.6667
+       }
+      }
+     },
+     "cystic_duct": {
+      "pooled": {
+       "n": 74,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 74,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 6,
+       "n": 74,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 1.0,
+        "video17": 1.0,
+        "video28": 1.0,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      }
+     },
+     "blood": {
+      "pooled": {
+       "n": 74,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 74,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 6,
+       "n": 74,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 1.0,
+        "video17": 1.0,
+        "video28": 1.0,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      }
+     }
+    }
+   },
+   "presence_verify_raw": {
+    "pooled": {
+     "n": 444,
+     "tp": 179,
+     "fp": 20,
+     "fn": 21,
+     "tn": 224,
+     "accuracy": 0.9077,
+     "majority_baseline": 0.5495,
+     "balanced_accuracy": 0.9065,
+     "precision": 0.8995,
+     "recall": 0.895
+    },
+    "n_videos": 6,
+    "video_mean_accuracy": 0.922,
+    "ci95_over_videos": [
+     0.8644,
+     0.9796
+    ],
+    "by_video": {
+     "video09": 0.95,
+     "video12": 0.8333,
+     "video17": 0.8889,
+     "video28": 0.9167,
+     "video48": 0.9848,
+     "video55": 0.9583
+    },
+    "n_expected": 444,
+    "n_amber": 0,
+    "per_label": {
+     "grasper": {
+      "pooled": {
+       "n": 74,
+       "tp": 51,
+       "fp": 2,
+       "fn": 3,
+       "tn": 18,
+       "accuracy": 0.9324,
+       "majority_baseline": 0.7297,
+       "balanced_accuracy": 0.9222,
+       "precision": 0.9623,
+       "recall": 0.9444
+      },
+      "sensitivity": {
+       "n_videos": 5,
+       "n": 54,
+       "video_mean": 0.9455,
+       "ci95_over_videos": [
+        0.794,
+        1.0
+       ],
+       "by_video": {
+        "video12": 1.0,
+        "video17": 0.7273,
+        "video28": 1.0,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 4,
+       "n": 20,
+       "video_mean": 0.8333,
+       "ci95_over_videos": [
+        0.303,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 0.3333,
+        "video17": 1.0,
+        "video28": 1.0
+       }
+      }
+     },
+     "l_hook": {
+      "pooled": {
+       "n": 74,
+       "tp": 9,
+       "fp": 5,
+       "fn": 8,
+       "tn": 52,
+       "accuracy": 0.8243,
+       "majority_baseline": 0.7703,
+       "balanced_accuracy": 0.7208,
+       "precision": 0.6429,
+       "recall": 0.5294
+      },
+      "sensitivity": {
+       "n_videos": 2,
+       "n": 17,
+       "video_mean": 0.6923,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video12": 0.3846,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 5,
+       "n": 57,
+       "video_mean": 0.91,
+       "ci95_over_videos": [
+        0.7554,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 0.8,
+        "video17": 1.0,
+        "video28": 0.75,
+        "video48": 1.0
+       }
+      }
+     },
+     "liver": {
+      "pooled": {
+       "n": 74,
+       "tp": 69,
+       "fp": 0,
+       "fn": 5,
+       "tn": 0,
+       "accuracy": 0.9324,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 0.9324
+      },
+      "sensitivity": {
+       "n_videos": 6,
+       "n": 74,
+       "video_mean": 0.9403,
+       "ci95_over_videos": [
+        0.8707,
+        1.0
+       ],
+       "by_video": {
+        "video09": 0.9,
+        "video12": 1.0,
+        "video17": 0.8667,
+        "video28": 0.875,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "gallbladder": {
+      "pooled": {
+       "n": 74,
+       "tp": 50,
+       "fp": 2,
+       "fn": 5,
+       "tn": 17,
+       "accuracy": 0.9054,
+       "majority_baseline": 0.7432,
+       "balanced_accuracy": 0.9019,
+       "precision": 0.9615,
+       "recall": 0.9091
+      },
+      "sensitivity": {
+       "n_videos": 5,
+       "n": 55,
+       "video_mean": 0.9285,
+       "ci95_over_videos": [
+        0.7845,
+        1.0
+       ],
+       "by_video": {
+        "video12": 1.0,
+        "video17": 0.7333,
+        "video28": 1.0,
+        "video48": 0.9091,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 2,
+       "n": 19,
+       "video_mean": 0.9,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 0.8,
+        "video28": 1.0
+       }
+      }
+     },
+     "cystic_duct": {
+      "pooled": {
+       "n": 74,
+       "tp": 0,
+       "fp": 10,
+       "fn": 0,
+       "tn": 64,
+       "accuracy": 0.8649,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 0.0,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 6,
+       "n": 74,
+       "video_mean": 0.8727,
+       "ci95_over_videos": [
+        0.7021,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 0.6111,
+        "video17": 1.0,
+        "video28": 0.875,
+        "video48": 1.0,
+        "video55": 0.75
+       }
+      }
+     },
+     "blood": {
+      "pooled": {
+       "n": 74,
+       "tp": 0,
+       "fp": 1,
+       "fn": 0,
+       "tn": 73,
+       "accuracy": 0.9865,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 0.0,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 6,
+       "n": 74,
+       "video_mean": 0.9889,
+       "ci95_over_videos": [
+        0.9603,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 1.0,
+        "video17": 0.9333,
+        "video28": 1.0,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      }
+     }
+    }
+   },
+   "presence_final": {
+    "pooled": {
+     "n": 351,
+     "tp": 174,
+     "fp": 9,
+     "fn": 8,
+     "tn": 160,
+     "accuracy": 0.9516,
+     "majority_baseline": 0.5185,
+     "balanced_accuracy": 0.9514,
+     "precision": 0.9508,
+     "recall": 0.956
+    },
+    "n_videos": 6,
+    "video_mean_accuracy": 0.9572,
+    "ci95_over_videos": [
+     0.9065,
+     1.0
+    ],
+    "by_video": {
+     "video09": 0.9038,
+     "video12": 0.9605,
+     "video17": 0.8919,
+     "video28": 0.9867,
+     "video48": 1.0,
+     "video55": 1.0
+    },
+    "n_expected": 444,
+    "n_amber": 93,
+    "per_label": {
+     "grasper": {
+      "pooled": {
+       "n": 64,
+       "tp": 46,
+       "fp": 0,
+       "fn": 2,
+       "tn": 16,
+       "accuracy": 0.9688,
+       "majority_baseline": 0.75,
+       "balanced_accuracy": 0.9792,
+       "precision": 1.0,
+       "recall": 0.9583
+      },
+      "sensitivity": {
+       "n_videos": 5,
+       "n": 48,
+       "video_mean": 0.95,
+       "ci95_over_videos": [
+        0.8112,
+        1.0
+       ],
+       "by_video": {
+        "video12": 1.0,
+        "video17": 0.75,
+        "video28": 1.0,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 3,
+       "n": 16,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video17": 1.0,
+        "video28": 1.0
+       }
+      }
+     },
+     "l_hook": {
+      "pooled": {
+       "n": 61,
+       "tp": 14,
+       "fp": 4,
+       "fn": 1,
+       "tn": 42,
+       "accuracy": 0.918,
+       "majority_baseline": 0.7541,
+       "balanced_accuracy": 0.9232,
+       "precision": 0.7778,
+       "recall": 0.9333
+      },
+      "sensitivity": {
+       "n_videos": 2,
+       "n": 15,
+       "video_mean": 0.9545,
+       "ci95_over_videos": [
+        0.377,
+        1.0
+       ],
+       "by_video": {
+        "video12": 0.9091,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 5,
+       "n": 46,
+       "video_mean": 0.8333,
+       "ci95_over_videos": [
+        0.4825,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 0.3333,
+        "video17": 0.9167,
+        "video28": 0.9167,
+        "video48": 1.0
+       }
+      }
+     },
+     "liver": {
+      "pooled": {
+       "n": 68,
+       "tp": 67,
+       "fp": 0,
+       "fn": 1,
+       "tn": 0,
+       "accuracy": 0.9853,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 0.9853
+      },
+      "sensitivity": {
+       "n_videos": 6,
+       "n": 68,
+       "video_mean": 0.9872,
+       "ci95_over_videos": [
+        0.9542,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 1.0,
+        "video17": 0.9231,
+        "video28": 1.0,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "gallbladder": {
+      "pooled": {
+       "n": 61,
+       "tp": 47,
+       "fp": 5,
+       "fn": 4,
+       "tn": 5,
+       "accuracy": 0.8525,
+       "majority_baseline": 0.8361,
+       "balanced_accuracy": 0.7108,
+       "precision": 0.9038,
+       "recall": 0.9216
+      },
+      "sensitivity": {
+       "n_videos": 5,
+       "n": 51,
+       "video_mean": 0.9467,
+       "ci95_over_videos": [
+        0.7986,
+        1.0
+       ],
+       "by_video": {
+        "video12": 1.0,
+        "video17": 0.7333,
+        "video28": 1.0,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 2,
+       "n": 10,
+       "video_mean": 0.5833,
+       "ci95_over_videos": [
+        0.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 0.1667,
+        "video28": 1.0
+       }
+      }
+     },
+     "cystic_duct": {
+      "pooled": {
+       "n": 29,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 29,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 5,
+       "n": 29,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 1.0,
+        "video17": 1.0,
+        "video28": 1.0,
+        "video48": 1.0
+       }
+      }
+     },
+     "blood": {
+      "pooled": {
+       "n": 68,
+       "tp": 0,
+       "fp": 0,
+       "fn": 0,
+       "tn": 68,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": null,
+       "recall": null
+      },
+      "sensitivity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      },
+      "specificity": {
+       "n_videos": 6,
+       "n": 68,
+       "video_mean": 1.0,
+       "ci95_over_videos": [
+        1.0,
+        1.0
+       ],
+       "by_video": {
+        "video09": 1.0,
+        "video12": 1.0,
+        "video17": 1.0,
+        "video28": 1.0,
+        "video48": 1.0,
+        "video55": 1.0
+       }
+      }
+     }
+    },
+    "coverage": 0.7905
+   },
+   "by_route": {
+    "amber_said_present": {
+     "n": 42,
+     "tp": 33,
+     "fp": 9,
+     "fn": 0,
+     "tn": 0,
+     "accuracy": 0.7857,
+     "majority_baseline": 0.7857,
+     "balanced_accuracy": 0.5,
+     "precision": 0.7857,
+     "recall": 1.0,
+     "status_counts": {
+      "accept": 42,
+      "reject": 0,
+      "AMBER": 0
+     }
+    },
+    "both_passes_present": {
+     "n": 141,
+     "tp": 141,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "accuracy": 1.0,
+     "majority_baseline": 1.0,
+     "balanced_accuracy": null,
+     "precision": 1.0,
+     "recall": 1.0,
+     "status_counts": {
+      "accept": 141,
+      "reject": 0,
+      "AMBER": 0
+     }
+    },
+    "amber_said_absent": {
+     "n": 57,
+     "tp": 0,
+     "fp": 0,
+     "fn": 2,
+     "tn": 55,
+     "accuracy": 0.9649,
+     "majority_baseline": 0.9649,
+     "balanced_accuracy": 0.5,
+     "precision": null,
+     "recall": 0.0,
+     "status_counts": {
+      "accept": 0,
+      "reject": 0,
+      "AMBER": 57
+     }
+    },
+    "both_passes_absent": {
+     "n": 168,
+     "tp": 0,
+     "fp": 0,
+     "fn": 8,
+     "tn": 160,
+     "accuracy": 0.9524,
+     "majority_baseline": 0.9524,
+     "balanced_accuracy": 0.5,
+     "precision": null,
+     "recall": 0.0,
+     "status_counts": {
+      "accept": 0,
+      "reject": 168,
+      "AMBER": 0
+     }
+    },
+    "amber_unresolved": {
+     "n": 0,
+     "accuracy": null,
+     "status_counts": {
+      "accept": 0,
+      "reject": 0,
+      "AMBER": 36
+     }
+    }
+   },
+   "same_labels": {
+    "final": {
+     "pooled": {
+      "n": 351,
+      "tp": 174,
+      "fp": 9,
+      "fn": 8,
+      "tn": 160,
+      "accuracy": 0.9516,
+      "majority_baseline": 0.5185,
+      "balanced_accuracy": 0.9514,
+      "precision": 0.9508,
+      "recall": 0.956
+     },
+     "video_mean_accuracy": 0.9572,
+     "ci95_over_videos": [
+      0.9065,
+      1.0
+     ]
+    },
+    "detect": {
+     "pooled": {
+      "n": 351,
+      "tp": 172,
+      "fp": 7,
+      "fn": 10,
+      "tn": 162,
+      "accuracy": 0.9516,
+      "majority_baseline": 0.5185,
+      "balanced_accuracy": 0.9518,
+      "precision": 0.9609,
+      "recall": 0.9451
+     },
+     "video_mean_accuracy": 0.9575,
+     "ci95_over_videos": [
+      0.9175,
+      0.9976
+     ]
+    },
+    "verify": {
+     "pooled": {
+      "n": 351,
+      "tp": 166,
+      "fp": 4,
+      "fn": 16,
+      "tn": 165,
+      "accuracy": 0.943,
+      "majority_baseline": 0.5185,
+      "balanced_accuracy": 0.9442,
+      "precision": 0.9765,
+      "recall": 0.9121
+     },
+     "video_mean_accuracy": 0.9526,
+     "ci95_over_videos": [
+      0.904,
+      1.0
+     ]
+    }
+   },
+   "iou_with_errors": {
+    "video_mean": 0.5549,
+    "ci95_over_videos": [
+     0.3248,
+     0.7851
+    ],
+    "by_video": {
+     "video09": 0.1979,
+     "video12": 0.4311,
+     "video17": 0.5167,
+     "video28": 0.685,
+     "video48": 0.7074,
+     "video55": 0.7915
+    }
+   },
+   "phase": {
+    "accuracy": null,
+    "why_not_scored": "CholecSeg8k has no phase labels and no Cholec80 phase annotations are on this machine, so phase accuracy is unmeasured. Agreement between the two passes is shown instead; it is not accuracy.",
+    "n": 74,
+    "agree": 23,
+    "unknown": 0
+   },
+   "narration_segment_sources": {
+    "claude-sonnet-5-5": 11
+   }
+  },
+  "rare_labels_train_video01": {
+   "splits": [
+    "train"
+   ],
+   "videos": [
+    "video01"
+   ],
+   "n_videos": 1,
+   "n_jobs": 3,
+   "n_clips": 8,
+   "clips": [
+    "video01_16345",
+    "video01_16425",
+    "video01_16585",
+    "video01_28580",
+    "video01_28660",
+    "video01_28740",
+    "video01_28820",
+    "video01_28900"
+   ],
+   "n_keyframes": 27,
+   "models": [
+    "claude-haiku-5-5",
+    "claude-sonnet-5-5"
+   ],
+   "presence_detect_raw": {
+    "pooled": {
+     "n": 162,
+     "tp": 97,
+     "fp": 7,
+     "fn": 15,
+     "tn": 43,
+     "accuracy": 0.8642,
+     "majority_baseline": 0.6914,
+     "balanced_accuracy": 0.863,
+     "precision": 0.9327,
+     "recall": 0.8661
+    },
+    "n_videos": 1,
+    "video_mean_accuracy": 0.8642,
+    "ci95_over_videos": null,
+    "by_video": {
+     "video01": 0.8642
+    },
+    "n_expected": 162,
+    "n_amber": 0,
+    "per_label": {
+     "grasper": {
+      "pooled": {
+       "n": 27,
+       "tp": 12,
+       "fp": 1,
+       "fn": 0,
+       "tn": 14,
+       "accuracy": 0.963,
+       "majority_baseline": 0.5556,
+       "balanced_accuracy": 0.9667,
+       "precision": 0.9231,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 12,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 15,
+       "video_mean": 0.9333,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.9333
+       }
+      }
+     },
+     "l_hook": {
+      "pooled": {
+       "n": 27,
+       "tp": 17,
+       "fp": 0,
+       "fn": 3,
+       "tn": 7,
+       "accuracy": 0.8889,
+       "majority_baseline": 0.7407,
+       "balanced_accuracy": 0.925,
+       "precision": 1.0,
+       "recall": 0.85
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 20,
+       "video_mean": 0.85,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.85
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 7,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      }
+     },
+     "liver": {
+      "pooled": {
+       "n": 27,
+       "tp": 27,
+       "fp": 0,
+       "fn": 0,
+       "tn": 0,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 27,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "gallbladder": {
+      "pooled": {
+       "n": 27,
+       "tp": 15,
+       "fp": 6,
+       "fn": 0,
+       "tn": 6,
+       "accuracy": 0.7778,
+       "majority_baseline": 0.5556,
+       "balanced_accuracy": 0.75,
+       "precision": 0.7143,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 15,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 12,
+       "video_mean": 0.5,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.5
+       }
+      }
+     },
+     "cystic_duct": {
+      "pooled": {
+       "n": 27,
+       "tp": 0,
+       "fp": 0,
+       "fn": 11,
+       "tn": 16,
+       "accuracy": 0.5926,
+       "majority_baseline": 0.5926,
+       "balanced_accuracy": 0.5,
+       "precision": null,
+       "recall": 0.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 11,
+       "video_mean": 0.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.0
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 16,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      }
+     },
+     "blood": {
+      "pooled": {
+       "n": 27,
+       "tp": 26,
+       "fp": 0,
+       "fn": 1,
+       "tn": 0,
+       "accuracy": 0.963,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 0.963
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 27,
+       "video_mean": 0.963,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.963
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     }
+    }
+   },
+   "presence_verify_raw": {
+    "pooled": {
+     "n": 162,
+     "tp": 90,
+     "fp": 10,
+     "fn": 22,
+     "tn": 40,
+     "accuracy": 0.8025,
+     "majority_baseline": 0.6914,
+     "balanced_accuracy": 0.8018,
+     "precision": 0.9,
+     "recall": 0.8036
+    },
+    "n_videos": 1,
+    "video_mean_accuracy": 0.8025,
+    "ci95_over_videos": null,
+    "by_video": {
+     "video01": 0.8025
+    },
+    "n_expected": 162,
+    "n_amber": 0,
+    "per_label": {
+     "grasper": {
+      "pooled": {
+       "n": 27,
+       "tp": 12,
+       "fp": 8,
+       "fn": 0,
+       "tn": 7,
+       "accuracy": 0.7037,
+       "majority_baseline": 0.5556,
+       "balanced_accuracy": 0.7333,
+       "precision": 0.6,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 12,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 15,
+       "video_mean": 0.4667,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.4667
+       }
+      }
+     },
+     "l_hook": {
+      "pooled": {
+       "n": 27,
+       "tp": 10,
+       "fp": 0,
+       "fn": 10,
+       "tn": 7,
+       "accuracy": 0.6296,
+       "majority_baseline": 0.7407,
+       "balanced_accuracy": 0.75,
+       "precision": 1.0,
+       "recall": 0.5
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 20,
+       "video_mean": 0.5,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.5
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 7,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      }
+     },
+     "liver": {
+      "pooled": {
+       "n": 27,
+       "tp": 27,
+       "fp": 0,
+       "fn": 0,
+       "tn": 0,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 27,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "gallbladder": {
+      "pooled": {
+       "n": 27,
+       "tp": 14,
+       "fp": 1,
+       "fn": 1,
+       "tn": 11,
+       "accuracy": 0.9259,
+       "majority_baseline": 0.5556,
+       "balanced_accuracy": 0.925,
+       "precision": 0.9333,
+       "recall": 0.9333
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 15,
+       "video_mean": 0.9333,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.9333
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 12,
+       "video_mean": 0.9167,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.9167
+       }
+      }
+     },
+     "cystic_duct": {
+      "pooled": {
+       "n": 27,
+       "tp": 0,
+       "fp": 1,
+       "fn": 11,
+       "tn": 15,
+       "accuracy": 0.5556,
+       "majority_baseline": 0.5926,
+       "balanced_accuracy": 0.4688,
+       "precision": 0.0,
+       "recall": 0.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 11,
+       "video_mean": 0.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.0
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 16,
+       "video_mean": 0.9375,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.9375
+       }
+      }
+     },
+     "blood": {
+      "pooled": {
+       "n": 27,
+       "tp": 27,
+       "fp": 0,
+       "fn": 0,
+       "tn": 0,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 27,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     }
+    }
+   },
+   "presence_final": {
+    "pooled": {
+     "n": 107,
+     "tp": 84,
+     "fp": 0,
+     "fn": 2,
+     "tn": 21,
+     "accuracy": 0.9813,
+     "majority_baseline": 0.8037,
+     "balanced_accuracy": 0.9884,
+     "precision": 1.0,
+     "recall": 0.9767
+    },
+    "n_videos": 1,
+    "video_mean_accuracy": 0.9813,
+    "ci95_over_videos": null,
+    "by_video": {
+     "video01": 0.9813
+    },
+    "n_expected": 162,
+    "n_amber": 55,
+    "per_label": {
+     "grasper": {
+      "pooled": {
+       "n": 17,
+       "tp": 12,
+       "fp": 0,
+       "fn": 0,
+       "tn": 5,
+       "accuracy": 1.0,
+       "majority_baseline": 0.7059,
+       "balanced_accuracy": 1.0,
+       "precision": 1.0,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 12,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 5,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      }
+     },
+     "l_hook": {
+      "pooled": {
+       "n": 20,
+       "tp": 13,
+       "fp": 0,
+       "fn": 1,
+       "tn": 6,
+       "accuracy": 0.95,
+       "majority_baseline": 0.7,
+       "balanced_accuracy": 0.9643,
+       "precision": 1.0,
+       "recall": 0.9286
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 14,
+       "video_mean": 0.9286,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.9286
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 6,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      }
+     },
+     "liver": {
+      "pooled": {
+       "n": 27,
+       "tp": 27,
+       "fp": 0,
+       "fn": 0,
+       "tn": 0,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 27,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "gallbladder": {
+      "pooled": {
+       "n": 13,
+       "tp": 13,
+       "fp": 0,
+       "fn": 0,
+       "tn": 0,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 13,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     },
+     "cystic_duct": {
+      "pooled": {
+       "n": 11,
+       "tp": 0,
+       "fp": 0,
+       "fn": 1,
+       "tn": 10,
+       "accuracy": 0.9091,
+       "majority_baseline": 0.9091,
+       "balanced_accuracy": 0.5,
+       "precision": null,
+       "recall": 0.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 1,
+       "video_mean": 0.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 0.0
+       }
+      },
+      "specificity": {
+       "n_videos": 1,
+       "n": 10,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      }
+     },
+     "blood": {
+      "pooled": {
+       "n": 19,
+       "tp": 19,
+       "fp": 0,
+       "fn": 0,
+       "tn": 0,
+       "accuracy": 1.0,
+       "majority_baseline": 1.0,
+       "balanced_accuracy": null,
+       "precision": 1.0,
+       "recall": 1.0
+      },
+      "sensitivity": {
+       "n_videos": 1,
+       "n": 19,
+       "video_mean": 1.0,
+       "ci95_over_videos": null,
+       "by_video": {
+        "video01": 1.0
+       }
+      },
+      "specificity": {
+       "n_videos": 0,
+       "n": 0,
+       "video_mean": null,
+       "ci95_over_videos": null,
+       "by_video": {}
+      }
+     }
+    },
+    "coverage": 0.6605
+   },
+   "by_route": {
+    "both_passes_present": {
+     "n": 69,
+     "tp": 69,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "accuracy": 1.0,
+     "majority_baseline": 1.0,
+     "balanced_accuracy": null,
+     "precision": 1.0,
+     "recall": 1.0,
+     "status_counts": {
+      "accept": 69,
+      "reject": 0,
+      "AMBER": 0
+     }
+    },
+    "amber_said_present": {
+     "n": 15,
+     "tp": 15,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "accuracy": 1.0,
+     "majority_baseline": 1.0,
+     "balanced_accuracy": null,
+     "precision": 1.0,
+     "recall": 1.0,
+     "status_counts": {
+      "accept": 15,
+      "reject": 0,
+      "AMBER": 0
+     }
+    },
+    "amber_said_absent": {
+     "n": 28,
+     "tp": 0,
+     "fp": 0,
+     "fn": 15,
+     "tn": 13,
+     "accuracy": 0.4643,
+     "majority_baseline": 0.5357,
+     "balanced_accuracy": 0.5,
+     "precision": null,
+     "recall": 0.0,
+     "status_counts": {
+      "accept": 0,
+      "reject": 0,
+      "AMBER": 28
+     }
+    },
+    "amber_unresolved": {
+     "n": 0,
+     "accuracy": null,
+     "status_counts": {
+      "accept": 0,
+      "reject": 0,
+      "AMBER": 27
+     }
+    },
+    "both_passes_absent": {
+     "n": 23,
+     "tp": 0,
+     "fp": 0,
+     "fn": 2,
+     "tn": 21,
+     "accuracy": 0.913,
+     "majority_baseline": 0.913,
+     "balanced_accuracy": 0.5,
+     "precision": null,
+     "recall": 0.0,
+     "status_counts": {
+      "accept": 0,
+      "reject": 23,
+      "AMBER": 0
+     }
+    }
+   },
+   "same_labels": {
+    "final": {
+     "pooled": {
+      "n": 107,
+      "tp": 84,
+      "fp": 0,
+      "fn": 2,
+      "tn": 21,
+      "accuracy": 0.9813,
+      "majority_baseline": 0.8037,
+      "balanced_accuracy": 0.9884,
+      "precision": 1.0,
+      "recall": 0.9767
+     },
+     "video_mean_accuracy": 0.9813,
+     "ci95_over_videos": null
+    },
+    "detect": {
+     "pooled": {
+      "n": 107,
+      "tp": 83,
+      "fp": 0,
+      "fn": 3,
+      "tn": 21,
+      "accuracy": 0.972,
+      "majority_baseline": 0.8037,
+      "balanced_accuracy": 0.9826,
+      "precision": 1.0,
+      "recall": 0.9651
+     },
+     "video_mean_accuracy": 0.972,
+     "ci95_over_videos": null
+    },
+    "verify": {
+     "pooled": {
+      "n": 107,
+      "tp": 79,
+      "fp": 0,
+      "fn": 7,
+      "tn": 21,
+      "accuracy": 0.9346,
+      "majority_baseline": 0.8037,
+      "balanced_accuracy": 0.9593,
+      "precision": 1.0,
+      "recall": 0.9186
+     },
+     "video_mean_accuracy": 0.9346,
+     "ci95_over_videos": null
+    }
+   },
+   "iou_with_errors": {
+    "video_mean": 0.5211,
+    "ci95_over_videos": null,
+    "by_video": {
+     "video01": 0.5211
+    }
+   },
+   "phase": {
+    "accuracy": null,
+    "why_not_scored": "CholecSeg8k has no phase labels and no Cholec80 phase annotations are on this machine, so phase accuracy is unmeasured. Agreement between the two passes is shown instead; it is not accuracy.",
+    "n": 27,
+    "agree": 19,
+    "unknown": 0
+   },
+   "narration_segment_sources": {
+    "claude-sonnet-5-5": 4
+   }
+  }
+ }
+}

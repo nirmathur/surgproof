@@ -1,4 +1,5 @@
 """README "Run it" must stay true: every command, file and make target it names has to exist."""
+import json
 import re
 import subprocess
 import sys
@@ -47,3 +48,70 @@ def test_test_video_tool_answers_help():
 
 def test_proof_numbers_are_attributed_to_the_pipeline_that_made_them():
     assert "earlier Gemini 4 Argon pipeline" in RUN_IT
+
+
+# ---------- scope and claims, for the whole README ----------
+
+@pytest.mark.parametrize("pattern,why", [
+    (r"96\.[0-9]", "the headline from the earlier pipeline"),
+    (r"93\.2", "the headline from the earlier pipeline"),
+    (r"\bverified\b", "promises more than one AI pass and a sampled check"),
+    (r"(?i)critical view|\bCVS\b", "not something this build assesses"),
+    (r"(?i)operative.record", "not an operative record"),
+    (r"(?i)\blive\b", "no live claims"),
+    (r"(?i)any (surgery|procedure|surgical)", "one procedure only"),
+    (r"0\.0\.0\.0", "localhost only"),
+    (r"\u2014", "no em dashes"),
+    (r"(?i)launch film|integrity%20checker|takes the person out", "marketing from the earlier pipeline"),
+])
+def test_readme_makes_no_retired_claim(pattern, why):
+    hits = re.findall(pattern, README)
+    assert not hits, f"{why}: {hits[:3]}"
+
+
+@pytest.mark.parametrize("phrase", [
+    "No real patient video", "public or simulator footage only", "Laparoscopic cholecystectomy only",
+    "127.0.0.1", "not a medical device", "third-party model",
+])
+def test_readme_states_the_scope(phrase):
+    assert phrase.lower() in README[:README.index("## How it works")].lower() or phrase in README, phrase
+
+
+def _results():
+    return json.loads((ROOT / "docs" / "e2e_status" / "qa_results.json").read_text())["groups"]
+
+
+@pytest.mark.parametrize("group,row", [("heldout_never_scored_3_videos", "Videos never scored before"),
+                                       ("heldout_all_unspent_6_videos", "All unused clips")])
+def test_results_table_matches_the_results_file(group, row):
+    """No number typed by hand: each cell has to be what the scorer wrote."""
+    g = _results()[group]
+    line = next(x for x in README.splitlines() if x.startswith(f"| {row}"))
+    final = g["presence_final"]
+    want = [f"{final['video_mean_accuracy']:.3f}", f"{final['ci95_over_videos'][0]:.3f} to {final['ci95_over_videos'][1]:.3f}",
+            f"{final['coverage']:.3f}", f"| {final['pooled']['n']} |", f"| {final['n_amber']} |",
+            f"{g['same_labels']['detect']['pooled']['accuracy']:.3f}"]
+    for cell in want:
+        assert cell in line, (cell, line)
+
+
+def test_results_say_the_uncomfortable_parts():
+    g = _results()
+    train = g["rare_labels_train_video01"]["presence_detect_raw"]["per_label"]["cystic_duct"]["pooled"]
+    assert f"{train['tp']} of {train['tp'] + train['fn']} found by detect" in README
+    routes = g["heldout_all_unspent_6_videos"]["by_route"]
+    assert f"{routes['amber_said_present']['tp']} of {routes['amber_said_present']['n']}" in README
+    assert "Phase accuracy is not measured" in README
+    same = g["heldout_all_unspent_6_videos"]["same_labels"]
+    if same["final"]["pooled"]["accuracy"] <= same["detect"]["pooled"]["accuracy"]:
+        assert "did not beat one pass" in README
+
+
+def test_scored_results_never_use_a_spent_clip():
+    from surgproof import eval as ev
+
+    for name, g in _results().items():
+        assert not set(g["clips"]) & ev.SPENT_CLIPS, name
+    assert _results()["heldout_never_scored_3_videos"]["splits"] == ["test"]
+    assert _results()["heldout_all_unspent_6_videos"]["splits"] == ["test"]
+    assert all("mock" not in m for g in _results().values() for m in g["models"])

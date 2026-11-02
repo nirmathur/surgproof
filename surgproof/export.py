@@ -995,8 +995,8 @@ def _licences_text(rights):
     source = rights or "Not attested: nobody recorded the rights to this footage. Do not redistribute it."
     return ("# Licences\n\n"
             f"## Source footage\n{source}\n\n"
-            "This tool grants no rights to the footage. Footage from CholecSeg8k or Cholec80 is CC BY-NC-SA 4.0 and must keep "
-            "its attribution and terms.\n\n"
+            "This tool grants no rights to the footage. Footage taken from a public dataset keeps that dataset's licence, "
+            "attribution and terms.\n\n"
             "## Annotations\nAI-generated, with any human corrections listed in annotations/final_pass.jsonl. No licence is "
             "granted here beyond what the source footage allows.\n\n"
             "## Code\nPipeline code: MIT, see LICENSE in the project repository.\n")
