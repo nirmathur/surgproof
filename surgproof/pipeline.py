@@ -72,12 +72,13 @@ CLAUSE_SHAPES = [(kind, re.compile(pattern)) for kind, pattern in [
     ("unsure", rf"{_LIST}\s+(?:could\s+not|cannot)\s+be\s+confirmed{_PLACE}"),
     ("unsure", rf"{_LIST}\s+{_BE}\s+(?:uncertain|unsure|unclear|unconfirmed|not\s+confirmed){_PLACE}"),
     ("unsure", rf"{_LIST}\s+may\s+be\s+{_SEEN}{_PLACE}"),
-    ("meta", r"the\s+phase\s+is\s+(?:uncertain|unsure|unclear|unconfirmed)"),
-    ("meta", rf"(?:this\s+segment|the\s+phase|it)\s+is\s+(?:labell?ed\s+(?:as\s+)?)?{_PHASE}"),
-    ("meta", rf"{_PHASE}\s+(?:continues|is\s+ongoing|is\s+underway)"),
-    ("meta", r"(?:the\s+)?phase\s+checks\s+(?:disagree|disagreed)"),
-    ("meta", r"(?:the\s+)?(?:phase\s+)?confidence\s+is\s+low"),
+    ("phase_uncertain", r"the\s+phase\s+is\s+(?:uncertain|unsure|unclear|unconfirmed)"),
+    ("phase_named", rf"(?:this\s+segment|the\s+phase|it)\s+is\s+(?:labell?ed\s+(?:as\s+)?)?{_PHASE}"),
+    ("phase_named", rf"{_PHASE}\s+(?:continues|is\s+ongoing|is\s+underway)"),
+    ("checks_disagree", r"(?:the\s+)?phase\s+checks\s+(?:disagree|disagreed)"),
+    ("low_confidence", r"(?:the\s+)?(?:phase\s+)?confidence\s+is\s+low"),
 ]]
+UNIVERSAL_PLACE = re.compile(r"\b(?:all|every|each|throughout|across|these|segments?|frames|keyframes)\b")
 CLAUSE_BREAK = re.compile(r"[;.]|,?\s*\b(?:but|while|whereas|although|though|yet)\b", re.I)
 
 
@@ -704,16 +705,26 @@ def sentence_supported(sentence, facts):
         kind = next((k for k, shape in CLAUSE_SHAPES if shape.fullmatch(clause)), None)
         if kind is None:
             return False
-        if kind == "meta":
-            continue
-        for label in re.findall(r"@(\w+)", clause):
-            if any(label not in frames[e][kind] for e in evidence):
+        if kind == "phase_uncertain" and not phase_is_uncertain(facts):
+            return False
+        if kind == "phase_named" and phase_is_uncertain(facts):
+            return False
+        if kind == "checks_disagree" and facts["phase_checks_agree"]:
+            return False
+        if kind == "low_confidence" and facts["phase_conf"] >= PHASE_UNSURE_CONF:
+            return False
+        if kind in ("visible", "not_visible", "unsure"):
+            # A claim about the whole segment has to cite the whole segment.
+            if UNIVERSAL_PLACE.search(clause) and set(evidence) != set(frames):
                 return False
+            for label in re.findall(r"@(\w+)", clause):
+                if any(label not in frames[e][kind] for e in evidence):
+                    return False
     return True
 
 
 def phase_is_uncertain(facts):
-    return not facts["phase_checks_agree"] or facts["phase_conf"] < PHASE_UNSURE_CONF
+    return facts["phase"] == P.UNKNOWN_PHASE or not facts["phase_checks_agree"] or facts["phase_conf"] < PHASE_UNSURE_CONF
 
 
 def fallback_text(facts):

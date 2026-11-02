@@ -1,7 +1,7 @@
 STATUS: running
 DONE:
-- surgproof/vlm.py, pipeline.py (stages 1-4, 7, orchestration), run.py, prompts.py. tests/test_core_*.py: 119 pass, 1 real-model test opt-in.
-- All QA findings handled (old job outputs cleared, narration now a whole-clause grammar, far out-of-frame outlines rejected, Read scoped to the call folder, real canary denied). QA's narration attack list: 27 pass, run directly on this commit. The rest of QA's suite has not been re-run here.
+- surgproof/vlm.py, pipeline.py (stages 1-4, 7, orchestration), run.py, prompts.py. tests/test_core_*.py: 135 pass, 1 real-model test opt-in.
+- All QA findings handled (old job outputs cleared, narration now a whole-clause grammar, far out-of-frame outlines rejected, Read scoped to the call folder, real canary denied). QA's narration and phase-statement cases: 38 pass, run directly against this code. The rest of QA's suite has not been re-run here.
 - Prompts fixed on the calib split only. Tuning clips (16 keyframes, 3 calib videos, final presence, resolved labels only):
   before: 0.909 (n=33), 0.882 (n=34), 0.944 (n=18). After: 1.000 (n=36), 1.000 (n=34), 0.947 (n=19). Ambers after: 2 and 5 on two of the videos.
   These are TUNING numbers on the clips the fix was designed from, so they are upper bounds and not evidence the fix generalises.

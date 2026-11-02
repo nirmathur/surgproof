@@ -331,7 +331,7 @@ def test_verify_sees_only_the_image_and_records_phase_agreement(tmp_path, monkey
 
 # ---- narration ------------------------------------------------------------------------------------
 
-FACTS = {"phase": "GallbladderDissection", "keyframes": [
+FACTS = {"phase": "GallbladderDissection", "phase_conf": 0.9, "phase_checks_agree": True, "keyframes": [
     {"kf": "kf_00001", "t": 1.0, "visible": ["liver", "grasper"], "not_visible": ["blood", "l_hook"], "unsure": ["cystic_duct"]},
     {"kf": "kf_00002", "t": 2.0, "visible": ["liver"], "not_visible": ["blood", "grasper"], "unsure": []},
 ]}
@@ -371,10 +371,22 @@ FACTS = {"phase": "GallbladderDissection", "keyframes": [
     ("Blood is seen, no L-hook.", ["kf_00001"], False),
     ("Blood and no L-hook are visible.", ["kf_00001"], False),
     ("No blood, L-hook or cystic duct is seen.", ["kf_00001"], False),  # right shape, but the duct is amber
-    ("No blood or L-hook is seen in these frames.", ["kf_00001"], True),
-    ("The liver and a grasper are visible throughout this segment.", ["kf_00001"], True),
+    ("No blood or L-hook is seen in this frame.", ["kf_00001"], True),
+    ("No blood is seen in these frames.", ["kf_00001"], False),  # "these frames" means all of them
+    ("No blood is seen in these frames.", ["kf_00001", "kf_00002"], True),
+    ("The liver and a grasper are visible in this frame.", ["kf_00001"], True),
+    ("The liver is visible throughout this segment.", ["kf_00001"], False),  # cites one of the two keyframes
+    ("The liver is visible throughout this segment.", ["kf_00001", "kf_00002"], True),
+    ("The liver is visible in all frames.", ["kf_00002"], False),
+    ("A grasper is visible in every frame.", ["kf_00001"], False),
+    ("There is no blood in all frames.", ["kf_00001"], False),
+    ("There is no blood in all frames.", ["kf_00001", "kf_00002"], True),
+    ("Blood is not visible throughout this segment.", ["kf_00002"], False),
+    ("A grasper is visible throughout this segment.", ["kf_00001", "kf_00002"], False),  # absent on the second
     ("A grasper is visible near the liver.", ["kf_00001"], True),
-    ("The phase is uncertain; the phase checks disagree, but confidence is low.", ["kf_00001"], True),
+    ("The phase is uncertain.", ["kf_00001"], False),  # both checks agree here, at high confidence
+    ("The phase checks disagree.", ["kf_00001"], False),
+    ("Confidence is low.", ["kf_00001"], False),
     ("Nothing is wrong.", ["kf_00001"], False),
     ("The cystic artery is exposed near the liver.", ["kf_00001"], False),
     ("Gallbladder dissection continues.", ["kf_00001"], True),  # the phase's own name, though it contains a label
@@ -383,6 +395,27 @@ FACTS = {"phase": "GallbladderDissection", "keyframes": [
 ])
 def test_sentence_supported(text, evidence, ok):
     assert PL.sentence_supported({"text": text, "evidence": evidence}, FACTS) is ok
+
+
+@pytest.mark.parametrize("change", [{"phase_checks_agree": False}, {"phase_conf": 0.3}, {"phase": P.UNKNOWN_PHASE}])
+def test_an_uncertain_phase_cannot_be_stated_as_fact(change):
+    facts = {**FACTS, **change}
+    cite = ["kf_00001"]
+    assert PL.sentence_supported({"text": "The phase is uncertain.", "evidence": cite}, facts)
+    for text in ("This segment is GallbladderDissection.", "It is Gallbladder Dissection.", "Gallbladder dissection continues."):
+        assert not PL.sentence_supported({"text": text, "evidence": cite}, facts), text
+
+
+def test_phase_details_are_checked_one_by_one():
+    cite = ["kf_00001"]
+    disagree = {**FACTS, "phase_checks_agree": False}
+    low = {**FACTS, "phase_conf": 0.3}
+    assert PL.sentence_supported({"text": "The phase checks disagree.", "evidence": cite}, disagree)
+    assert not PL.sentence_supported({"text": "Confidence is low.", "evidence": cite}, disagree)
+    assert PL.sentence_supported({"text": "Confidence is low.", "evidence": cite}, low)
+    assert not PL.sentence_supported({"text": "The phase checks disagree.", "evidence": cite}, low)
+    both = {**FACTS, "phase_checks_agree": False, "phase_conf": 0.3}
+    assert PL.sentence_supported({"text": "The phase is uncertain; the phase checks disagree, but confidence is low.", "evidence": cite}, both)
 
 
 def narration_setup(tmp_path):
