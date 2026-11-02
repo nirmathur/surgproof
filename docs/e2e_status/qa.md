@@ -1,39 +1,67 @@
-STATUS: blocked. Lane code and tests are finished. The held-out run on the new prompts, the 5-minute test and the clean-clone setup cannot run on this machine right now.
+STATUS: hardened, with one item not met: phase accuracy (qa item 2) cannot be scored, because no phase ground truth exists on this machine. Everything else in the qa section passes. See NOT MET.
 
-BLOCKED, needs Nir:
-1. `claude` is broken on this Mac: /opt/homebrew/bin/claude is missing and @anthropic-ai/claude-code/bin/claude.exe is a 500-byte stub dated 18:58, probably an interrupted auto-update on the full disk (cause not confirmed). No real model call can run. Shared infrastructure, so not touched. /api/health correctly reports claude false.
-2. Disk: 380 MB free at last check. It reached 0 at about 19:00 and commands failed outright. Swap is 8.4 GB and the Data volume holds 209.8 GB. All surgproof-e2e worktrees and temp files total under 0.6 GB, so this cannot be fixed from inside the lanes.
+Scope for this round: single-user localhost research tool, laparoscopic cholecystectomy, public or simulator footage only.
 
-NOT VERIFIED (because of the above):
-- New prompts on held-out data. All 3 real runs below predate core 7a2549c. Core's calib numbers (1.000, 1.000, 0.947) are on the clips it tuned on, so they are upper bounds. Clean clips reserved for this run, not looked at by anyone: video09, video17, video48. Mine to run.
-- tests/test_e2e.py::test_real_run_end_to_end has never executed. The real runs were the same steps by hand (CLI then scorer) on an overlay of the lanes.
-- Real narration against core's new grammar. If real sentences miss the shapes, subtitles fall back to text built from decisions (`source: decisions`).
-- "Up to 5 minutes" (acceptance step 2). The mock scale test was killed by my disk watchdog at mask 19/299, so no result. A real 5-minute job is an estimated 350-670 MB plus the upload, and about $8-18 by linear estimate (not measured).
-- Clean clone `make setup` (acceptance step 1): the venv is about 250 MB. Partial checks passed: `make serve` starts on system Python and serves /, /app.js and /api/health; a pip dry run in a fresh Python 3.14 venv resolves all of requirements-e2e.txt from wheels.
-- A browser has not been driven by this lane. The web flow is tested over HTTP only.
+NOT MET
+- Phase accuracy (item 2). CholecSeg8k has no phase labels. Cholec80 phase annotations come through a CAMMA request form. Unofficial copies exist on Hugging Face and I did not use them, because that would sidestep the form. Needs Nir: request the annotations, or accept phase as unmeasured. surgproof/eval.py refuses to report a phase accuracy. Only agreement between the passes is shown, which is not accuracy.
 
-DONE:
-- tools/make_test_video.py (--split test|calib), surgproof/eval.py, tests/test_e2e.py, tests/test_qa_eval.py, tests/test_qa_make_test_video.py, tests/test_qa_redteam.py, tests/test_qa_http_redteam.py, tests/test_qa_inputs.py, tests/test_qa_readme.py, fake claude harness, README Run it.
+RESULTS (docs/e2e_status/qa_results.json; surgproof/eval.py aggregate; CIs are t intervals over per-video values)
+Model calls from core 20b9c94, prompts.py sha256 0c717e759fc9. Rebuilt from the cache on core d861281, masks 2d52d80, web 184351c: 606 of 606 decisions identical, no call repeated, keyframe IoU moved by at most 0.0012 on 2 of 14 jobs.
+| set | videos / clips / keyframes | final, mean over videos | 95% CI | n decided | coverage | amber | same labels pooled: final / detect / second pass |
+| never scored before (primary): video09, 17, 48 | 3 / 10 / 36 | 0.932 | 0.785 to 1.000 | 183 | 0.847 | 33 | 0.929 / 0.934 / 0.940 |
+| all unused clips, all 6 held-out videos | 6 / 21 / 74 | 0.957 | 0.906 to 1.000 | 351 | 0.790 | 93 | 0.952 / 0.952 / 0.943 |
+| rare labels only: video01, train, not held-out | 1 / 8 / 27 | 0.981 | none, one video | 107 | 0.661 | 55 | 0.981 / 0.972 / 0.935 |
 
-TEST RESULTS on core acd86f8, masks 75107e6, web 09c0048 (overlay of committed heads, suites run one at a time because of disk):
-- test_qa_redteam 65/65, test_qa_http_redteam 46/46, test_e2e 18 passed and 1 skipped (the real run), test_qa_eval 26/26, test_qa_readme 23/23.
-- test_qa_inputs 11/11 and test_qa_make_test_video 8/8 were last run a commit or two earlier (core 91cde25), not repeated, to save disk.
-- All of this uses the mock or fake model. No real model sentence has been checked against core's narration grammar.
+What came out, worst first:
+- Cystic duct does not work. Held-out keyframes have no cystic duct, so sensitivity there is unknown. On video01, both passes missed 11 of 11. Final shows only n=1 because the other 10 went amber for a person. This is the label a surgeon would care about most.
+- The double-check adds no accuracy. On the labels final decided, final is not better than detect alone: 0.929 vs 0.934 on the primary set, 0.952 vs 0.952 on all 6. It costs a second model pass, and its value is routing about a fifth of labels to a person.
+- amber_said_present is the weak route. All 6 held-out videos: 33 of 42 right (9 false accepts), against both_passes_present 141 of 141. Primary set: 13 of 19. Every false accept in the held-out set came from this route. The masks lane now audits this stratum, but these labels are still accepted automatically. On video01 it was 15 of 15, so the rate is not stable.
+- both_passes_absent still misses: 8 of 168 held-out were present. These enter the dataset as ai_absent.
+- The amber rule is justified: on video01, amber_said_absent was wrong 15 of 28 times. Before this round each of those would have been a reject.
+- Blood: no held-out positives, so sensitivity is unknown there. 0 false positives on 74 held-out keyframes. video01 alone: detect 26 of 27, second pass 27 of 27. One video gives no interval.
+- Phase: the passes agree on 23 of 74 held-out keyframes (6 of 36 on the primary set, 19 of 27 on video01). Treat phase as a guess. Unknown was never chosen in these runs.
+- Masks: IoU counting errors as 0 is 0.555 over 6 videos (CI 0.325 to 0.785) and 0.474 over 3 (CI 0 to 1, meaningless). Worst video 0.198.
+- Spent clips are left out, and that flatters the table. video12_19500 and 19580 are the hardest known: coverage 0.417, final 0.933 (n=15), IoU 0.221, from the one real run of test_real_run_end_to_end. Disclosed in the README.
+- Review load: one 3.2-second clip produced 36 review items (7 amber, 29 audit). Audit caps have not been tested on a long video.
 
-OPEN FINDINGS: none from the red team against the lanes' code. Still open for the orchestrator:
-- orchestrator: lanes/integrity.py does os.chdir(~/surgatlas) and globs web/*.js, so it scans NO file under surgproof/ or web/app/. "0 FAIL" in acceptance step 6 says nothing about the new code. tests/test_qa_redteam.py applies the same patterns to it. integrity.py is yours to change.
-- orchestrator: 2 legacy tests fail on main regardless of this work, and step 6 needs pytest to pass: tests/test_coach_fresh_clone.py::test_readme_sections_and_placeholders (asserts README strings removed by the README rewrite) and tests/test_web_ui.py::test_missing_files_are_null_not_invented (web/data bundle fills in the "missing" files). Editing or deleting tests is your call under AGENTS.md, so I have not touched them. 9 more legacy tests fail only inside the Claude Code sandbox (port binding, sqlite). The `make setup` venv lacks the legacy suite's dependencies (pandas, torch, streamlit), so plain `pytest` there fails at collection.
-- orchestrator: README top still says "agent: Gemini 4 Argon" and carries the 96.6% badge. Those numbers are from the earlier pipeline, and Run it now says so, but the header reads as if they describe this one. Only "Run it" is my remit.
+How to read this:
+- The 6-video row contains the 3-video row. Its other 3 videos had other clips examined earlier, so it is not clean. The primary row is 10 clips: a very small sample.
+- Spent: brief named video12_15750, video28_00000 and video55_00508. I also excluded the clips used alongside them earlier (video12_19500, 19580, video28_00080, video55_00588), and the 7 video01 clips core read by eye while writing prompts. The scorer refuses all of them.
+- Train-split numbers exist only because held-out and calib lack the labels. All blood and duct positives are in one video.
+- Numbers from before this round (0.848, 0.613) used old prompts and an old amber rule, on different clips, so they are not comparable.
+- Video-level CIs from 3 to 6 videos say nothing about other surgeons, hospitals or cameras.
 
-FIXED BY OTHER LANES AND RE-VERIFIED BY ME: rerun into a used folder keeps no old sign-off (core, masks); out-of-frame polygons no longer accepted (core); Read scoped to the call folder (core); release gate case bypass and nameless release (web); zero-area correction (masks, web); narration perforated, torn, negation tricks, comma tricks, whole-segment claims and unchecked phase statements (core).
+ITEM 1: REGRESSION TEST FOR EVERY AUDIT FINDING
+tests/test_qa_hardening.py: 119 passed on the merge below. They replay attacks through the CLI and HTTP routes, using tests/e2e_helpers/fake_claude.py for model misbehaviour. A pass here is evidence, not proof.
+Fails-before, measured on acd86f8, 75107e6, 09c0048, at 92 tests: 44 failed, 45 errors, 3 passed. Weak spots:
+- The 45 errors are the fixture failing because the old server had no login or notice route. That shows the feature was missing, not that each individual attack succeeded on the old code.
+- The 3 that passed did not fail before: the two disguised-playlist attacks at the CLI, already refused, and plan_limit_once.
+- One failure in that run (teleporting object) was my own fake-model bug, fixed afterwards. Tests added after that baseline, such as limit wordings and background release, were not run on the old code.
+- A few checks read code rather than behaviour: subprocess timeouts by AST, killpg by text, the banner via render.status_text. The draft banner is not read from video pixels.
+Findings this produced, all fixed by the owning lane and re-tested: bare 429 and generic "limit reached" read as a plan limit; real Claude Code wordings missed or misread (found by scanning the installed binary, which of them reach a headless call is unknown, and no real limit has been hit); prompt hashes with no text in the bundle (core d861281).
+Existing red-team tests changed because the brief changed behaviour: 7 listed by core, the login migration, the audit stop rule, background release. Each still asserts the attack and adds the new requirement. One narrowing to review: test_eval_is_the_only_ground_truth_reader now allows exactly one verbatim licence sentence in export.py that names CholecSeg8k.
 
-RESULT, REAL RUNS, OLD PROMPTS ONLY (before core 7a2549c). 3 held-out clips picked metric-blind, 6 s and 6 keyframes each. A small sample; labels within a clip are correlated:
-| clip | final acc (n) | baseline | detect only | verify only | amber | IoU counting errors as 0 (n) | IoU both present (n) | cost |
-| video12_19500 | 0.613 (31) | 0.613 | 0.667 | 0.500 | 5 | 0.172 (19) | 0.466 (7) | $0.36 |
-| video28_00000 | 0.972 (36) | 0.833 | 0.972 | 0.917 | 0 | 0.573 (7) | 0.668 (6) | $0.16 |
-| video55_00508 | 0.938 (32) | 0.594 | 0.944 | 0.694 | 4 | 0.624 (19) | 0.697 (17) | $0.35 |
-Pooled: final 0.848 on 99 resolved labels (9 amber, coverage 0.917), detect alone 0.861 on 108, verify alone 0.704 on 108, baseline 0.556. Final recall 0.682 vs detect 0.736, final precision 0.968 vs detect 0.975. So on these clips the double-check did not beat detect alone. These numbers do not reproduce the README's 96.6%, which came from the earlier Gemini pipeline with a different label mix; do not reuse that claim for this pipeline.
-These 3 clips have been looked at per label, so they are spent as clean tests.
-Errors multiply downstream: on video28, one false-positive gallbladder keyframe became 25 false-positive annotations through propagation, and the audit only samples accepted keyframes, so catching it depends on the draw.
-Working as designed: 18/18 keyframes align with ground truth; COCO IoU matches mask IoU on each clip; propagated IoU is close to keyframe IoU (0.667 vs 0.668, 0.620 vs 0.659, 0.404 vs 0.426, each when both say present).
-Run time 224-398 s per 6-second clip on a loaded machine.
+ITEM 3: README AND CLEAN CLONE
+- README: 96.6% badge and table removed, along with Critical View of Safety, operative-record, "verified", live claims, launch film and integrity badge. Scope, limits and "no real patient video" are at the top. tests/test_qa_readme.py ties each results-table number to qa_results.json and forbids the retired claims.
+- Clean clone, for real (tests/test_qa_clean_clone.py, SURGPROOF_CLEAN_CLONE=1): git clone, make setup, make serve, then real HTTP: bound to 127.0.0.1 even with HOST=0.0.0.0, forged Host 400, 401 before login, setup code, upload, mock job to done, dataset locked. Passed 2 of 2. It clones a local merge of the 4 branches, because main does not hold this code yet. Re-run after merging to main.
+
+TEST RESULTS on a local merge of core d861281, masks 2d52d80, web e521b2d, qa b30eb34
+hardening 119/119, HTTP red team 45/46, red team 65/65, e2e 18 passed and 1 skipped (the real run, listed below), inputs 11/11, scorer 49/49, README 45/45, test video tool 9/9, clean clone 2/2. Run one suite at a time because of disk.
+- The 1 failure is intermittent (3 of 13 runs on this merge): test_whole_web_flow_with_mock_model. Release right after a job says done can get 409 "this job already has a worker". Sent to web. Low impact, no retry added to hide it.
+Real runs:
+- test_real_run_end_to_end passed for the first time ($0.51).
+- One real job through the real server (cached calls, real claude health check): login, upload, final pass, signed release, release-check ok, bundle served, decisions identical to the CLI run, upload name not stored.
+
+NOT VERIFIED
+- A 5-minute video, mock or real. Estimated $17 and up to about 1 GB. The README says it has not been run.
+- Which limit wording a real limit produces headlessly. No real limit has been hit.
+- The UI in a browser, from this lane. HTTP only here. Styling checks are static.
+- Any footage outside CholecSeg8k, including footage of other procedures. The out-of-scope gate is tested with a fake model only.
+
+FOR THE ORCHESTRATOR (not mine to change)
+- lanes/integrity.py runs in ~/surgatlas and scans nothing under surgproof/ or web/app/. "0 FAIL" says nothing about this code. tests/test_qa_redteam.py applies the same patterns.
+- 2 legacy tests still fail, as they did before this round: tests/test_coach_fresh_clone.py::test_readme_sections_and_placeholders and tests/test_web_ui.py::test_missing_files_are_null_not_invented. Editing them is your call under AGENTS.md.
+- amber_said_present staying auto-accepted and cystic duct being undetectable are product decisions. I recommend amber_said_present stays amber, and that cystic duct is removed from the supported labels or marked unreliable.
+
+COST AND DISK
+Model spend this round: $6.14, including $1.44 stopped when I found core's prompts were about to change. Free disk fell to about 190 MB during this work, mostly from swap (8.9 GB used) rather than job files. My scratch files were cleared.
