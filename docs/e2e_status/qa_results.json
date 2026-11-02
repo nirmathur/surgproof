@@ -1,5 +1,5 @@
 {
- "how": "Real runs of core 20b9c94 (prompts.py sha256 0c717e759fc9) with masks 75107e6. Numbers come from surgproof.eval aggregate. Train is reported apart and only for labels the other splits lack.",
+ "how": "Model calls from core 20b9c94 (prompts.py sha256 0c717e759fc9). Rebuilt from the cache on core d861281, masks 2d52d80, web 184351c: no call repeated, no decision changed. Numbers come from surgproof.eval aggregate. Train is reported apart and only for labels the other splits lack.",
  "spend_usd_this_round": 5.63,
  "keyframes_per_second": 1.0,
  "groups": {
@@ -1941,16 +1941,16 @@
     }
    },
    "iou_with_errors": {
-    "video_mean": 0.5549,
+    "video_mean": 0.5547,
     "ci95_over_videos": [
-     0.3248,
-     0.7851
+     0.3247,
+     0.7847
     ],
     "by_video": {
      "video09": 0.1979,
      "video12": 0.4311,
      "video17": 0.5167,
-     "video28": 0.685,
+     "video28": 0.6838,
      "video48": 0.7074,
      "video55": 0.7915
     }
@@ -2756,10 +2756,10 @@
     }
    },
    "iou_with_errors": {
-    "video_mean": 0.5211,
+    "video_mean": 0.5212,
     "ci95_over_videos": null,
     "by_video": {
-     "video01": 0.5211
+     "video01": 0.5212
     }
    },
    "phase": {

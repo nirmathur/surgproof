@@ -102,6 +102,8 @@ def test_results_say_the_uncomfortable_parts():
     routes = g["heldout_all_unspent_6_videos"]["by_route"]
     assert f"{routes['amber_said_present']['tp']} of {routes['amber_said_present']['n']}" in README
     assert "Phase accuracy is not measured" in README
+    iou = g["heldout_all_unspent_6_videos"]["iou_with_errors"]
+    assert f"{iou['video_mean']:.3f} over 6 videos" in README
     same = g["heldout_all_unspent_6_videos"]["same_labels"]
     if same["final"]["pooled"]["accuracy"] <= same["detect"]["pooled"]["accuracy"]:
         assert "did not beat one pass" in README
