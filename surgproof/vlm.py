@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 import threading
 import time
+from contextvars import ContextVar
 from pathlib import Path
 
 SONNET = "claude-sonnet-5-5"
@@ -30,10 +31,13 @@ SYSTEM_PROMPT = (
 GEMINI_MODELS = {SONNET: "gemini-4-argon", HAIKU: "gemini-3.8-flash"}
 
 _lock = threading.Lock()
+_init_lock = threading.Lock()
+_initialised = set()
 _cache_path = Path(os.environ.get("SURGPROOF_CACHE", "jobs/cache.sqlite"))
 _limit = int(os.environ.get("SURGPROOF_VLM_CONCURRENCY", DEFAULT_CONCURRENCY))
 _sem = threading.BoundedSemaphore(_limit)
 _stats = {"calls": 0, "cache_hits": 0, "cost_usd": 0.0}
+_meter = ContextVar("surgproof_vlm_meter", default=None)  # per-job usage, safe with concurrent jobs
 
 
 class VlmError(RuntimeError):
@@ -54,6 +58,17 @@ def configure(cache_path=None, concurrency=None):
             _sem = threading.BoundedSemaphore(_limit)
 
 
+def concurrency():
+    return _limit
+
+
+def start_meter():
+    """Count this job's calls and cost separately. Worker threads must run in a copy of this context."""
+    meter = {"calls": 0, "cache_hits": 0, "cost_usd": 0.0}
+    _meter.set(meter)
+    return meter
+
+
 def provider():
     return os.environ.get("SURGPROOF_VLM", "claude_cli")
 
@@ -70,8 +85,11 @@ def stats():
 
 
 def _bump(key, by=1):
+    meter = _meter.get()
     with _lock:
         _stats[key] += by
+        if meter is not None:
+            meter[key] += by
 
 
 def prompt_hash(prompt):
@@ -88,15 +106,36 @@ def cache_key(image_paths, prompt, model):
     return h.hexdigest()
 
 
+def _init_db(path):
+    """Create the table and switch to WAL once per file. Switching journal mode ignores the busy
+    timeout, so racing workers or processes on a fresh file need this lock and retry."""
+    with _init_lock:
+        if path in _initialised:
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        for attempt in range(40):
+            con = sqlite3.connect(path, timeout=30.0)
+            try:
+                con.execute("PRAGMA journal_mode=WAL")
+                with con:
+                    con.execute(
+                        "create table if not exists vlm_cache (key text primary key, model text, prompt_hash text, "
+                        "prompt text, parsed text, raw text, cost_usd real, duration_ms integer, created real)"
+                    )
+                _initialised.add(path)
+                return
+            except sqlite3.OperationalError:
+                if attempt == 39:
+                    raise
+                time.sleep(0.25)
+            finally:
+                con.close()
+
+
 def _db():
-    _cache_path.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(_cache_path, timeout=30.0)
-    con.execute("PRAGMA journal_mode=WAL")
-    con.execute(
-        "create table if not exists vlm_cache (key text primary key, model text, prompt_hash text, prompt text, "
-        "parsed text, raw text, cost_usd real, duration_ms integer, created real)"
-    )
-    return con
+    path = _cache_path
+    _init_db(path)
+    return sqlite3.connect(path, timeout=30.0)
 
 
 def _cache_get(key):
