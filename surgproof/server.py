@@ -628,6 +628,7 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                max_jobs: Optional[int] = None) -> FastAPI:
     store = Store(Path(jobs_dir or os.environ.get("SURGPROOF_JOBS") or REPO / "jobs"))
     runner = Runner(pipeline_target, max_jobs or int(os.environ.get("SURGPROOF_MAX_JOBS", "1")))
+    outline_pool = cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="outline")
     @contextlib.asynccontextmanager
     async def lifespan(_app: FastAPI):
         # Jobs that were queued when the server last stopped have no worker: give them one.
@@ -640,6 +641,7 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                 runner.submit(job_id, video, job_dir, options)
         yield
         runner.shutdown()
+        outline_pool.shutdown(wait=False, cancel_futures=True)
 
     app = FastAPI(title="SurgProof", lifespan=lifespan)
     app.state.store = store
@@ -841,6 +843,7 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                                    lambda: _group_tracks(read_jsonl(job_dir / "tracks.jsonl")), {})
         verdicts = latest_verdicts(job_dir)
         frames: dict[str, list[dict]] = {}
+        pending: list[tuple[dict, Path]] = []
         for frame in range(start, end):
             out = []
             for row in by_frame.get(frame, ()):
@@ -858,20 +861,29 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                     polygons = [drawn["polygon"]]
                     xs, ys = zip(*drawn["polygon"])
                     box = [min(xs), min(ys), max(xs), max(ys)]
-                if polygons is None:
-                    png = (job_dir / "masks" / f"{keyframe}_{label}.png" if keyframe
-                           else job_dir / "tracks" / f"{frame}_{label}.png")
-                    polygons = mask_polygons(png, width, height) if png.exists() else []
-                out.append({
+                entry = {
                     "label": label,
                     "box": box,
                     "propagated": bool(row.get("propagated")),
                     "status": row.get("status"),
                     "human": bool(rulings),
-                    "polygons": polygons,
-                })
+                    "polygons": polygons or [],
+                }
+                if polygons is None:
+                    png = (job_dir / "masks" / f"{keyframe}_{label}.png" if keyframe
+                           else job_dir / "tracks" / f"{frame}_{label}.png")
+                    pending.append((entry, png))
+                out.append(entry)
             if out:
                 frames[str(frame)] = out
+
+        def outline(item: tuple[dict, Path]) -> None:
+            entry, png = item
+            if png.exists():
+                entry["polygons"] = mask_polygons(png, width, height)
+
+        # OpenCV releases the GIL, and at 1080p decoding one after another cannot keep up with playback.
+        list(outline_pool.map(outline, pending))
         return {"start": start, "end": end, "frames": frames}
 
     # ------------------------------------------------------------ final pass

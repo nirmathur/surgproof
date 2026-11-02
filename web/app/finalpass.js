@@ -49,6 +49,7 @@ export async function renderFinalPass(root, { id }) {
   const crop = h('canvas', { class: 'crop' });
   const rounds = h('pre', { class: 'rounds' });
   const actions = h('div', { class: 'row', id: 'fp-actions' });
+  const hint = h('p', { class: 'small muted', id: 'fp-hint' });
   const queueList = h('div', { class: 'fpqueue', id: 'fp-queue' });
   const progress = h('p', { class: 'small muted mono', id: 'fp-progress' });
   const barFill = h('div', { style: 'width:0' });
@@ -57,7 +58,7 @@ export async function renderFinalPass(root, { id }) {
   const reviewer = h('input', { class: 'input', id: 'fp-reviewer', placeholder: 'Your name (needed to release)', 'aria-label': 'Reviewer name', value: readReviewer(), oninput: () => { saveReviewer(reviewer.value); renderRelease(); } });
 
   root.append(h('div', { class: 'stack' }, errors, h('div', { class: 'fpgrid' },
-    h('section', { class: 'stack' }, heading, frameBox, actions, h('p', { class: 'small muted', id: 'fp-hint' })),
+    h('section', { class: 'stack' }, heading, frameBox, actions, hint),
     h('aside', { class: 'stack' },
       h('section', { class: 'card stack' }, progress, h('div', { class: 'bar' }, barFill), reviewer, queueList),
       releaseBox,
@@ -200,7 +201,7 @@ export async function renderFinalPass(root, { id }) {
     h('span', { class: 'grow' }, `${item.kf} · ${labelName(item.label)}`),
     h('span', { class: `pill ${item.kind === 'amber' ? 'AMBER' : ''}` }, item.kind))));
     renderRelease();
-    document.getElementById('fp-hint').textContent = drawing
+    hint.textContent = drawing
       ? 'Click around the structure to place points, then save.'
       : '';
     const item = current();
@@ -278,9 +279,8 @@ export async function renderFinalPass(root, { id }) {
       if (key === 'escape') { drawing = null; render(); }
       return;
     }
-    if (key === 'a') document.getElementById('fp-approve')?.click();
-    if (key === 'x') document.getElementById('fp-reject')?.click();
-    if (key === 'd') document.getElementById('fp-draw')?.click();
+    const button = { a: 'fp-approve', x: 'fp-reject', d: 'fp-draw' }[key];
+    if (button) actions.querySelector(`#${button}`)?.click();
   };
   window.addEventListener('keydown', onKey);
 

@@ -141,8 +141,11 @@ export async function renderWatch(root, { id }) {
   let lastTime = 0;
   function redraw() {
     const entry = chunks.get(Math.floor(currentFrame / chunkFrames));
-    if (entry && entry.frames) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Never leave one frame's boxes over another frame while its annotations are on their way.
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!entry || !entry.frames) {
+      status.textContent = `${fmtTime(lastTime)} · frame ${currentFrame} of ${data.n_frames} · loading annotations`;
+    } else {
       const objects = entry.frames[String(currentFrame)] || [];
       drawObjects(objects);
       const propagated = objects.some((o) => o.propagated);
@@ -156,8 +159,7 @@ export async function renderWatch(root, { id }) {
     lastTime = mediaTime;
     const frame = Math.round(mediaTime * fps);
     const chunkIndex = Math.floor(frame / chunkFrames);
-    chunk(chunkIndex);
-    chunk(chunkIndex + 1);
+    for (let ahead = 0; ahead <= 2; ahead += 1) chunk(chunkIndex + ahead);
     if (frame !== currentFrame) {
       currentFrame = frame;
       redraw();

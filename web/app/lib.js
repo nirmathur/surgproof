@@ -49,7 +49,11 @@ export function fmtBytes(bytes) {
 }
 
 export function titleCase(text) {
-  return String(text || '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+  return String(text || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/^\w/, (c) => c.toUpperCase());
 }
 
 const LABEL_COLOURS = {
@@ -77,10 +81,15 @@ export function tabs(job, active) {
 }
 
 export function jobHeader(job, active) {
+  const provider = job.meta && job.meta.vlm_provider;
   return h('div', {},
     h('div', { class: 'row spread' },
       h('h1', { class: 'jobname' }, job.filename),
       h('span', { class: `pill ${job.state}` }, job.state)),
+    provider === 'mock'
+      ? h('div', { class: 'notice', id: 'mock-warning', style: 'margin-top:12px' },
+        'Plumbing test: this job ran on the mock model. Its labels, outlines and narration are placeholders, not AI output.')
+      : null,
     tabs(job, active));
 }
 

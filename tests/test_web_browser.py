@@ -75,6 +75,32 @@ def page(browser):
     assert not page.errors, f"JavaScript errors: {page.errors}"
 
 
+class HeldRequests:
+    """Keep matching requests in flight until release(). Never blocks: Playwright's sync API is single-threaded."""
+
+    def __init__(self, page, pattern):
+        self.routes = []
+        self.holding = True
+        page.route(pattern, self._handle)
+
+    def _handle(self, route):
+        if self.holding:
+            self.routes.append(route)
+        else:
+            route.continue_()
+
+    def release(self):
+        self.holding = False
+        for route in self.routes:
+            route.continue_()
+
+
+def wait_for_annotated_frame(page, frame: int):
+    page.wait_for_function(
+        """(n) => { const t = document.querySelector('#watch-frame').textContent;
+        return t.includes(`frame ${n} of`) && !t.includes('loading'); }""", arg=frame, timeout=60000)
+
+
 def canvas_has_pixels(page, selector: str) -> bool:
     return page.evaluate(
         """(sel) => { const c = document.querySelector(sel);
@@ -122,14 +148,14 @@ def test_watch_plays_with_overlays_phase_and_subtitles(site, page):
     page.wait_for_selector("#watch-video")
     page.wait_for_function("document.querySelector('#watch-video').readyState >= 2", timeout=60000)
     assert page.evaluate("document.querySelector('#watch-video').videoWidth") == fx.W, "the video did not decode"
-    page.wait_for_function("document.querySelector('#watch-frame').textContent.includes('frame 0')")
+    wait_for_annotated_frame(page, 0)
     assert canvas_has_pixels(page, "#watch-canvas")
     assert page.locator("#watch-phase").inner_text() == "Preparation · 90%"
     assert page.locator("#watch-subtitle").inner_text() == "The grasper is visible."
 
     # Seek to a propagated frame in the last segment: every overlay must follow.
     page.evaluate("document.querySelector('#watch-video').currentTime = 2.5")
-    page.wait_for_function("document.querySelector('#watch-frame').textContent.includes('frame 25')")
+    wait_for_annotated_frame(page, 25)
     assert "propagated" in page.locator("#watch-frame").inner_text()
     assert page.locator("#watch-phase").inner_text().startswith("Clipping cutting")
     assert page.locator("#watch-subtitle").inner_text() == "Unsure about the duct here."
@@ -204,8 +230,7 @@ def test_no_verdict_before_the_frame_is_on_screen(site, browser):
     fx.finished_job(jobs, "job-slow")
     context = browser.new_context(viewport={"width": 1280, "height": 900})
     page = context.new_page()
-    held = []  # keep the frame request open: no blocking here, Playwright's sync API is single-threaded
-    page.route("**/files/frames/**", held.append)
+    held = HeldRequests(page, "**/files/frames/**")
     page.goto(f"{base}/#/jobs/job-slow/final-pass")
     page.wait_for_selector("#fp-approve")
     for selector in ("#fp-approve", "#fp-reject", "#fp-draw"):
@@ -214,10 +239,8 @@ def test_no_verdict_before_the_frame_is_on_screen(site, browser):
         page.keyboard.press(key)
     assert not (job / "final_pass.jsonl").exists()
     page.wait_for_timeout(200)
-    assert held, "the frame request should be in flight"
-    page.unroute("**/files/frames/**")
-    for route in held:
-        route.continue_()
+    assert held.routes, "the frame request should be in flight"
+    held.release()
     page.wait_for_function("!document.querySelector('#fp-approve').disabled", timeout=30000)
     assert page.evaluate("document.querySelector('#fp-canvas').width") == fx.W
 
@@ -233,6 +256,37 @@ def test_no_verdict_before_the_frame_is_on_screen(site, browser):
     for (got_x, got_y), (x, y) in zip(row["polygon"], ((32, 18), (160, 18), (160, 90))):
         assert abs(got_x - x) <= 1.5 and abs(got_y - y) <= 1.5
     context.close()
+
+
+def test_mock_model_jobs_are_labelled_as_placeholders(site, page):
+    base, jobs = site
+    fx.finished_job(jobs, "job-mock")
+    meta = jobs / "job-mock" / "meta.json"
+    meta.write_text(server.json.dumps({**server.json.loads(meta.read_text()), "vlm_provider": "mock"}), encoding="utf-8")
+    for route in ("", "/watch", "/final-pass", "/download"):
+        page.goto(f"{base}/#/jobs/job-mock{route}")
+        page.wait_for_selector("#mock-warning")
+    page.goto(f"{base}/#/jobs/job-done")
+    page.wait_for_selector("#stages li")
+    assert page.locator("#mock-warning").count() == 0
+
+
+def test_no_stale_boxes_while_a_frames_annotations_are_loading(site, page):
+    base, _ = site
+    held = HeldRequests(page, "**/overlay?start=20*")  # the chunk holding frames 20-39 stays in flight
+    page.goto(f"{base}/#/jobs/job-done/watch")
+    page.wait_for_selector("#watch-frame")
+    wait_for_annotated_frame(page, 0)
+    assert canvas_has_pixels(page, "#watch-canvas")
+
+    page.evaluate("document.querySelector('#watch-video').currentTime = 2.5")
+    page.wait_for_function("document.querySelector('#watch-frame').textContent.includes('loading annotations')")
+    assert not canvas_has_pixels(page, "#watch-canvas"), "the old frame's boxes are still on screen"
+
+    assert held.routes, "the overlay request should be in flight"
+    held.release()
+    page.wait_for_function("document.querySelector('#watch-frame').textContent.includes('propagated')")
+    assert canvas_has_pixels(page, "#watch-canvas")
 
 
 def test_filename_with_markup_is_not_injected(site, page):
