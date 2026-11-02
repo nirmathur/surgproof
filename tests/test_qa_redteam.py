@@ -217,7 +217,8 @@ def test_nothing_seen_means_nothing_drawn(scen):
     assert coco_anns(s) == []
     assert not [r for r in read_jsonl(s["job"] / "tracks.jsonl") if r.get("box")]
     for seg in read_json(s["job"] / "narration.json")["segments"]:
-        assert not re.search(r"verified in this segment", seg["text"], re.I), seg
+        # "Nothing could be verified" is the honest line; a claim of something verified is the failure.
+        assert not re.search(r"verified in this segment:", seg["text"], re.I), seg
 
 
 @dynamic
