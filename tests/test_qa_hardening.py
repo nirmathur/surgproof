@@ -617,7 +617,7 @@ def test_masks7_bundle_resolves_and_explains_itself(world):
         assert not missing, missing[:5]
         for want in ("card", "schema", "licen", "phase", "narration", "tips", "prompts", "versions"):
             assert any(want in n.lower() for n in names), f"bundle has nothing for {want}: {sorted(names)[:30]}"
-        prompts = json.loads(z.read(next(n for n in names if "prompts" in n.lower())))
+        prompts = json.loads(z.read("prompts/prompts.json"))
         assert "This is one frame" in json.dumps(prompts), "full prompt text missing"
         unresolved = [h for h, p in prompts["hashes"].items() if not p.get("text")]
         assert not unresolved, f"{len(unresolved)} of {len(prompts['hashes'])} prompt hashes have no text"
