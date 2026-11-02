@@ -20,7 +20,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .masks import (ACCEPT, AMBER, LABELS, REJECT, clean_polygon, frame_size, mask_box, polygon_mask, progress_fn,
+from .masks import (ACCEPT, AMBER, LABELS, MIN_SEED_AREA, REJECT, clean_polygon, frame_size, mask_box, polygon_mask, progress_fn,
                     read_json, read_jsonl, read_mask, resolve_decisions, track_path, write_json, write_jsonl)
 from .propagate import find_video
 
@@ -269,10 +269,23 @@ def build_provenance(rec, final=None):
     return rows
 
 
+def clear_stale_final_pass(job_dir):
+    """Drop human sign-off that does not belong to the current decisions, so a re-run cannot inherit it.
+
+    The queue records which decisions it was drawn from; a final pass with no matching queue is not this run's."""
+    job = Path(job_dir)
+    queue = job / "final_pass_queue.json"
+    current = queue.exists() and read_json(queue).get("seed") == _queue_seed(job)
+    if not current:
+        for name in ("final_pass_queue.json", "final_pass.jsonl", "released_coco.json"):
+            (job / name).unlink(missing_ok=True)
+
+
 def run(job_dir, on_progress=None):
     """Run stage 9: write the draft dataset and provenance. Returns a summary of what is in and what is out."""
     job = Path(job_dir)
     progress = progress_fn(job, "export", on_progress)
+    clear_stale_final_pass(job)
     rec = JobRecords(job)
     progress(0.1, "building COCO annotations")
     coco = build_coco(rec)
@@ -370,9 +383,11 @@ def record_final_pass(job_dir, rows):
                "ts": r.get("ts") or dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")}
         if action == CORRECT:
             rec = rec or JobRecords(job)
-            if clean_polygon(r.get("polygon"), *rec.size) is None:
-                raise ValueError(f"correction for {key} needs a polygon of at least 3 points")
-            row["polygon"] = r["polygon"]
+            w, h = rec.size
+            poly = clean_polygon(r.get("polygon"), w, h)
+            if poly is None or int(polygon_mask(poly, w, h).sum()) < MIN_SEED_AREA or cv2.contourArea(poly) <= 0:
+                raise ValueError(f"correction for {key} needs a polygon that encloses a real area inside the frame")
+            row["polygon"] = poly.tolist()  # stored as clipped to the frame
         clean.append(row)
     with open(job / "final_pass.jsonl", "a") as f:
         for row in clean:

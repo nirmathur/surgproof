@@ -29,8 +29,12 @@ ORGANS = {"gallbladder", "liver"}
 ACCEPT, REJECT, AMBER = "accept", "reject", "AMBER"
 
 MAX_SIDE = 960          # GrabCut working resolution cap (longest side, px)
-ERODE_FRAC = 0.10       # sure-foreground erosion, as a fraction of sqrt(seed area)
-DILATE_FRAC = 0.12      # background band, as a fraction of sqrt(seed area)
+# Sure-foreground erosion, as a fraction of sqrt(seed area). Whatever is sure foreground can never be removed, so a
+# small value means the mask can only grow. Organs keep enough erosion to shrink an oversized outline; instrument
+# outlines ran undersized on the calib split, and erosion hurt them. Blood and cystic duct had no calib examples.
+ORGAN_ERODE_FRAC = 0.10
+INSTRUMENT_ERODE_FRAC = 0.02
+DILATE_FRAC = 0.25      # background band, as a fraction of sqrt(seed area)
 MIN_BAND_PX = 6
 MIN_SEED_AREA = 16      # px at source resolution; smaller polygons are treated as no seed
 MIN_KEEP_RATIO = 0.15   # GrabCut result below this fraction of the seed area has collapsed
@@ -224,7 +228,8 @@ def grabcut_refine(img, seed, label, occluders=None):
     # so a thin instrument keeps a core line instead of eroding away entirely.
     dist = cv2.distanceTransform(crop_seed, cv2.DIST_L2, 5)
     thickness = float(dist.max())
-    fg = dist > min(ERODE_FRAC * root * scale, 0.5 * thickness)
+    erode = ORGAN_ERODE_FRAC if label in ORGANS else INSTRUMENT_ERODE_FRAC
+    fg = dist > min(erode * root * scale, 0.5 * thickness)
     band = cv2.dilate(crop_seed, _disk(max(MIN_BAND_PX * scale, DILATE_FRAC * root * scale)))
 
     gc = np.full(crop_seed.shape, cv2.GC_BGD, np.uint8)

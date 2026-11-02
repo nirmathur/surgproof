@@ -293,6 +293,9 @@ def test_latest_review_wins(job):
     ({"kf": "kf_00000", "label": "liver", "action": "maybe"}, "unknown"),
     ({"kf": "kf_00000", "label": "liver", "action": "correct"}, "polygon"),
     ({"kf": "kf_00000", "label": "liver", "action": "correct", "polygon": [[1, 1]]}, "polygon"),
+    ({"kf": "kf_00000", "label": "liver", "action": "correct", "polygon": [[5, 5], [5, 5], [5, 5]]}, "real area"),
+    ({"kf": "kf_00000", "label": "liver", "action": "correct", "polygon": [[5, 5], [50, 50], [100, 100]]}, "real area"),
+    ({"kf": "kf_00000", "label": "liver", "action": "correct", "polygon": [[-90, -90], [-50, -90], [-50, -50]]}, "real area"),
 ])
 def test_bad_final_pass_rows_are_refused_and_not_stored(job, row, msg):
     X.run(job)
@@ -320,3 +323,39 @@ def test_approving_an_amber_that_has_no_mask_confirms_absence(tmp_path):
     first = next(i for i in c["images"] if i["frame_index"] == 0)
     assert first["attributes"]["verified_absent"] == ["blood"] and first["attributes"]["excluded_amber"] == []
     assert anns(c, "blood") == [] and len(anns(c, "liver")) == 1
+
+
+def test_correction_outside_the_frame_is_stored_clipped(job):
+    X.run(job)
+    X.final_pass_queue(job)
+    X.record_final_pass(job, [{"kf": "kf_00000", "label": "liver", "action": "correct", "polygon": [[-500, -500], [9000, 0], [9000, 9000]]}])
+    stored = X.read_final_pass(job)[("kf_00000", "liver")]["polygon"]
+    assert all(0 <= x < W and 0 <= y < H for x, y in stored)
+
+
+def test_rerun_with_new_decisions_discards_old_human_sign_off(job):
+    X.run(job)
+    resolve_all(job)
+    X.release(job)
+    rows = M.read_jsonl(job / "decisions.jsonl")
+    rows[0]["status"] = "reject"; rows[0]["final_present"] = False
+    M.write_jsonl(job / "decisions.jsonl", rows)
+    X.run(job)
+    for name in ("released_coco.json", "final_pass.jsonl", "final_pass_queue.json"):
+        assert not (job / name).exists(), name
+
+
+def test_rerun_with_same_decisions_keeps_human_sign_off(job):
+    X.run(job)
+    resolve_all(job)
+    X.release(job)
+    X.run(job)
+    assert (job / "released_coco.json").exists() and (job / "final_pass.jsonl").exists()
+    assert not X.final_pass_state(job)["locked"]
+
+
+def test_final_pass_left_over_with_no_queue_is_discarded(job):
+    (job / "final_pass.jsonl").write_text('{"kf": "kf_00000", "label": "liver", "action": "approve"}\n')
+    (job / "released_coco.json").write_text("{}")
+    X.run(job)
+    assert not (job / "final_pass.jsonl").exists() and not (job / "released_coco.json").exists()

@@ -185,11 +185,21 @@ def test_failure_leaves_no_partial_annotated_file(tmp_path, monkeypatch):
 
 
 def test_footer_reflects_release_state(tmp_path):
+    from surgproof import export as X
     job = make_job(tmp_path, narration=False, phases=False)
+    (job / "decisions.jsonl").write_text(json.dumps({"kf": "kf_00000", "label": "grasper", "status": "accept", "final_present": True, "rounds": []}) + "\n")
     R.run(job)
     before = cv2.VideoCapture(str(job / "annotated.mp4")).read()[1].astype(int)
+    X.final_pass_queue(job)
     (job / "released_coco.json").write_text("{}")
     R.run(job)
     after = cv2.VideoCapture(str(job / "annotated.mp4")).read()[1].astype(int)
     lay = R.Layout(W, H)
     assert np.abs(before[lay.H - lay.band:] - after[lay.H - lay.band:]).mean() > 0.01
+
+
+def test_footer_never_claims_a_release_left_over_from_an_earlier_run(tmp_path):
+    job = make_job(tmp_path, narration=False, phases=False)
+    (job / "released_coco.json").write_text("{}")
+    R.run(job)
+    assert not (job / "released_coco.json").exists()

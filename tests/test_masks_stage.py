@@ -62,7 +62,10 @@ def test_grabcut_improves_an_offset_oversized_seed():
     out, fallback = M.grabcut_refine(img, seed, "gallbladder")
     assert fallback is None
     assert iou(out, disc) > iou(seed.astype(bool), disc) + 0.1
-    assert iou(out, disc) > 0.85
+    # Sure foreground can never be removed, which caps the IoU. The result must come close to that cap.
+    dist = cv2.distanceTransform(seed, cv2.DIST_L2, 5)
+    sure = dist > min(M.ORGAN_ERODE_FRAC * np.sqrt(seed.sum()), 0.5 * dist.max())
+    assert iou(out, disc) > iou(disc | sure, disc) - 0.01
 
 
 def test_thin_instrument_keeps_its_shape_instead_of_eroding_away():

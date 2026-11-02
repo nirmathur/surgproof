@@ -22,6 +22,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from .export import clear_stale_final_pass
 from .masks import AMBER, FRONT_TO_BACK, atomic_write, mask_path, progress_fn, read_json, read_jsonl, track_path
 from .propagate import find_video
 
@@ -314,6 +315,7 @@ def run(job_dir, video=None, show_masks=True, subtitles=True, on_progress=None, 
     """Run stage 8. Returns {"path", "n_frames", "n_cues"}. Raises if the output does not match the source."""
     job = Path(job_dir)
     progress = progress_fn(job, "render", on_progress)
+    clear_stale_final_pass(job)     # render runs before export, and its footer reports the release state
     meta = read_json(job / "meta.json")
     video_path = find_video(job, meta, video)
     fps = float(meta["fps"])
