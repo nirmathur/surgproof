@@ -157,13 +157,18 @@ Facts (JSON):
 
 "visible" means checked and verified as present, "not_visible" means checked and verified as absent, "unsure" means the checks could not settle it.
 
+Write 1 to 3 short sentences, each in one of these plain forms and with nothing added:
+- "The liver and a grasper are visible." for labels in "visible"
+- "No blood or L-hook is seen." for labels in "not_visible"
+- "The cystic duct could not be confirmed." for labels in "unsure"
+- "The phase is uncertain." if phase_checks_agree is false or phase_conf is below 0.6
+- "This segment is <phase>." otherwise, using the phase named in the facts
+
 Rules:
-- Write 1 to 3 short plain sentences for a clinician.
-- Each sentence cites the keyframe ids (the "kf" values) that support it, in "evidence".
-- Mention only these things: gallbladder, liver, grasper, L-hook, cystic duct, blood, and the phase named in the facts. Do not mention any other instrument, structure, action or finding.
-- If a label is mentioned, it must be in the matching list on every keyframe cited for that sentence.
-- For anything under "unsure", say plainly that it could not be confirmed.
-- If phase_checks_agree is false or phase_conf is below 0.6, say that the phase is uncertain.
+- Use one form per sentence. Do not mix visible, not-visible and unsure labels in one sentence.
+- Name only: gallbladder, liver, grasper, L-hook, cystic duct, blood, and the phase in the facts.
+- Do not describe actions, events, findings, safety, the surgeon or the patient. Sentences containing them are discarded.
+- Each sentence cites in "evidence" the keyframe ids (the "kf" values) that support it. A label must be in the matching list on every keyframe cited for that sentence.
 
 Reply with only JSON: {{"sentences": [{{"text": "...", "evidence": ["kf_00000"]}}]}}"""
 

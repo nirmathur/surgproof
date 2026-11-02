@@ -10,6 +10,7 @@ import inspect
 import json
 import os
 import re
+import shutil
 import subprocess
 import threading
 import traceback
@@ -32,6 +33,7 @@ MODEL_VIEW_MAX_SIDE = 1024  # the model sees at most this; its coordinates are s
 MAX_MINUTES = 5.0
 ACCEPT_CONF = 0.6  # both passes must be at least this sure to settle a label without the amber loop
 MIN_BOX_IOU = 0.1  # both passes say present but point at different places: that is a dispute
+OUT_OF_FRAME_TOLERANCE = 0.1  # fraction of the frame a coordinate may overshoot before it is rejected
 AMBER_ROUNDS = 2
 RESOLVE_CONF = 0.7  # the amber loop settles a label only at this confidence
 AMBER_PAD = {1: 0.35, 2: 0.15}
@@ -43,21 +45,27 @@ NARRATE_MAX_SECONDS = 45.0
 PHASE_UNSURE_CONF = 0.6
 
 MENTIONS = {
-    "gallbladder": r"gall\s?bladder",
-    "liver": r"liver",
-    "grasper": r"grasper",
-    "l_hook": r"\bl[- ]?hook\b|\bhook\b",
-    "cystic_duct": r"cystic duct|\bduct\b",
-    "blood": r"\bblood\b|\bbleed\w*|haemorrhag\w*|hemorrhag\w*",
+    "gallbladder": r"\bgall\s?bladders?\b",
+    "liver": r"\blivers?\b",
+    "grasper": r"\bgraspers?\b",
+    "l_hook": r"\bl[- ]?hooks?\b|\bhooks?\b",
+    "cystic_duct": r"\bcystic ducts?\b|\bducts?\b",
+    "blood": r"\bblood\b|\bbleed\w*|\bhaemorrhag\w*|\bhemorrhag\w*",
 }
-# Things the narrator has no verified label for, so it may not claim them.
-UNSUPPORTED = re.compile(
-    r"\b(clip|clips|clipper|clipping|scissors|artery|arteries|trocar|irrigat\w*|suction\w*|bipolar|retrieval bag|"
-    r"specimen|omentum|bile|stone|stones|peritoneum|port|ports|suture\w*|stapler|gauze)\b",
-    re.I,
-)
-NEGATION = re.compile(r"\b(no|not|without|absent|none|neither|nor)\b|n't\b", re.I)
-UNSURE = re.compile(r"\b(unsure|uncertain|unconfirmed|cannot|can't|could not|couldn't|unclear|not confirmed|unable|may|possibl[ey])\b", re.I)
+# Narration may use only these words besides label names and the segment's own phase name. A blacklist cannot
+# work here: "The gallbladder has been perforated" names a verified label and still claims something nobody checked.
+NARRATION_WORDS = frozenset("""
+    a an the this these it there is are was were be being and or but while whereas though although yet
+    in on of at near with within throughout across both all each every also still here
+    visible seen present shown appears appear remains remain view frame frames keyframe keyframes segment segments
+    no not without none neither nor isn't aren't
+    unsure uncertain unconfirmed cannot can't could couldn't unclear unable may possibly possible confirmed verified
+    phase phases surgical checks disagree disagreed confidence low labeled labelled named continues underway ongoing current
+""".split())
+CLAUSES = re.compile(r";|\bbut\b|\bwhile\b|\bwhereas\b|\balthough\b|\bthough\b|\byet\b", re.I)
+NEGATION = re.compile(r"\b(no|not|without|none|neither|nor)\b|n't\b", re.I)
+DOUBLE_NEGATION = re.compile(r"\b(not|without)\b.*\b(not|without|no)\b|\bno\b.*\b(not|without)\b|n't\b.*\bnot\b", re.I)
+UNSURE = re.compile(r"\b(unsure|uncertain|unconfirmed|cannot|can't|couldn't|unclear|unable|may|possibl[ey])\b|\bcould not\b|\bnot confirmed\b", re.I)
 
 
 class PipelineError(RuntimeError):
@@ -90,6 +98,28 @@ def read_jsonl(path):
         return []
     with open(path) as f:
         return [json.loads(line) for line in f if line.strip()]
+
+
+# Everything a pipeline run or a human review leaves in a job folder. Named explicitly, so that a mistaken
+# --out can never empty a folder of the user's own files. upload.* and job.json belong to the web lane and stay.
+OUTPUT_FILES = (
+    "status.json", "meta.json", "detect.jsonl", "phase.jsonl", "verify.jsonl", "decisions.jsonl", "masks.jsonl",
+    "tracks.jsonl", "narration.json", "narration.vtt", "annotated.mp4", "dataset_coco.json", "provenance.jsonl",
+    "final_pass.jsonl", "final_pass_queue.json", "released_coco.json", "source.mp4", "partial_source.mp4",
+)
+OUTPUT_DIRS = ("frames", "frames_view", "amber", "masks", "tracks")
+
+
+def clear_outputs(job, keep=None):
+    """A new run must not inherit masks, a dataset or a human sign-off from an earlier one."""
+    keep = Path(keep).resolve() if keep else None
+    for name in OUTPUT_FILES:
+        path = job / name
+        if path.is_file() and path.resolve() != keep:
+            path.unlink()
+    for name in OUTPUT_DIRS:
+        if (job / name).is_dir():
+            shutil.rmtree(job / name)
 
 
 class Status:
@@ -157,12 +187,21 @@ class Status:
 
 # ---- geometry -------------------------------------------------------------------------------------
 
+def _inside(x, y, width, height):
+    """Near the frame is fine, models overshoot edges. Far outside means a wrong coordinate space, and
+    clamping that to the frame edge would invent a huge mask."""
+    margin_x, margin_y = width * OUT_OF_FRAME_TOLERANCE, height * OUT_OF_FRAME_TOLERANCE
+    return -margin_x <= x <= width + margin_x and -margin_y <= y <= height + margin_y
+
+
 def clean_polygon(polygon, scale, width, height):
     """Scale model coordinates to full-frame pixels and clamp. None if it is not a real outline."""
     if not polygon:
         return None
     pts = []
     for x, y in polygon:
+        if not _inside(x * scale, y * scale, width, height):
+            return None
         p = [round(min(max(x * scale, 0), width - 1), 1), round(min(max(y * scale, 0), height - 1), 1)]
         if not pts or pts[-1] != p:
             pts.append(p)
@@ -178,6 +217,8 @@ def clean_box(box, scale, width, height):
     if not box:
         return None
     x0, y0, x1, y1 = box
+    if not (_inside(x0 * scale, y0 * scale, width, height) and _inside(x1 * scale, y1 * scale, width, height)):
+        return None
     x0, x1 = sorted((x0, x1))
     y0, y1 = sorted((y0, y1))
     out = [round(min(max(x0 * scale, 0), width - 1), 1), round(min(max(y0 * scale, 0), height - 1), 1),
@@ -623,31 +664,48 @@ def segment_facts(segment, meta, phases, decisions):
             "phase_conf": round(conf, 2), "phase_checks_agree": agree, "keyframes": keyframes}
 
 
+def _phase_pattern(phase):
+    words = re.findall(r"[A-Z][a-z]+", phase or "")
+    if not words or phase == P.UNKNOWN_PHASE:
+        return None
+    return r"[\s-]*(?:and[\s-]*)?".join(w + r"(?:'s)?" for w in words)
+
+
 def sentence_supported(sentence, facts):
-    """True only if a sentence stays within the verified facts for the keyframes it cites."""
+    """True only if a sentence stays within the verified facts for the keyframes it cites.
+
+    Every word must come from a small vocabulary, so a sentence can state presence, absence or doubt
+    and nothing else. Each clause is then checked against the matching list on every cited keyframe.
+    """
     text, evidence = sentence["text"].strip(), sentence["evidence"]
     frames = {k["kf"]: k for k in facts["keyframes"]}
     if not text or not evidence or any(e not in frames for e in evidence):
         return False
-    # Naming the segment's own phase is allowed, even when that name contains a label or "clipping".
-    words = re.findall(r"[A-Z][a-z]+", facts.get("phase", ""))
-    if words:
-        text = re.sub(r"[\s-]*(?:and[\s-]*)?".join(words), " ", text, flags=re.I)
-    if UNSUPPORTED.search(text):
+    pattern = _phase_pattern(facts.get("phase"))
+    if pattern:  # the segment's own phase may be named, even though the name can contain a label
+        text = re.sub(pattern, " ", text, flags=re.I)
+    leftover = text
+    for label_pattern in MENTIONS.values():
+        leftover = re.sub(label_pattern, " ", leftover, flags=re.I)
+    if any(word not in NARRATION_WORDS for word in re.findall(r"[a-z0-9_']+", leftover.lower())):
         return False
-    for label, pattern in MENTIONS.items():
-        if not re.search(pattern, text, re.I):
-            continue
-        for e in evidence:
-            k = frames[e]
-            if label in k["visible"]:
-                continue
-            if label in k["not_visible"] and NEGATION.search(text):
-                continue
-            if label in k["unsure"] and UNSURE.search(text):
-                continue
+    for clause in CLAUSES.split(text):
+        if DOUBLE_NEGATION.search(clause):
             return False
+        if UNSURE.search(clause):
+            required = "unsure"
+        elif NEGATION.search(clause):
+            required = "not_visible"
+        else:
+            required = "visible"
+        for label, label_pattern in MENTIONS.items():
+            if re.search(label_pattern, clause, re.I) and any(label not in frames[e][required] for e in evidence):
+                return False
     return True
+
+
+def phase_is_uncertain(facts):
+    return not facts["phase_checks_agree"] or facts["phase_conf"] < PHASE_UNSURE_CONF
 
 
 def fallback_text(facts):
@@ -661,6 +719,13 @@ def fallback_text(facts):
     if unsure:
         parts.append("Could not be confirmed: " + ", ".join(unsure).replace("_", " ") + ".")
     return " ".join(parts) or "Nothing could be verified in this segment."
+
+
+def _segment_text(kept, facts):
+    text = " ".join(s["text"].strip() for s in kept) if kept else fallback_text(facts)
+    if phase_is_uncertain(facts) and not re.search(r"\bphase\b[^.;]*\b(uncertain|unsure|unclear|unconfirmed)\b", text, re.I):
+        text += " The phase is uncertain."
+    return text
 
 
 def narrate(job, meta, phases, decisions, status):
@@ -686,7 +751,7 @@ def narrate(job, meta, phases, decisions, status):
             evidence = [k["kf"] for k in facts["keyframes"] if k["visible"] or k["unsure"]]
         out.append({
             "t0": seg["t0"], "t1": seg["t1"], "phase": seg["phase"],
-            "text": " ".join(s["text"].strip() for s in kept) if kept else fallback_text(facts),
+            "text": _segment_text(kept, facts),
             "evidence": evidence, "sentences": kept,
             "source": vlm.model_tag(model) if generated else "decisions",
             "dropped_sentences": result[2] if result else 0,
@@ -724,6 +789,7 @@ def run(video, out, kf_fps=1.0, max_minutes=MAX_MINUTES, stop_after=None, concur
     job = Path(out)
     job.mkdir(parents=True, exist_ok=True)
     (job / ".gitignore").write_text("*\n")  # frames of licensed video must never reach git
+    clear_outputs(job, keep=video)
     vlm.configure(cache_path=job.parent / "cache.sqlite", concurrency=concurrency)
     status = Status(job, on_status, vlm.start_meter())
     current = "ingest"

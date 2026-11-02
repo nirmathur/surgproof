@@ -93,9 +93,9 @@ def test_validate_accepts_nullable_and_nested():
 
 
 def test_command_has_required_flags_and_isolates_the_model():
-    cmd = vlm.claude_command("hello", "claude-sonnet-5-5")
+    cmd = vlm.claude_command("hello", "claude-sonnet-5-5", "/tmp/call_1")
     assert cmd[1:3] == ["-p", "hello"]
-    for flag, value in [("--model", "claude-sonnet-5-5"), ("--allowedTools", "Read"), ("--output-format", "json"),
+    for flag, value in [("--model", "claude-sonnet-5-5"), ("--allowedTools", "Read(//tmp/call_1/**)"), ("--output-format", "json"),
                         ("--tools", "Read"), ("--setting-sources", "")]:
         assert cmd[cmd.index(flag) + 1] == value
     assert "--strict-mcp-config" in cmd and "--no-session-persistence" in cmd

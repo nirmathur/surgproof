@@ -237,16 +237,17 @@ def validate(value, schema, path="$"):
 
 # ---- providers: each returns (raw_text, cost_usd) ----------------------------------------------
 
-def claude_command(prompt, model):
+def claude_command(prompt, model, folder):
     """Minimal flags: no user settings, CLAUDE.md, hooks or MCP reach the model. That keeps labels free
-    of unrelated context and cuts a call from about $0.12 to about $0.01 (measured)."""
+    of unrelated context and cuts a call from about $0.12 to about $0.01 (measured). Read is limited to
+    the call's own folder: a bare "Read" would let the model open any file on this disk."""
     return [
         os.environ.get("SURGPROOF_CLAUDE_BIN", "claude"), "-p", prompt,
         "--model", model,
         "--output-format", "json",
         "--system-prompt", SYSTEM_PROMPT,
         "--tools", "Read",
-        "--allowedTools", "Read",
+        "--allowedTools", f"Read(//{str(folder).lstrip('/')}/**)",
         "--setting-sources", "",
         "--strict-mcp-config",
         "--disable-slash-commands",
@@ -269,7 +270,7 @@ def _claude_cli(image_paths, prompt, model):
             text = "Use the Read tool to open: " + ", ".join(refs) + "\n\n" + prompt
         try:
             proc = subprocess.run(
-                claude_command(text, model), cwd=tmp, capture_output=True, text=True,
+                claude_command(text, model, tmp), cwd=tmp, capture_output=True, text=True,
                 stdin=subprocess.DEVNULL, timeout=CALL_TIMEOUT_S,
             )
         except FileNotFoundError as e:

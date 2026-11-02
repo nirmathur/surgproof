@@ -137,7 +137,9 @@ def test_ingest_refuses_too_long_missing_or_not_a_video(tmp_path):
 
 def test_clean_polygon_scales_clamps_and_rejects_degenerate():
     assert PL.clean_polygon([[10, 10], [20, 10], [20, 20]], 2.0, 100, 100) == [[20, 20], [40, 20], [40, 40]]
-    assert PL.clean_polygon([[-5, -5], [500, -5], [500, 500]], 1.0, 100, 100) == [[0, 0], [99, 0], [99, 99]]
+    assert PL.clean_polygon([[-5, -5], [105, -5], [105, 105]], 1.0, 100, 100) == [[0, 0], [99, 0], [99, 99]]
+    assert PL.clean_polygon([[-5000, -5000], [90000, -10], [90000, 90000]], 1.0, 100, 100) is None  # wrong coordinate space
+    assert PL.clean_polygon([[10, 10], [20, 10], [20, 500]], 1.0, 100, 100) is None
     assert PL.clean_polygon(None, 1.0, 100, 100) is None
     assert PL.clean_polygon([[1, 1], [2, 2]], 1.0, 100, 100) is None
     assert PL.clean_polygon([[1, 1], [2, 2], [3, 3]], 1.0, 100, 100) is None  # zero area
@@ -146,6 +148,7 @@ def test_clean_polygon_scales_clamps_and_rejects_degenerate():
 def test_clean_box_orders_and_rejects_empty():
     assert PL.clean_box([30, 40, 10, 20], 1.0, 100, 100) == [10, 20, 30, 40]
     assert PL.clean_box([5, 5, 5, 9], 1.0, 100, 100) is None
+    assert PL.clean_box([0, 0, 5000, 5000], 1.0, 100, 100) is None
 
 
 def test_box_iou():
@@ -347,6 +350,15 @@ FACTS = {"phase": "GallbladderDissection", "keyframes": [
     ("The cystic duct could not be confirmed.", ["kf_00001"], True),
     ("The gallbladder is visible.", ["kf_00001"], False),  # never decided here
     ("A clip is applied to the liver.", ["kf_00001"], False),  # no such label
+    ("The liver has been perforated.", ["kf_00001"], False),  # a verified label, an unverified claim
+    ("The surgeon is working safely.", ["kf_00001"], False),
+    ("There is no doubt that blood is visible.", ["kf_00001"], False),
+    ("The grasper is not visible.", ["kf_00001"], False),  # verified present, stated as absent
+    ("The grasper is not not visible.", ["kf_00001"], False),
+    ("The liver is visible but no blood is seen.", ["kf_00001"], True),  # each clause checked on its own
+    ("The liver is visible but no grasper is seen.", ["kf_00001"], False),
+    ("Blood could not be confirmed.", ["kf_00001"], False),  # verified absent, not in doubt
+    ("This segment is Preparation.", ["kf_00001"], False),  # some other phase
     ("The cystic artery is exposed near the liver.", ["kf_00001"], False),
     ("Gallbladder dissection continues, with the liver in view.", ["kf_00001"], True),  # the phase's own name
 ])
@@ -389,6 +401,14 @@ def test_narration_falls_back_to_decisions_when_nothing_survives(tmp_path, monke
     seg = PL.narrate(job, meta, phases, decisions, types.SimpleNamespace(update=lambda *a: None))[0]
     assert seg["source"] == "decisions" and "stapler" not in seg["text"]
     assert "Verified in this segment: liver." in seg["text"] and "Could not be confirmed: blood." in seg["text"]
+
+
+def test_narration_says_when_the_phase_is_uncertain_even_if_the_model_does_not(tmp_path, monkeypatch):
+    job, meta, phases, decisions = narration_setup(tmp_path)
+    phases[0]["agree"] = False
+    monkeypatch.setattr(PL.vlm, "ask", lambda *a, **k: {"sentences": [{"text": "The liver is visible.", "evidence": ["kf_00000"]}]})
+    seg = PL.narrate(job, meta, phases, decisions, types.SimpleNamespace(update=lambda *a: None))[0]
+    assert seg["text"] == "The liver is visible. The phase is uncertain."
 
 
 def test_narration_outage_keeps_the_job_and_records_the_error(tmp_path, monkeypatch):
@@ -495,6 +515,27 @@ def test_full_run_with_mock_provider(isolated, stub_stages):
     assert all(r["rounds"][0]["model"].startswith("mock:") for r in duct)
     narration = json.load(open(job / "narration.json"))["segments"]
     assert narration and narration[0]["phase"] == P.PHASES[1]
+
+
+def test_rerun_clears_earlier_results_but_nothing_else(isolated, stub_stages):
+    job = isolated / "jobs" / "used"
+    (job / "masks").mkdir(parents=True)
+    (job / "masks" / "old.png").write_bytes(b"x")
+    for name in ("released_coco.json", "final_pass.jsonl", "final_pass_queue.json", "annotated.mp4", "upload.mp4", "job.json", "my_notes.txt"):
+        (job / name).write_text("old")
+    PL.run(make_video(isolated / "v.mp4", seconds=1), job)
+    for name in ("released_coco.json", "final_pass.jsonl", "final_pass_queue.json", "annotated.mp4"):
+        assert not (job / name).exists(), name
+    assert not (job / "masks" / "old.png").exists()
+    for name in ("upload.mp4", "job.json", "my_notes.txt"):
+        assert (job / name).read_text() == "old", name
+
+
+def test_rerun_on_a_video_inside_the_job_folder_keeps_that_video(isolated, stub_stages):
+    job = isolated / "jobs" / "self"
+    PL.run(make_video(isolated / "v.mp4", seconds=1), job)
+    final = PL.run(job / "source.mp4", job)
+    assert final["stage"] == "done" and (job / "source.mp4").exists()
 
 
 def test_rerun_uses_the_cache(isolated, stub_stages, monkeypatch):
