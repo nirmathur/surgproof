@@ -359,3 +359,77 @@ def test_cli_exit_codes_and_report(world):
     assert subprocess.run(cmd, cwd=ROOT, capture_output=True).returncode == 3
     no_gt = [sys.executable, "-m", "surgproof.eval", str(world["job"]), "--raw", str(world["raw"]), "--registry", str(world["tmp"] / "none")]
     assert subprocess.run(no_gt, cwd=ROOT, capture_output=True).returncode == 2
+
+
+# ---------- video-level aggregate ----------
+
+def _block(tp, fp, fn, tn, label="liver"):
+    block = ev.confusion([(True, True)] * tp + [(True, False)] * fp + [(False, True)] * fn + [(False, False)] * tn)
+    block.update(per_label={label: dict(block)}, n_expected=block["n"], n_amber=0)
+    return block
+
+
+def _report(clip, job, tp, fp, fn, tn, split="test", label="liver", mock=False, aligned=True):
+    b = _block(tp, fp, fn, tn, label)
+    return {"job": str(job), "split": split, "clips": [clip], "n_keyframes": 1, "models": ["m"], "mock_run": mock,
+            "alignment": {"ok": aligned}, "presence_detect_raw": b, "presence_verify_raw": b, "presence_final": b,
+            "masks_keyframe": {"iou_with_errors": {"n": 1, "mean": 0.5}}}
+
+
+def test_aggregate_weights_videos_not_frames(tmp_path):
+    """A huge video must not drown a small one, and two jobs from one video count as one video."""
+    reports = [_report("video09_00000", tmp_path, 100, 0, 0, 0), _report("video09_00080", tmp_path, 100, 0, 0, 0),
+               _report("video17_00000", tmp_path, 0, 0, 2, 0)]
+    r = ev.aggregate(reports)
+    assert r["n_videos"] == 2 and r["n_jobs"] == 3
+    final = r["presence_final"]
+    assert final["video_mean_accuracy"] == 0.5
+    assert final["pooled"]["n"] == 202 and final["pooled"]["accuracy"] == round(200 / 202, 4)
+
+
+def test_video_ci_by_hand():
+    assert ev.video_ci([0.5]) is None
+    # mean 0.5, sd 0.1, df 2: half width 4.303 * 0.1 / sqrt(3) = 0.24843
+    assert ev.video_ci([0.4, 0.5, 0.6]) == [0.2516, 0.7484]
+    assert ev.video_ci([0.0, 1.0]) == [0.0, 1.0]  # clipped, never outside 0..1
+
+
+def test_sensitivity_with_no_positives_is_not_a_number(tmp_path):
+    """No blood in the split: sensitivity is unknown, never 0 and never 1."""
+    r = ev.aggregate([_report("video09_00000", tmp_path, 0, 0, 0, 5, label="blood")])
+    blood = r["presence_final"]["per_label"]["blood"]
+    assert blood["sensitivity"]["video_mean"] is None and blood["sensitivity"]["n"] == 0
+    assert blood["specificity"]["video_mean"] == 1.0 and blood["specificity"]["ci95_over_videos"] is None
+
+
+def test_single_positive_video_gets_no_interval(tmp_path):
+    reports = [_report("video01_00000", tmp_path, 8, 0, 2, 0, split="train", label="blood"),
+               _report("video18_00000", tmp_path, 0, 0, 0, 9, split="train", label="blood")]
+    sens = ev.aggregate(reports)["presence_final"]["per_label"]["blood"]["sensitivity"]
+    assert sens["n_videos"] == 1 and sens["video_mean"] == 0.8 and sens["ci95_over_videos"] is None
+
+
+@pytest.mark.parametrize("clip", sorted(ev.SPENT_CLIPS))
+def test_aggregate_refuses_spent_clips(tmp_path, clip):
+    with pytest.raises(ValueError, match="spent"):
+        ev.aggregate([_report(clip, tmp_path, 1, 0, 0, 1)])
+
+
+def test_aggregate_refuses_mock_misaligned_duplicates_and_mixed_splits(tmp_path):
+    with pytest.raises(ev.MockRun):
+        ev.aggregate([_report("video09_00000", tmp_path, 1, 0, 0, 1, mock=True)])
+    with pytest.raises(ev.Misaligned):
+        ev.aggregate([_report("video09_00000", tmp_path, 1, 0, 0, 1, aligned=False)])
+    with pytest.raises(ValueError, match="twice"):
+        ev.aggregate([_report("video09_00000", tmp_path, 1, 0, 0, 1), _report("video09_00000", tmp_path, 1, 0, 0, 1)])
+    with pytest.raises(ValueError, match="pool"):
+        ev.aggregate([_report("video09_00000", tmp_path, 1, 0, 0, 1),
+                      _report("video01_00000", tmp_path, 1, 0, 0, 1, split="train")])
+
+
+def test_phase_accuracy_is_never_reported(tmp_path):
+    """There is no phase ground truth. Agreement between passes must not be dressed up as accuracy."""
+    (tmp_path / "phase.jsonl").write_text(json.dumps({"kf": "k", "phase": "Unknown", "agree": True}) + "\n")
+    phase = ev.aggregate([_report("video09_00000", tmp_path, 1, 0, 0, 1)])["phase"]
+    assert phase["accuracy"] is None and "no phase labels" in phase["why_not_scored"]
+    assert phase["n"] == 1 and phase["agree"] == 1 and phase["unknown"] == 1

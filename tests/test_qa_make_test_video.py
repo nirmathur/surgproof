@@ -55,6 +55,17 @@ def test_calib_split_is_separate_and_stamped(tmp_path):
     mtv.check_split([calib[0]], "calib", index)
 
 
+def test_train_split_is_refused_for_other_splits_videos(tmp_path):
+    """--split train exists for rare labels only. A held-out video may not be reported under it, nor the reverse."""
+    index = tmp_path / "index.csv"
+    index.write_text("video,split\nvideo01,train\nvideo12,test\n")
+    mtv.check_split(["video01"], "train", index)
+    with pytest.raises(SystemExit, match="train"):
+        mtv.check_split(["video12"], "train", index)
+    with pytest.raises(SystemExit):
+        mtv.check_split(["video01"], "test", ROOT / "does_not_exist.csv")
+
+
 def test_held_out_list_matches_the_repo_split():
     index = ROOT / "data" / "index.csv"
     if not index.exists():

@@ -8,6 +8,7 @@ Usage:
 
 Tuning a prompt or threshold? Use --split calib. Tuning against a held-out clip spends the held-out set, and
 every number on it afterwards is an upper bound. The scorer stamps which split a video came from.
+--split train is only for labels the other splits lack; report it apart from held-out numbers.
 
 Clip choice is deterministic and metric-blind: without --clips it takes the longest run of
 contiguous clips in the video, earliest first. It never looks at any score.
@@ -46,25 +47,29 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def calib_videos(index_csv: Path = ROOT / "data" / "index.csv") -> set[str]:
+def split_videos(split: str, index_csv: Path = ROOT / "data" / "index.csv") -> set[str]:
     if not index_csv.exists():
-        raise SystemExit(f"--split calib needs {index_csv} (built by prepare_data.py)")
+        raise SystemExit(f"--split {split} needs {index_csv} (built by prepare_data.py)")
     import csv
 
     with open(index_csv) as f:
-        return {r["video"] for r in csv.DictReader(f) if r.get("split") == "calib"}
+        return {r["video"] for r in csv.DictReader(f) if r.get("split") == split}
+
+
+def calib_videos(index_csv: Path = ROOT / "data" / "index.csv") -> set[str]:
+    return split_videos("calib", index_csv)
 
 
 def check_split(videos, split: str, index_csv: Path = ROOT / "data" / "index.csv"):
     """Each video must really belong to the split it is reported under."""
     if split == "test":
         return check_held_out(videos, index_csv)
-    if split != "calib":
+    if split not in ("calib", "train"):
         raise SystemExit(f"unknown split {split}")
-    allowed = calib_videos(index_csv)
+    allowed = split_videos(split, index_csv)
     bad = sorted(set(videos) - allowed)
     if bad:
-        raise SystemExit(f"{bad} not in the calib split {sorted(allowed)}")
+        raise SystemExit(f"{bad} not in the {split} split {sorted(allowed)}")
 
 
 def check_held_out(videos, index_csv: Path = ROOT / "data" / "index.csv"):
@@ -185,7 +190,9 @@ def main(argv=None):
     p.add_argument("--clips", nargs="+", help="explicit clip ids, in playback order")
     p.add_argument("--seconds", type=float, help="trim to this many seconds")
     p.add_argument("--fps", type=int, default=SOURCE_FPS)
-    p.add_argument("--split", choices=["test", "calib"], default="test", help="calib is the only split to tune on")
+    p.add_argument("--split", choices=["test", "calib", "train"], default="test",
+                   help="calib is the only split to tune on. train exists only to score rare labels: the held-out and "
+                        "calib splits hold no blood and almost no cystic duct, so those numbers can come from nowhere else")
     a = p.parse_args(argv)
     m = make(a.raw, a.out, a.registry, clips=a.clips, video=a.video, seconds=a.seconds, fps=a.fps, split=a.split)
     print(json.dumps({"out": str(a.out), "sha256": m["sha256"], "n_frames": m["n_frames"], "fps": m["fps"],
