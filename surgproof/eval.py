@@ -592,7 +592,159 @@ def summary_lines(r: dict) -> list[str]:
     return lines
 
 
+# ---------- video-level aggregate ----------
+
+# Looked at per label in an earlier round, or named by the audit. Scoring them again would flatter every number.
+SPENT_CLIPS = frozenset({"video12_15750", "video12_19500", "video12_19580", "video28_00000", "video28_00080",
+                         "video55_00508", "video55_00588"})
+PHASE_NOT_SCORED = ("CholecSeg8k has no phase labels and no Cholec80 phase annotations are on this machine, so phase "
+                    "accuracy is unmeasured. Agreement between the two passes is shown instead; it is not accuracy.")
+# Two-sided 95% t critical values by degrees of freedom. A normal interval would be too narrow for a handful of videos.
+_T95 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262}
+
+
+def video_ci(values: list[float]) -> list[float] | None:
+    """95% t interval over per-video values, clipped to 0..1. None under two videos: there is no spread to measure."""
+    if len(values) < 2:
+        return None
+    mean, sd = float(np.mean(values)), float(np.std(values, ddof=1))
+    half = _T95.get(len(values) - 1, 2.0) * sd / len(values) ** 0.5
+    return [round(max(0.0, mean - half), 4), round(min(1.0, mean + half), 4)]
+
+
+def _sum_confusions(items: list[dict]) -> dict:
+    keys = ("tp", "fp", "fn", "tn")
+    tot = {k: sum(i.get(k, 0) for i in items) for k in keys}
+    return confusion([(True, True)] * tot["tp"] + [(True, False)] * tot["fp"] + [(False, True)] * tot["fn"]
+                     + [(False, False)] * tot["tn"])
+
+
+def _rate_by_video(per_video: dict[str, dict], num: str, other: str) -> dict:
+    """num/(num+other) per video, using only the videos where the denominator exists."""
+    vals = {v: c.get(num, 0) / (c.get(num, 0) + c.get(other, 0)) for v, c in per_video.items()
+            if c.get(num, 0) + c.get(other, 0)}
+    return {"n_videos": len(vals), "n": sum(per_video[v].get(num, 0) + per_video[v].get(other, 0) for v in vals),
+            "video_mean": round(float(np.mean(list(vals.values()))), 4) if vals else None,
+            "ci95_over_videos": video_ci(list(vals.values())), "by_video": {v: round(x, 4) for v, x in vals.items()}}
+
+
+def _pass_summary(by_video: dict[str, list[dict]]) -> dict:
+    """by_video: video -> that video's presence blocks, one per job."""
+    videos = sorted(by_video)
+    per_video = {v: _sum_confusions(by_video[v]) for v in videos}
+    scored = {v: c for v, c in per_video.items() if c["n"]}
+    accs = [c["accuracy"] for c in scored.values()]
+    out = {"pooled": _sum_confusions(list(per_video.values())), "n_videos": len(scored),
+           "video_mean_accuracy": round(float(np.mean(accs)), 4) if accs else None,
+           "ci95_over_videos": video_ci(accs), "by_video": {v: c["accuracy"] for v, c in scored.items()},
+           "n_expected": sum(b.get("n_expected", 0) for bs in by_video.values() for b in bs),
+           "n_amber": sum(b.get("n_amber", 0) for bs in by_video.values() for b in bs), "per_label": {}}
+    for lb in LABELS:
+        label_by_video = {v: _sum_confusions([b.get("per_label", {}).get(lb, {}) for b in by_video[v]]) for v in videos}
+        out["per_label"][lb] = {
+            "pooled": _sum_confusions(list(label_by_video.values())),
+            "sensitivity": _rate_by_video(label_by_video, "tp", "fn"),
+            "specificity": _rate_by_video(label_by_video, "tn", "fp"),
+        }
+    return out
+
+
+def _phase_summary(job: Path) -> dict:
+    rows = _read_jsonl(Path(job) / "phase.jsonl")
+    return {"n": len(rows), "agree": sum(1 for r in rows if r.get("agree") is True),
+            "unknown": sum(1 for r in rows if r.get("phase") in (None, "Unknown"))}
+
+
+def _narration_sources(job: Path) -> dict:
+    path = Path(job) / "narration.json"
+    if not path.exists():
+        return {}
+    out: dict[str, int] = {}
+    for seg in json.loads(path.read_text()).get("segments", []):
+        src = str(seg.get("source", "missing"))
+        out[src] = out.get(src, 0) + 1
+    return out
+
+
+def aggregate(reports: list[dict], allow_spent: bool = False, allow_mixed_splits: bool = False) -> dict:
+    """One number per video, then a spread over videos. Frames inside a surgery are not independent evidence."""
+    if not reports:
+        raise NoGroundTruth("nothing to aggregate")
+    if any(r.get("mock_run") for r in reports):
+        raise MockRun("a stand-in model produced at least one of these jobs")
+    misaligned = [r["job"] for r in reports if not r["alignment"]["ok"]]
+    if misaligned:
+        raise Misaligned(f"misaligned jobs cannot be pooled: {misaligned}")
+    clips = [c for r in reports for c in r.get("clips", [])]
+    spent = sorted(set(clips) & SPENT_CLIPS)
+    if spent and not allow_spent:
+        raise ValueError(f"these clips are spent and must not be scored again: {spent}")
+    dupes = sorted({c for c in clips if clips.count(c) > 1})
+    if dupes:
+        raise ValueError(f"clips counted twice: {dupes}")
+    splits = sorted({r.get("split", "unknown") for r in reports})
+    if len(splits) > 1 and not allow_mixed_splits:
+        raise ValueError(f"refusing to pool splits {splits}: report each on its own")
+
+    by_video: dict[str, list[dict]] = {}
+    for r in reports:
+        by_video.setdefault(r["clips"][0].split("_")[0], []).append(r)
+    out = {"splits": splits, "videos": sorted(by_video), "n_videos": len(by_video), "n_jobs": len(reports),
+           "n_clips": len(clips), "clips": sorted(clips), "n_keyframes": sum(r["n_keyframes"] for r in reports),
+           "models": sorted({m for r in reports for m in r["models"]}),
+           "caveat": "CIs are t intervals over per-video values. With 3 to 6 videos they are wide, and they say "
+                     "nothing about surgeons, hospitals or cameras outside this dataset."}
+    for name in ("presence_detect_raw", "presence_verify_raw", "presence_final"):
+        out[name] = _pass_summary({v: [r[name] for r in rs] for v, rs in by_video.items()})
+
+    iou = {}
+    for v, rs in by_video.items():
+        vals = [(m["mean"], m["n"]) for m in (r["masks_keyframe"]["iou_with_errors"] for r in rs) if m["n"]]
+        if vals:
+            iou[v] = sum(a * b for a, b in vals) / sum(b for _, b in vals)
+    out["iou_with_errors"] = {"video_mean": round(float(np.mean(list(iou.values()))), 4) if iou else None,
+                              "ci95_over_videos": video_ci(list(iou.values())),
+                              "by_video": {v: round(x, 4) for v, x in iou.items()}}
+
+    phase, sources = {"n": 0, "agree": 0, "unknown": 0}, {}
+    for r in reports:
+        for k, val in _phase_summary(Path(r["job"])).items():
+            phase[k] += val
+        for k, val in _narration_sources(Path(r["job"])).items():
+            sources[k] = sources.get(k, 0) + val
+    out["phase"] = {"accuracy": None, "why_not_scored": PHASE_NOT_SCORED, **phase}
+    out["narration_segment_sources"] = sources
+    return out
+
+
+def aggregate_main(argv) -> int:
+    ap = argparse.ArgumentParser(prog="python -m surgproof.eval aggregate", description="Pool scored jobs by video.")
+    ap.add_argument("jobs", type=Path, nargs="+", help="job folders, each already scored")
+    ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--allow-mixed-splits", action="store_true")
+    a = ap.parse_args(argv)
+    try:
+        reports = []
+        for j in a.jobs:
+            path = j / "eval_report.json"
+            if not path.exists():
+                raise NoGroundTruth(f"{path} missing: score the job first")
+            reports.append(json.loads(path.read_text()))
+        result = aggregate(reports, allow_mixed_splits=a.allow_mixed_splits)
+    except (NoGroundTruth, Misaligned, MockRun, ValueError) as e:
+        print(f"cannot aggregate: {e}", file=sys.stderr)
+        return 2
+    a.out.write_text(json.dumps(result, indent=1))
+    final = result["presence_final"]
+    print(f"{result['n_videos']} videos, {result['n_clips']} clips, split {result['splits']}: final accuracy "
+          f"{final['video_mean_accuracy']} over videos, 95% CI {final['ci95_over_videos']}, n={final['pooled']['n']}")
+    return 0
+
+
 def main(argv=None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv[:1] == ["aggregate"]:
+        return aggregate_main(argv[1:])
     ap = argparse.ArgumentParser(description="Score a job against ground truth. Never called by the pipeline.")
     ap.add_argument("job", type=Path)
     ap.add_argument("--raw", type=Path, default=DEFAULT_RAW)
