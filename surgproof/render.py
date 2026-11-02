@@ -37,7 +37,7 @@ TEXT = (244, 245, 248)
 MUTED = (138, 144, 158)
 FONTS = ["/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/HelveticaNeue.ttc", "/System/Library/Fonts/Helvetica.ttc",
          "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf"]
-MASK_ALPHA = 0.28
+MASK_ALPHA_FIXED = 72      # out of 256, about 28%
 SUBTITLE_MAX_LINE_CHARS = 72
 
 
@@ -166,15 +166,19 @@ class Layout:
         self.size_foot = int(15 * unit)
         self.size_sub = int(22 * unit)
         self.line = max(2, int(2 * unit))
+        self.background = np.full((self.H, self.W, 3), CANVAS_BG, np.uint8)
 
 
 def draw_mask(view, mask, colour, line):
     """Translucent fill and an anti-aliased outline. `mask` is already at view size."""
-    col = np.array(colour[::-1], dtype=np.float32)
-    region = view[mask]
-    view[mask] = (region * (1 - MASK_ALPHA) + col * MASK_ALPHA).astype(np.uint8)
-    contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    cv2.drawContours(view, contours, -1, tuple(int(c) for c in colour[::-1]), line, cv2.LINE_AA)
+    contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    bgr = np.array(colour[::-1], dtype=np.uint16)
+    # Fixed-point blend on the mask's own bounding region: this runs for every label on every frame.
+    x, y, w, h = cv2.boundingRect(mask.astype(np.uint8))
+    roi, sel = view[y:y + h, x:x + w], mask[y:y + h, x:x + w]
+    keep, add = 256 - MASK_ALPHA_FIXED, bgr * MASK_ALPHA_FIXED
+    roi[sel] = ((roi[sel].astype(np.uint16) * keep + add) >> 8).astype(np.uint8)
+    cv2.drawContours(view, contours, -1, tuple(int(c) for c in bgr), line, cv2.LINE_AA)
 
 
 def draw_chip(canvas, sprites, text, x, y, colour, size, placed):
@@ -245,7 +249,7 @@ class Annotations:
 
 
 def draw_frame(frame, rows, phase, subtitle, frame_index, t, ann, lay, sprites, show_masks, footer_note):
-    canvas = np.full((lay.H, lay.W, 3), CANVAS_BG, np.uint8)
+    canvas = lay.background.copy()
     view = cv2.resize(frame, (lay.fw, lay.fh), interpolation=cv2.INTER_AREA if lay.sx < 1 else cv2.INTER_LINEAR)
     order = {lab: i for i, lab in enumerate(FRONT_TO_BACK)}
     # Back to front, so instruments draw over anatomy.
