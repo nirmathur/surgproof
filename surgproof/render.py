@@ -2,10 +2,14 @@
 
 House style (tools/render_dense.py CLEAN mode): phase header, clean boxes with label chips, optional translucent
 masks, small footer. Every box, mask, phase and subtitle drawn here comes from the job's files; nothing is typed in.
-Unverified (AMBER) labels are drawn in amber and marked "unsure" so they cannot read as accepted, and the footer
+Unreviewed (AMBER) labels are drawn in amber and marked "unsure" so they cannot read as accepted, and the footer
 says whether each frame is an AI keyframe or propagated.
 
-Inputs: meta.json, tracks.jsonl, masks/, tracks/, phase.jsonl, narration.json, the source video.
+Before release the video carries a banner saying it is an unreviewed AI draft. export.release re-renders it from the
+released dataset, so it stops showing what the human rejected and marks what the human corrected or reviewed.
+Audio and container metadata are never copied from the source.
+
+Inputs: meta.json, tracks.jsonl, masks/, tracks/, phase.jsonl, narration.json, the source video, released_coco.json.
 Outputs: annotated.mp4, narration.vtt (the same cues, for the Watch page).
 """
 from __future__ import annotations
@@ -38,6 +42,7 @@ MUTED = (138, 144, 158)
 FONTS = ["/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/HelveticaNeue.ttc", "/System/Library/Fonts/Helvetica.ttc",
          "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf"]
 MASK_ALPHA_FIXED = 72      # out of 256, about 28%
+FFMPEG_TIMEOUT = 300    # seconds for ffprobe, and for ffmpeg to finish once it has all the frames
 SUBTITLE_MAX_LINE_CHARS = 72
 
 
@@ -87,6 +92,13 @@ def prettify_phase(phase):
     """CalotTriangleDissection -> Calot triangle dissection."""
     words = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", str(phase)).replace("_", " ").split()
     return " ".join([words[0]] + [w.lower() for w in words[1:]]) if words else ""
+
+
+def status_text(released):
+    """(banner, footer note). The only claims the video makes about its own review state."""
+    if released:
+        return "AFTER HUMAN FINAL PASS", "AI annotation after human final pass (sample audit, masks are draft)"
+    return "AI DRAFT · UNREVIEWED", "AI draft, unreviewed, pending human final pass"
 
 
 def fmt_time(t):
@@ -217,14 +229,40 @@ def draw_subtitle(canvas, sprites, text, lay):
 
 # ---- frame drawing ----
 
-class Annotations:
-    """Per-frame lookup over tracks.jsonl and phases."""
+def rows_from_release(coco, tracks):
+    """{frame_index: [row]} holding only what the released dataset contains.
 
-    def __init__(self, job, meta):
+    AI annotations keep their track row, for the smoothed box and the mask file. A human correction carries its polygon."""
+    by_key = {(t["frame_index"], t["label"]): t for t in tracks}
+    names = {c["id"]: c["name"] for c in coco["categories"]}
+    frames = {i["id"]: i["frame_index"] for i in coco["images"]}
+    out = collections.defaultdict(list)
+    for a in coco["annotations"]:
+        at, fi, label = a["attributes"], frames[a["image_id"]], names[a["category_id"]]
+        human = at.get("source") == "human_correction"
+        track = by_key.get((fi, label))
+        x, y, w, h = a["bbox"]
+        row = {"frame_index": fi, "label": label, "status": at["status"], "propagated": at.get("propagated", False),
+               "keyframe": at.get("keyframe"), "box": track["box"] if track and not human else [x, y, x + w - 1, y + h - 1]}
+        row["review"] = "human" if human else ("reviewed" if at.get("human_reviewed") else None)
+        if human or track is None:
+            row["segmentation"] = a["segmentation"]
+        out[fi].append(row)
+    return out
+
+
+class Annotations:
+    """Per-frame lookup over tracks.jsonl, or over the released dataset once there is one, and phases."""
+
+    def __init__(self, job, meta, released=None):
         self.job = Path(job)
-        self.by_frame = collections.defaultdict(list)
-        for r in read_jsonl(self.job / "tracks.jsonl"):
-            self.by_frame[r["frame_index"]].append(r)
+        tracks = read_jsonl(self.job / "tracks.jsonl")
+        if released is not None:
+            self.by_frame = rows_from_release(released, tracks)
+        else:
+            self.by_frame = collections.defaultdict(list)
+            for r in tracks:
+                self.by_frame[r["frame_index"]].append(r)
         kf_index = {k["kf"]: k["frame_index"] for k in meta["keyframes"]}
         phases = []
         for r in read_jsonl(self.job / "phase.jsonl"):
@@ -248,7 +286,19 @@ class Annotations:
         return mask_path(self.job, row["keyframe"], row["label"])
 
 
-def draw_frame(frame, rows, phase, subtitle, frame_index, t, ann, lay, sprites, show_masks, footer_note):
+def _view_mask(row, ann, lay):
+    """The row's mask at view size, or None. A human correction is rasterised from its own polygon."""
+    if row.get("segmentation"):
+        m = np.zeros((lay.fh, lay.fw), np.uint8)
+        for poly in row["segmentation"]:
+            pts = np.array(poly, dtype=np.float32).reshape(-1, 2) * (lay.sx, lay.sy)
+            cv2.fillPoly(m, [pts.astype(np.int32)], 1)
+        return m > 0
+    m = cv2.imread(str(ann.mask_file(row)), cv2.IMREAD_GRAYSCALE)
+    return None if m is None else cv2.resize(m, (lay.fw, lay.fh), interpolation=cv2.INTER_LINEAR) > 127
+
+
+def draw_frame(frame, rows, phase, subtitle, frame_index, t, ann, lay, sprites, show_masks, footer_note, banner=None):
     canvas = lay.background.copy()
     view = cv2.resize(frame, (lay.fw, lay.fh), interpolation=cv2.INTER_AREA if lay.sx < 1 else cv2.INTER_LINEAR)
     order = {lab: i for i, lab in enumerate(FRONT_TO_BACK)}
@@ -260,11 +310,8 @@ def draw_frame(frame, rows, phase, subtitle, frame_index, t, ann, lay, sprites, 
 
     if show_masks:
         for r in rows:
-            m = cv2.imread(str(ann.mask_file(r)), cv2.IMREAD_GRAYSCALE)
-            if m is None:
-                continue
-            m = cv2.resize(m, (lay.fw, lay.fh), interpolation=cv2.INTER_LINEAR) > 127
-            if m.any():
+            m = _view_mask(r, ann, lay)
+            if m is not None and m.any():
                 draw_mask(view, m, colour_of(r), lay.line)
     canvas[lay.oy:lay.oy + lay.fh, lay.ox:lay.ox + lay.fw] = view
 
@@ -275,7 +322,8 @@ def draw_frame(frame, rows, phase, subtitle, frame_index, t, ann, lay, sprites, 
         p0 = (int(round(lay.ox + x0 * lay.sx)), int(round(lay.oy + y0 * lay.sy)))
         p1 = (int(round(lay.ox + x1 * lay.sx)), int(round(lay.oy + y1 * lay.sy)))
         cv2.rectangle(canvas, p0, p1, bgr, lay.line, cv2.LINE_AA)
-        chip = NAME.get(r["label"], r["label"]) + (" · unsure" if r["status"] == AMBER else "")
+        suffix = " · unsure" if r["status"] == AMBER else {"human": " · human", "reviewed": " · reviewed"}.get(r.get("review"), "")
+        chip = NAME.get(r["label"], r["label"]) + suffix
         chip_h = int(lay.size_chip * 1.9)
         y = p0[1] - chip_h - 2 if p0[1] - chip_h - 2 >= lay.oy else p0[1] + 2
         draw_chip(canvas, sprites, chip, p0[0], y, colour_of(r), lay.size_chip, placed)
@@ -287,6 +335,14 @@ def draw_frame(frame, rows, phase, subtitle, frame_index, t, ann, lay, sprites, 
         blit(canvas, hdr, pad, (lay.band - hdr[0].shape[0]) // 2)
         s = sprites.text(txt, lay.size_header)
         blit(canvas, s, pad + hdr[0].shape[1] + pad // 2, (lay.band - s[0].shape[0]) // 2)
+
+    if banner:
+        s = sprites.text(banner, lay.size_foot)
+        bw, bh = s[0].shape[1] + lay.size_foot, s[0].shape[0] + lay.size_foot // 2
+        bx, by = lay.W - pad - bw, (lay.band - bh) // 2
+        col = tuple(int(c) for c in AMBER_RGB[::-1]) if "DRAFT" in banner else tuple(int(c) for c in MUTED[::-1])
+        cv2.rectangle(canvas, (bx, by), (bx + bw, by + bh), col, 1, cv2.LINE_AA)
+        blit(canvas, s, bx + lay.size_foot // 2, by + lay.size_foot // 4)
 
     if subtitle:
         draw_subtitle(canvas, sprites, subtitle, lay)
@@ -311,15 +367,20 @@ def _fps_arg(fps):
 def count_video_frames(path):
     out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets",
                           "-show_entries", "stream=nb_read_packets", "-of", "csv=p=0", str(path)],
-                         capture_output=True, text=True, check=True).stdout
+                         capture_output=True, text=True, check=True, timeout=FFMPEG_TIMEOUT).stdout
     return int(out.strip().strip(",").split(",")[0])
 
 
-def run(job_dir, video=None, show_masks=True, subtitles=True, on_progress=None, crf=20):
-    """Run stage 8. Returns {"path", "n_frames", "n_cues"}. Raises if the output does not match the source."""
+def run(job_dir, video=None, show_masks=True, subtitles=True, on_progress=None, crf=20, released=None, output=None):
+    """Run stage 8. Returns {"path", "n_frames", "n_cues"}. Raises if the output does not match the source.
+
+    `released` is a released COCO dict to draw instead of the draft tracks; export.release passes it with `output`, a
+    temporary path, so a failed render leaves the job as it was. Without it an existing released_coco.json is used."""
     job = Path(job_dir)
     progress = progress_fn(job, "render", on_progress)
-    clear_stale_final_pass(job)     # render runs before export, and its footer reports the release state
+    clear_stale_final_pass(job)     # render runs before export, and the video reports the review state
+    if released is None and (job / "released_coco.json").exists():
+        released = read_json(job / "released_coco.json")
     meta = read_json(job / "meta.json")
     video_path = find_video(job, meta, video)
     fps = float(meta["fps"])
@@ -340,18 +401,18 @@ def run(job_dir, video=None, show_masks=True, subtitles=True, on_progress=None, 
 
     src_h, src_w = frame.shape[:2]
     lay = Layout(src_w, src_h)
-    ann = Annotations(job, meta)
+    ann = Annotations(job, meta, released)
     sprites = Sprites()
-    released = (job / "released_coco.json").exists()
-    footer_note = "AI annotation, released after human final pass" if released else "AI annotation, pending human final pass"
+    banner, footer_note = status_text(released is not None)
 
+    final_out = Path(output) if output else job / "annotated.mp4"
     tmp_out = job / ".annotated.tmp.mp4"
     with tempfile.TemporaryFile() as ffmpeg_err:
         proc = subprocess.Popen(
             ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{lay.W}x{lay.H}",
-             "-r", _fps_arg(fps), "-i", "-", "-i", str(video_path), "-map", "0:v:0", "-map", "1:a:0?",
+             "-r", _fps_arg(fps), "-protocol_whitelist", "file,pipe", "-i", "pipe:0", "-map", "0:v:0", "-an", "-map_metadata", "-1",
              "-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), "-pix_fmt", "yuv420p",
-             "-c:a", "aac", "-movflags", "+faststart", str(tmp_out)],
+             "-movflags", "+faststart", str(tmp_out)],
             stdin=subprocess.PIPE, stderr=ffmpeg_err)
         n = 0
         try:
@@ -363,15 +424,18 @@ def run(job_dir, video=None, show_masks=True, subtitles=True, on_progress=None, 
                     if i >= 0 and t < cues[i][1]:
                         subtitle = cues[i][2]
                 out = draw_frame(frame, ann.by_frame.get(n, []), ann.phase_at(n), subtitle, n, t, ann, lay, sprites,
-                                 show_masks, footer_note)
+                                 show_masks, footer_note, banner)
                 proc.stdin.write(out.tobytes())
                 n += 1
                 if n % 50 == 0:
                     progress(min(0.99, n / max(1, n_total)), f"rendered {n}/{n_total} frames")
                 ok, frame = cap.read()
             proc.stdin.close()
-            code = proc.wait()
+            code = proc.wait(timeout=FFMPEG_TIMEOUT)
         except BrokenPipeError:
+            code = proc.wait(timeout=FFMPEG_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            proc.kill()
             code = proc.wait()
         finally:
             cap.release()
@@ -386,6 +450,6 @@ def run(job_dir, video=None, show_masks=True, subtitles=True, on_progress=None, 
     if written != n:
         tmp_out.unlink(missing_ok=True)
         raise RuntimeError(f"annotated video has {written} frames but {n} were rendered")
-    tmp_out.replace(job / "annotated.mp4")
-    progress(1.0, f"annotated.mp4: {n} frames at {fps:g} fps, {len(cues)} subtitle cues")
-    return {"path": str(job / "annotated.mp4"), "n_frames": n, "n_cues": len(cues)}
+    tmp_out.replace(final_out)
+    progress(1.0, f"{final_out.name}: {n} frames at {fps:g} fps, {len(cues)} subtitle cues")
+    return {"path": str(final_out), "n_frames": n, "n_cues": len(cues)}

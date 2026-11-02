@@ -9,8 +9,13 @@ Outputs: tracks/<frame_index>_<label>.png (propagated frames only, only where th
 tracks.jsonl {frame_index, label, box, box_raw, propagated, status, source_kfs, keyframe, t}.
 
 `box` is the smoothed box for playback; `box_raw` is the exact bound of that frame's mask.
-A propagated row is AMBER when any keyframe that fed it is AMBER, so an unverified label cannot launder itself
-into accepted frames. Flow never crosses a detected scene cut.
+A propagated row is AMBER when any keyframe that fed it is AMBER, so an unreviewed label cannot launder itself
+into accepted frames. Flow never crosses a detected scene cut, and `shot` counts the cuts so far.
+
+Every propagated frame is cross-checked: `fb_overlap` is the IoU of the mask carried forward with the mask carried
+backward, before blending. `flow_check` is "ok" at or above MIN_FB_OVERLAP, "low_overlap" below it, and "none" when
+there is no second direction to compare (past the first or last keyframe, or beyond a cut). Only "ok" can be accepted.
+A keyframe's own row has flow_check "keyframe". Overlap measures agreement between two flows, not correctness.
 
 Frames are processed as a stream, so memory depends on the keyframe gap, not the video length.
 """
@@ -30,6 +35,7 @@ MAJORITY_WINDOW = 5
 BOX_WINDOW = 7
 CUT_MEAN_DIFF = 40.0      # mean absolute grey difference (0-255) between frames that marks a scene cut
 CUT_HIST_CORR = 0.35      # or histogram correlation below this
+MIN_FB_OVERLAP = 0.5      # forward/backward mask IoU below this sends the frame to AMBER
 MIN_SPECK_FRAC = 0.05     # drop fragments smaller than this fraction of the label's largest piece
 FLOW_ARGS = dict(pyr_scale=0.5, levels=4, winsize=21, iterations=3, poly_n=5, poly_sigma=1.1, flags=0)
 
@@ -110,16 +116,26 @@ def _despeck(mask):
     return np.isin(lab, 1 + np.where(areas >= MIN_SPECK_FRAC * areas.max())[0])
 
 
+def _overlap(forward_soft, backward_soft):
+    """IoU of the two directions. A direction that carries no mask counts as an empty one, so overlap is 0."""
+    if forward_soft is None or backward_soft is None:
+        return 0.0
+    f, b = forward_soft > 0.5, backward_soft > 0.5
+    union = int((f | b).sum())
+    return round(float((f & b).sum()) / union, 4) if union else 0.0
+
+
 def _propagate_gap(greys, a_masks, b_masks):
     """Soft blended masks for one run of consecutive frames.
 
     greys: grey frames in order. a_masks / b_masks: {label: float32 mask} anchoring greys[0] / greys[-1], or None
     when that end is not a keyframe, in which case that end is itself a frame to fill.
-    Returns ({index_in_greys: {label: (soft, contributors)}}, n_cuts), with contributors drawn from 'a', 'b'.
+    Returns ({index_in_greys: {label: (soft, contributors, overlap)}}, cuts), with contributors drawn from 'a', 'b',
+    overlap the forward/backward IoU (None when only one direction reaches the frame), and cuts one bool per step.
     """
     n = len(greys) - 1
     if n < 1:
-        return {}, 0
+        return {}, []
     h, w = greys[0].shape
     grid = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
     cuts = [is_cut(greys[i], greys[i + 1]) for i in range(n)]
@@ -174,9 +190,10 @@ def _propagate_gap(greys, a_masks, b_masks):
             who = ([] if f is None or wf == 0 else ["a"]) + ([] if b is None or wb == 0 else ["b"])
             if who:
                 soft = (wf * f if "a" in who else 0.0) + (wb * b if "b" in who else 0.0)
-                frame[lab] = (soft, who)
+                both = a_masks is not None and b_masks is not None and forward_valid[i] and backward_valid[i]
+                frame[lab] = (soft, who, _overlap(f, b) if both else None)
         out[i] = frame
-    return out, sum(cuts)
+    return out, cuts
 
 
 class _Emitter:
@@ -185,12 +202,12 @@ class _Emitter:
     def __init__(self, job, size, work, fps):
         self.job, self.size, self.work, self.fps = Path(job), size, work, fps
         self.half = MAJORITY_WINDOW // 2
-        self.items = []     # (frame_index, kf, {label: (work_mask, status, sources, full_mask_or_None)})
+        self.items = []     # (frame_index, kf, shot, {label: (work_mask, status, sources, full_or_None, overlap)})
         self.next = 0       # position in items of the next frame to finish
         self.rows = []
 
-    def push(self, frame_index, kf, labels):
-        self.items.append((frame_index, kf, labels))
+    def push(self, frame_index, kf, labels, shot=0):
+        self.items.append((frame_index, kf, shot, labels))
         while self.next + self.half < len(self.items):
             self._finish_next()
 
@@ -200,12 +217,12 @@ class _Emitter:
 
     def _finish_next(self):
         pos = self.next
-        frame_index, kf, labels = self.items[pos]
-        for label, (_, status, sources, full) in sorted(labels.items()):
+        frame_index, kf, shot, labels = self.items[pos]
+        for label, (_, status, sources, full, overlap) in sorted(labels.items()):
             if kf is not None:
-                self._write_keyframe(frame_index, kf, label, status, full)
+                self._write_keyframe(frame_index, kf, label, status, full, shot)
             else:
-                self._write_propagated(frame_index, label, status, sources, pos)
+                self._write_propagated(frame_index, label, status, sources, pos, overlap, shot)
         # A label only the neighbours carry could win a majority here, but this frame would have no source
         # to attribute it to, so it is not synthesised.
         self.next += 1
@@ -216,17 +233,17 @@ class _Emitter:
     def _t(self, frame_index):
         return round(frame_index / self.fps, 4) if self.fps else None
 
-    def _write_keyframe(self, frame_index, kf, label, status, full):
+    def _write_keyframe(self, frame_index, kf, label, status, full, shot):
         box = mask_box(full)
         if box is not None:
             self.rows.append({"frame_index": frame_index, "label": label, "box": box, "box_raw": box,
                               "propagated": False, "status": status, "source_kfs": [kf], "keyframe": kf,
-                              "t": self._t(frame_index)})
+                              "t": self._t(frame_index), "flow_check": "keyframe", "fb_overlap": None, "shot": shot})
 
-    def _write_propagated(self, frame_index, label, status, sources, pos):
+    def _write_propagated(self, frame_index, label, status, sources, pos, overlap, shot):
         votes = []
         for j in range(max(0, pos - self.half), min(len(self.items), pos + self.half + 1)):
-            entry = self.items[j][2].get(label)
+            entry = self.items[j][3].get(label)
             votes.append(entry[0] if entry is not None else np.zeros(self.work[::-1], bool))
         majority = np.sum(votes, axis=0) * 2 > len(votes)
         if not majority.any():
@@ -236,9 +253,11 @@ class _Emitter:
         if box is None:
             return
         write_mask(track_path(self.job, frame_index, label), mask)
+        check = "none" if overlap is None else ("ok" if overlap >= MIN_FB_OVERLAP else "low_overlap")
         self.rows.append({"frame_index": frame_index, "label": label, "box": box, "box_raw": box,
-                          "propagated": True, "status": status, "source_kfs": sources, "keyframe": None,
-                          "t": self._t(frame_index)})
+                          "propagated": True, "status": status if check == "ok" else AMBER, "source_kfs": sources,
+                          "keyframe": None, "t": self._t(frame_index), "flow_check": check, "fb_overlap": overlap,
+                          "shot": shot})
 
 
 def smooth_boxes(rows, window=BOX_WINDOW):
@@ -314,18 +333,18 @@ def run(job_dir, video=None, on_progress=None, work_side=WORK_SIDE):
     def emit_run(greys, first_index, a, b, a_soft, b_soft):
         nonlocal n_cuts
         frames, cuts = _propagate_gap(greys, a_soft, b_soft)
-        n_cuts += cuts
         for i in sorted(frames):
             out = {}
-            for label, (soft, who) in frames[i].items():
+            for label, (soft, who, overlap) in frames[i].items():
                 sources = [(a if c == "a" else b)["kf"] for c in who]
                 statuses = [by_kf[kf][label]["status"] for kf in sources]
-                out[label] = (soft > 0.5, AMBER if AMBER in statuses else ACCEPT, sources, None)
-            emitter.push(first_index + i, None, out)
+                out[label] = (soft > 0.5, AMBER if AMBER in statuses else ACCEPT, sources, None, overlap)
+            emitter.push(first_index + i, None, out, shot=n_cuts + sum(cuts[:i]))
+        n_cuts += sum(cuts)
 
     def emit_keyframe(k, full, soft):
-        labels = {lab: (soft[lab] > 0.5, by_kf[k["kf"]][lab]["status"], [k["kf"]], full[lab]) for lab in full}
-        emitter.push(k["frame_index"], k["kf"], labels)
+        labels = {lab: (soft[lab] > 0.5, by_kf[k["kf"]][lab]["status"], [k["kf"]], full[lab], None) for lab in full}
+        emitter.push(k["frame_index"], k["kf"], labels, shot=n_cuts)
 
     def report():
         progress(min(0.99, n_read / max(1, n_total)), f"tracked {n_read}/{n_total} frames")
