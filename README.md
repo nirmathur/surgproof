@@ -49,7 +49,8 @@ Real model runs, scored by `surgproof/eval.py` against CholecSeg8k ground truth 
 - **Blood is barely measured.** The held-out set has no blood, so its sensitivity is unknown there. There were no false positives on 74 held-out keyframes. On video01, a single video, detect found 26 of 27 and the second pass 27 of 27. One video gives no confidence interval.
 - **Phase accuracy is not measured.** There are no phase labels for these clips on this machine. The two passes agreed on the phase on only 23 of 74 held-out keyframes, so treat every phase shown as a guess.
 - **Accepted by the amber loop is much weaker than accepted by both passes.** On all 6 videos, labels both passes called present were right 141 of 141 times; labels accepted only after the amber loop were right 33 of 42. Every false accept came from that route.
-- **Masks are rough.** Mean IoU counting errors as 0 is 0.555 over 6 videos (95% CI 0.325 to 0.785), and 0.198 on the worst video. These masks came from before the masks hardening round.
+- **Masks are rough.** Mean IoU counting errors as 0 is 0.555 over 6 videos (95% CI 0.325 to 0.785), and 0.198 on the worst video.
+- **Examined clips are left out, and one of them is the hardest known.** On video12_19500 and video12_19580, the system decided only 41.7% of labels (0.933 accurate on those, n=15), with mask IoU 0.221. Expect footage like that, not the table above, on a bad day.
 - **Six videos is very few.** Keyframes one second apart inside one operation are strongly correlated, and nothing here speaks to other surgeons, hospitals or cameras. Rows overlap: the 6-video row contains the primary row, plus unused clips from three videos that were examined earlier.
 
 ## Run it
