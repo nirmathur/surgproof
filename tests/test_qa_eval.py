@@ -92,6 +92,28 @@ def score(world, **kw):
     return ev.score_job(world["job"], world["raw"], world["tmp"], world["manifest"], **kw)
 
 
+def test_ground_truth_rule_matches_the_rest_of_the_repo():
+    """eval.py copies two functions from prepare_data.py so it can run without pandas. They must not drift."""
+    pytest.importorskip("pandas")
+    import prepare_data as pd_mod
+
+    frames = sorted((ROOT / "raw" / "CholecSeg8k" / "video12" / "video12_19500").glob("*_watershed_mask.png"))[:3]
+    if not frames:
+        pytest.skip("CholecSeg8k not on this machine")
+    for f in frames:
+        a, b = ev.mask_to_classes(f), pd_mod.mask_to_classes(f)
+        assert (a == b).all()
+        pa, pb = ev.presence(a), pd_mod.presence(b)
+        assert all(pa[k] == pb[k] for k in pa)
+
+
+def test_scorer_runs_without_pandas():
+    """`make setup` installs requirements-e2e.txt only, so the scorer must not need the research stack."""
+    code = "import sys; sys.modules['pandas'] = None; import surgproof.eval; print('ok')"
+    p = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True)
+    assert p.returncode == 0 and "ok" in p.stdout, p.stderr
+
+
 def test_iou_primitive():
     a = np.zeros((4, 4), bool); a[:2] = True
     b = np.zeros((4, 4), bool); b[:, :2] = True

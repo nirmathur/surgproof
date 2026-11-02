@@ -20,7 +20,7 @@ Nothing is silently dropped. Rows the pipeline failed to produce count against c
 object with no mask file scores IoU 0, and every number travels with its n.
 
 Conventions:
-  presence GT: prepare_data.presence (class fraction >= config.MIN_FRAC), same as the rest of the repo.
+  presence GT: class fraction >= config.MIN_FRAC, the same rule as prepare_data.py and data/index.csv.
   IoU: watershed border pixels (value 255, class -1) are ignored in both prediction and GT.
   iou_when_both_present: mean over objects both AI and GT call present. Flattering on its own.
   iou_with_errors: also counts a false positive or a false negative as IoU 0. Use this as the headline.
@@ -42,7 +42,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import config as C  # noqa: E402
-from prepare_data import mask_to_classes, presence  # noqa: E402
 
 LABELS = list(C.LABELS)
 DEFAULT_RAW = ROOT / "raw" / "CholecSeg8k"
@@ -53,6 +52,31 @@ ALIGN_TOLERANCE = 0.5     # grey levels; the claimed frame may be this much wors
 ALIGN_ABS_MAX = 12.0      # mean abs difference above this is simply not the same image
 ALIGN_MAX_BAD_FRAC = 0.1
 BOOTSTRAP = 1000
+
+
+def mask_to_classes(mask_path) -> np.ndarray:
+    """Watershed PNG to class ids, -1 for border pixels. Same rule as prepare_data.mask_to_classes, which is not
+    imported because it pulls in pandas, and `make setup` does not install it. tests/test_qa_eval.py keeps them equal."""
+    m = np.array(Image.open(mask_path))
+    if m.ndim == 3:
+        m = m[..., 0]
+    vals = np.unique(m)
+    non_ignore = set(vals.tolist()) - {0, 255}
+    if non_ignore and non_ignore <= set(C.WATERSHED_VALUE_TO_CLASS) and (max(non_ignore) > 12 or 0 not in vals):
+        lut = np.zeros(256, dtype=np.int16) - 1
+        for v, c in C.WATERSHED_VALUE_TO_CLASS.items():
+            lut[v] = c
+        return lut[m]
+    return np.where(m == 255, -1, m.astype(np.int16))
+
+
+def presence(cls_map: np.ndarray) -> dict:
+    """Same rule as prepare_data.presence: a class counts when it covers at least MIN_FRAC of the frame."""
+    out = {}
+    for key, (cid, _) in C.LABELS.items():
+        frac = float((cls_map == cid).sum()) / cls_map.size
+        out[f"gt_{key}"] = int(frac >= C.MIN_FRAC.get(key, C.MIN_FRAC["default"]))
+    return out
 
 
 class NoGroundTruth(Exception):
