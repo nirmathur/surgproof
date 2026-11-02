@@ -1815,7 +1815,7 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                 view["release_job"] = release_job(job_dir, runner)
                 return view
         # wait=true: outside the job lock, so progress and everything else stay readable meanwhile.
-        while release_running(job_dir, runner):
+        while release_running(job_dir, runner) or job_id in runner.active:  # the worker is gone, not just finished
             time.sleep(RELEASE_WAIT_POLL_SECONDS)
         outcome = release_job(job_dir, runner) or {}
         if outcome.get("state") != "done":
