@@ -437,6 +437,13 @@ def test_narration_check_keeps_supported_sentences(text):
     "The grasper has torn the liver.",                              # an event nobody verified
     "Haemostasis has been achieved and the patient is stable.",     # no label named at all
     "The surgeon is working safely.",                               # no label named at all
+    "The gallbladder is not absent, and blood is not absent.",      # double negative hides a claim about blood
+    "No grasper is visible, but blood is visible.",                 # second clause lies, first clause is about something else
+    "Blood is visible, not the L-hook.",                            # negation in one part must not excuse the other
+    "The liver is not visible.",                                    # verified present, stated absent
+    "The cystic duct is not visible.",                              # amber, stated as verified absent
+    "Blood could not be confirmed.",                                # verified absent, reported as doubt
+    "The grasper is visible in every frame of the operation.",      # beyond the cited evidence
 ])
 def test_narration_check_rejects_unverified_claims(text):
     from surgproof.pipeline import sentence_supported
