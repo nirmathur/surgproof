@@ -1,5 +1,5 @@
 """Stage 9 and the final pass: ambers stay out, release stays locked, and human work is labelled as human."""
-import json
+import json, subprocess
 
 import cv2
 import numpy as np
@@ -40,12 +40,15 @@ def make_job(tmp_path, kf_rows, tracks=(), n_kf=2):
     for t in tracks:
         if t["propagated"]:
             M.write_mask(M.track_path(job, t["frame_index"], t["label"]), disc())
+    if tracks:  # auditing a propagated frame shows the real frame, so these jobs need their video
+        subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", f"testsrc2=size={W}x{H}:rate=25:duration={n_kf}",
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p", str(job / "source.mp4")], check=True)
     return job
 
 
 def track(fi, label, status, sources):
     return {"frame_index": fi, "label": label, "box": [120, 80, 200, 160], "box_raw": [120, 80, 200, 160], "propagated": True,
-            "status": status, "source_kfs": sources, "keyframe": None, "t": fi / 25}
+            "status": status, "source_kfs": sources, "keyframe": None, "t": fi / 25, "flow_check": "ok", "fb_overlap": 0.9, "shot": 0}
 
 
 STANDARD = [(0, "grasper", "accept", True, True), (0, "liver", "AMBER", None, True), (0, "blood", "reject", False, False),
@@ -107,7 +110,7 @@ def test_ambers_are_excluded_from_the_draft_dataset(job):
     assert len(anns(c, "liver")) == 1  # only kf_00001, and its propagated frame depends on an amber
     first = next(i for i in c["images"] if i["frame_index"] == 0)
     assert first["attributes"]["excluded_amber"] == ["liver"]
-    assert first["attributes"]["verified_absent"] == ["blood"]
+    assert first["attributes"]["ai_absent"] == ["blood"]
 
 
 def test_rejected_labels_never_appear(job):
@@ -157,7 +160,8 @@ def test_fallback_mask_is_labelled_unrefined(tmp_path):
     rows = M.read_jsonl(job / "masks.jsonl"); rows[0]["fallback"] = "grabcut_leaked"
     M.write_jsonl(job / "masks.jsonl", rows)
     X.run(job)
-    assert coco(job)["annotations"][0]["attributes"]["source"] == "ai_polygon_unrefined"
+    a = coco(job)["annotations"][0]["attributes"]
+    assert a["source"] == "ai_polygon" and a["refinement"] == "none:grabcut_leaked" and a["mask_quality"] == "draft"
 
 
 # ---- final pass ----
@@ -209,18 +213,16 @@ def test_release_stays_locked_until_every_item_is_done(job):
     assert X.final_pass_state(job)["released"]
 
 
-def test_job_with_nothing_to_review_releases_without_human_rows(tmp_path):
-    job = make_job(tmp_path, [(0, "blood", "reject", False, False)])
-    assert X.final_pass_queue(job) == []
-    assert X.release(job)["n_annotations"] == 0
-
-
 def resolve_all(job, overrides=None, default="approve"):
     overrides = overrides or {}
     rows = []
-    for i in X.final_pass_queue(job):
+    for i in X.final_pass_state(job)["remaining"]:
         rows.append({"kf": i["kf"], "label": i["label"], "action": default, **overrides.get((i["kf"], i["label"]), {})})
     X.record_final_pass(job, rows)
+    # A failure can trip the audit stop rule, which adds the full review to the queue.
+    rest = X.final_pass_state(job)["remaining"]
+    if rest:
+        X.record_final_pass(job, [{"kf": i["kf"], "label": i["label"], "action": default} for i in rest])
 
 
 def test_approved_amber_enters_release_with_its_propagated_frames(job):
@@ -232,7 +234,7 @@ def test_approved_amber_enters_release_with_its_propagated_frames(job):
     frames = {a["image_id"] for a in liver}
     assert frames == {1, 26, 13}
     a = next(a for a in liver if a["image_id"] == 1)
-    assert a["attributes"]["human_reviewed"] is True and a["attributes"]["source"] == "ai_polygon_grabcut"
+    assert a["attributes"]["human_reviewed"] is True and a["attributes"]["source"] == "ai_polygon" and a["attributes"]["ai_status"] == "AMBER"
     assert c["info"]["n_excluded_amber_keyframe"] == 0
 
 
@@ -244,7 +246,7 @@ def test_rejected_amber_drops_propagated_frames_and_counts_them(job):
     assert {a["image_id"] for a in anns(c, "liver")} == {26}
     assert info["n_propagated_dropped_after_human_overrule"] == 1
     first = next(i for i in c["images"] if i["frame_index"] == 0)
-    assert "liver" in first["attributes"]["verified_absent"]
+    assert "liver" in first["attributes"]["human_absent"]
 
 
 def test_correction_is_marked_human_and_uses_the_humans_polygon(job):
@@ -268,6 +270,7 @@ def test_audit_outcomes_are_reported_from_real_actions(tmp_path):
     info = X.release(job)
     fp = info["final_pass"]
     assert fp["n_audit"] == len(q) and fp["n_audit_rejected"] == 1 and fp["n_audit_approved"] == len(q) - 1 and fp["n_audit_pool"] == 40
+    assert fp["escalated"] is True and fp["n_audit_failed"] == 1  # one failure in so small an audit is above the limit
     c = coco(job, "released_coco.json")
     assert not [a for a in anns(c, bad["label"]) if a["image_id"] == bad["frame_index"] + 1]
 
@@ -321,7 +324,7 @@ def test_approving_an_amber_that_has_no_mask_confirms_absence(tmp_path):
     X.release(job)
     c = coco(job, "released_coco.json")
     first = next(i for i in c["images"] if i["frame_index"] == 0)
-    assert first["attributes"]["verified_absent"] == ["blood"] and first["attributes"]["excluded_amber"] == []
+    assert first["attributes"]["human_absent"] == ["blood"] and first["attributes"]["excluded_amber"] == []
     assert anns(c, "blood") == [] and len(anns(c, "liver")) == 1
 
 
@@ -340,9 +343,12 @@ def test_rerun_with_new_decisions_discards_old_human_sign_off(job):
     rows = M.read_jsonl(job / "decisions.jsonl")
     rows[0]["status"] = "reject"; rows[0]["final_present"] = False
     M.write_jsonl(job / "decisions.jsonl", rows)
+    old_seed = json.loads((job / "final_pass_queue.json").read_text())["seed"]
     X.run(job)
-    for name in ("released_coco.json", "final_pass.jsonl", "final_pass_queue.json"):
+    for name in ("released_coco.json", "final_pass.jsonl", "release_manifest.json", "dataset_bundle.zip"):
         assert not (job / name).exists(), name
+    # The queue that exists now was drawn fresh from the new decisions.
+    assert json.loads((job / "final_pass_queue.json").read_text())["seed"] != old_seed
 
 
 def test_rerun_with_same_decisions_keeps_human_sign_off(job):
