@@ -117,6 +117,8 @@ make serve                       # http://localhost:8600
 
 Drop a laparoscopic video (mp4 or mov, up to 5 minutes) on the Upload page. The job page shows each stage live, then offers **Watch** (the video at full frame rate with the AI's boxes, masks, phase and narration), **Final pass** (a person clears what is left amber plus a random audit sample) and **Download** (annotated MP4, COCO JSON, provenance). The COCO dataset stays locked until the final pass is finished and released.
 
+Model usage is real money or plan credit: a 6-second clip (6 keyframes) used $0.16 to $0.36 and took 4 to 7 minutes on a busy machine, measured on three clips. Budget for more on long videos, and leave disk space for them (about 1 to 2 MB per second of video).
+
 The same pipeline from the command line:
 
 ```bash
@@ -146,7 +148,7 @@ It prints presence accuracy and mask IoU with n, and writes `jobs/video12_6s/eva
 
 ```bash
 SURGPROOF_VLM=mock .venv/bin/python -m surgproof.run path/to/video.mp4 --out jobs/mock_run   # plumbing only: every row is tagged mock
-.venv/bin/python -m pytest -q tests/test_e2e.py tests/test_qa_eval.py tests/test_qa_make_test_video.py tests/test_qa_redteam.py tests/test_qa_http_redteam.py
+.venv/bin/python -m pytest -q tests/test_e2e.py tests/test_qa_eval.py tests/test_qa_make_test_video.py tests/test_qa_redteam.py tests/test_qa_http_redteam.py tests/test_qa_inputs.py
 SURGPROOF_E2E_REAL=1 .venv/bin/python -m pytest -q -s tests/test_e2e.py -k real              # the real thing: spends model credit
 ```
 
