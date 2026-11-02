@@ -9,8 +9,12 @@ DONE (web section of the hardening brief):
 4. Player: distinct styles and a key for reviewed, AI keyframe, tracked and AI unsure. A visible banner and automatic retry when overlays or video fail. No stale boxes while loading. Download page counts what a person reviewed from the released file itself. /api/health reports disk, tools and model backend.
 5. requirements-e2e.lock and requirements-e2e-dev.lock, hash-pinned, with `pip --require-hashes`. Dev dependencies are separate (`make setup-dev`).
 
+6. From masks' report: release runs in the background in its own process, under the same per-job lock as the pipeline. POST returns 202; progress is on GET final-pass `release_job` and survives a reload. `wait: true` gives scripts the old blocking answer (200, 409 locked, 500 with reason). Nothing can change during a release (reviews, second release, retry, delete all 409), and the job lock is not held during it. An interrupted release reports failed, with nothing released, and can be tried again. dataset_bundle.zip and release_manifest.json are on Download and the allowlist. Download runs export.verify_release through GET release-check and shows the result. Audit wording follows stratum and kind, and no longer says "random" or "accepted" for everything. Download states the deletion date, released dataset included. If the release had no source video, Download says annotated.mp4 is still the unreviewed draft.
+
+"Invalid host header" (masks' merged run): not state leaking. TrustedHostMiddleware is per app, and every create_app in tests now goes through local_client. Legacy apps, qa and web run in one process at this head gave 0 occurrences, and tests/test_web_hardening.py::test_host_refusal_belongs_to_each_app_and_does_not_leak pins it. The likely cause is that masks' scratch copy had qa's tests from before their migration; I did not re-run masks' exact copy, so that part is inference.
+
 EVIDENCE:
-- Merged core, masks, qa and web (f30d923), real headless Chrome: 250 tests, 248 passed. The 2 failures: a browser test of mine that assumed the old audit behaviour (fixed; all 12 browser tests then passed on a re-run) and qa's test_human_reject_removes_the_label_and_what_flowed_from_it (see BLOCKED). The non-browser suites were not re-run after that, because only test files changed. The head also has a later merge of qa's test changes, on which I ran only the two tests named here.
+- Merged core, masks, qa and web (622d972), real headless Chrome: tests/test_web_hardening.py + test_web_server.py + test_web_browser.py, 219 of 219 passed, no leftover processes. tests/test_qa_http_redteam.py passes in full on the same head. The wider QA and masks suites were not re-run by me this round.
 - Same attack script against pre-hardening 89b6435 and this code: anonymous GET jobs 200->401; Host evil.example 200->400; annotated.mp4 and provenance before release 200->403; worker.log, detect.jsonl, mask PNG 200->404; no attestation 201->422; kf_fps=20 201->422; filename in listing yes->no; 16 GB Content-Length body read->refused unread; dead worker running->stalled; spoofed reviewer recorded->not; worker cannot start queued->failed. Retry after release showed 409 in both, because the fixture had no upload, so that row proves nothing; test_retry_is_refused_after_release covers it.
 - Live `make serve` with HOST=0.0.0.0: listens on 127.0.0.1:8658 only, LAN address refused.
 - Real `make setup && make serve` from a `git archive` export of this branch (not a full clone): 199 MB venv, all pipeline modules import, pytest absent, server healthy.
@@ -20,6 +24,8 @@ NOT VERIFIED:
 - The web flow on the real model. Only the mock model and stand-ins went through this server.
 - A 5-minute video through Watch. Disk. Overlay for 2 s of 1080p takes about 2.0 s on this loaded machine, so it barely keeps pace.
 - A full `git clone`. qa's clean-clone test is the proper check.
+- The bundle's rights text. Export reads `attestation` from job.json according to its code; no test here checks the wording it produces.
+- How long a release takes on a real video: only synthetic clips went through it.
 - Process-group kill, flock, retention and disk-fill behaviour have regression tests but are not in the before/after script. Those tests were not run against the old code, which has no login route to run them through.
 
 KNOWN LIMITS:
@@ -31,10 +37,10 @@ KNOWN LIMITS:
 - Retention deletes released datasets too, at 30 days by default. The job page shows the date.
 
 DECISIONS TO CHECK:
+- POST release is now 202 by default, so scripted clients need `wait: true` or must poll. qa has migrated.
 - annotated.mp4 and provenance.jsonl are 403 until release, per "gate unreleased artifacts". Acceptance step 3's Download therefore offers them only after the final pass; Watch shows the AI draft in the app before that.
 - Tests that are not about disk need SURGPROOF_MIN_FREE_MB=1 while the machine is this low.
 
 BLOCKED:
-- qa: test_human_reject_removes_the_label_and_what_flowed_from_it still fails on this head. Its selector can pick an ai_absent item; a human reject there agrees with the AI (export._is_failure returns False), so release 200 is correct and the test's expected 409 is wrong for that item. Reported to qa; their file, not edited. Until they change it, that test stays red.
 - orchestrator: jobs/ still needs a line in .gitignore, which I do not own. The server and core each write a stopgap .gitignore.
-- Nir: disk. Free space hit zero during an earlier test run and was under 500 MB at last check.
+- Nir: disk. Free space hit zero during an earlier test run, ranged from about 200 to 840 MB this round, and was 715 MB at last check. It blocks the 5-minute test.
