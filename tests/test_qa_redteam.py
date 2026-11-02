@@ -169,6 +169,14 @@ def coco_anns(s):
     return read_json(s["job"] / "dataset_coco.json")["annotations"]
 
 
+def assert_failed_with_no_dataset(s):
+    """Nothing accepted fails the job by name. It keeps its decisions for inspection and ships no dataset."""
+    assert s["proc"].returncode != 0, "a job with nothing accepted claimed success"
+    assert read_json(s["job"] / "status.json").get("result") == "nothing_accepted"
+    assert not (s["job"] / "dataset_coco.json").exists() or coco_anns(s) == []
+    assert not (s["job"] / "released_coco.json").exists()
+
+
 def prompt_of(call):
     a = call["argv"]
     return a[a.index("-p") + 1]
@@ -211,25 +219,21 @@ def test_logged_out_fails_fast_with_a_useful_message(scen):
 def test_nothing_seen_means_nothing_drawn(scen):
     """Proves the output comes from the model: when it says absent, no default or fallback annotation appears."""
     s = scen.run("all_absent")
-    assert s["proc"].returncode == 0, s["proc"].stderr[-800:]
-    assert all(r["status"] == "reject" and r["final_present"] is False for r in decisions(s))
+    assert_failed_with_no_dataset(s)
+    rows = decisions(s)
+    assert rows and all(r["status"] == "reject" and r["final_present"] is False for r in rows)
     assert not list((s["job"] / "masks").glob("*.png"))
-    assert coco_anns(s) == []
     assert not [r for r in read_jsonl(s["job"] / "tracks.jsonl") if r.get("box")]
-    for seg in read_json(s["job"] / "narration.json")["segments"]:
-        # "Nothing could be verified" is the honest line; a claim of something verified is the failure.
-        assert not re.search(r"verified in this segment:", seg["text"], re.I), seg
 
 
 @dynamic
 def test_unsure_model_stays_amber_and_nothing_is_exported(scen):
     s = scen.run("unsure")
-    assert s["proc"].returncode == 0, s["proc"].stderr[-800:]
+    assert_failed_with_no_dataset(s)
     rows = decisions(s)
     assert rows and all(r["status"] == "AMBER" for r in rows)
     assert all(r["final_present"] is None for r in rows), "an amber row claims an answer"
     assert all(len(r["rounds"]) == 2 for r in rows), "amber loop did not run its rounds"
-    assert coco_anns(s) == [], "amber labels reached the dataset"
     # Masks for ambers may exist so the reviewer can see the proposal, but they must be marked as such.
     mask_rows = read_jsonl(s["job"] / "masks.jsonl")
     assert all(r["status"] == "AMBER" for r in mask_rows), [r for r in mask_rows if r["status"] != "AMBER"][:2]
@@ -259,19 +263,24 @@ def test_narration_lies_do_not_reach_subtitles(scen, mode, forbidden):
 @dynamic
 def test_degenerate_polygon_is_never_accepted(scen):
     s = scen.run("polygon_degenerate")
-    assert s["proc"].returncode == 0, s["proc"].stderr[-800:]
-    for r in decisions(s):
+    rows = decisions(s)
+    assert rows, "the job kept no decisions to inspect"
+    for r in rows:
         if r["status"] == "accept":
             assert r.get("polygon") and len(r["polygon"]) >= 3, r
+    if not any(r["status"] == "accept" for r in rows):
+        assert_failed_with_no_dataset(s)
 
 
 @dynamic
 def test_absurd_coordinates_do_not_become_a_full_frame_mask(scen):
     """Polygon wildly outside the image (wrong coordinate space). Clamping it to the frame edge invents a mask."""
     s = scen.run("polygon_out_of_bounds")
-    assert s["proc"].returncode == 0, s["proc"].stderr[-800:]
-    accepted = [r for r in decisions(s) if r["status"] == "accept"]
+    rows = decisions(s)
+    assert rows, "the job kept no decisions to inspect"
+    accepted = [r for r in rows if r["status"] == "accept"]
     assert not accepted, f"accepted {len(accepted)} labels from out-of-image polygons, e.g. {accepted[0]['polygon']}"
+    assert_failed_with_no_dataset(s)
 
 
 def _centroid_x(path):
@@ -399,7 +408,10 @@ def test_rerun_into_the_same_folder_leaves_no_stale_results(tmp_path):
     (job / "final_pass.jsonl").write_text('{"kf": "kf_00000", "label": "liver", "action": "approve"}\n')
     (job / "released_coco.json").write_text("{}")
     second = synthetic_video(tmp_path / "b.mp4", seconds=1, size="160x90")
-    assert run_cli(second, job, fake_env("all_absent"), extra_args=None).returncode == 0
+    # The second video has nothing to accept, so it fails. Its failure must still not leave the first one's results.
+    assert run_cli(second, job, fake_env("all_absent"), extra_args=None).returncode != 0
+    assert read_json(job / "status.json").get("result") == "nothing_accepted"
+    assert not (job / "dataset_coco.json").exists() or read_json(job / "dataset_coco.json")["annotations"] == []
     assert not (job / "released_coco.json").exists(), "a human release from the previous video survived"
     assert not (job / "final_pass.jsonl").exists(), "human verdicts from the previous video survived"
     assert not list((job / "masks").glob("*.png")), "masks from the previous video survived"

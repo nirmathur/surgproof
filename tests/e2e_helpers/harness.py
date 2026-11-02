@@ -91,5 +91,34 @@ def cache_rows(cache: Path) -> dict:
         con.close()
 
 
+REVIEWER = "Reviewer One"
+PASSWORD = "correct horse battery"
+
+
+def local_client(app):
+    """The server refuses any Host other than this machine's, so a test client has to say it is local."""
+    from fastapi.testclient import TestClient
+
+    return TestClient(app, base_url="http://127.0.0.1")
+
+
+def sign_in(client, name: str = REVIEWER, password: str = PASSWORD) -> None:
+    """Create the one local account on first use, as a person would, otherwise log in."""
+    if client.get("/api/auth/state").json()["setup_required"]:
+        body = {"name": name, "password": password, "setup_code": client.app.state.auth.setup_code()}
+        r = client.post("/api/auth/setup", json=body)
+    else:
+        r = client.post("/api/auth/login", json={"password": password})
+    assert r.status_code == 200, r.text
+
+
+def upload(client, name: str, data: bytes, **fields):
+    """A complete upload with the notice accepted. Pass a field as None to leave it out, as an attack would."""
+    notice = client.get("/api/notice").json()
+    form = {"rights_attested": "yes", "notice_sha256": notice["sha256"], "footage_source": notice["footage_sources"][0], **fields}
+    form = {k: v for k, v in form.items() if v is not None}
+    return client.post("/api/jobs", files={"file": (name, data, "video/mp4")}, data=form)
+
+
 HAVE_FFMPEG = bool(shutil.which("ffmpeg") and shutil.which("ffprobe"))
 HAVE_DATA = (ROOT / "raw" / "CholecSeg8k" / "video12" / "video12_19500").is_dir()

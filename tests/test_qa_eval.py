@@ -433,3 +433,30 @@ def test_phase_accuracy_is_never_reported(tmp_path):
     phase = ev.aggregate([_report("video09_00000", tmp_path, 1, 0, 0, 1)])["phase"]
     assert phase["accuracy"] is None and "no phase labels" in phase["why_not_scored"]
     assert phase["n"] == 1 and phase["agree"] == 1 and phase["unknown"] == 1
+
+
+def test_coverage_sits_beside_accuracy(tmp_path):
+    """A perfect score on the few labels it dared to decide must not read as a perfect score."""
+    r = _report("video09_00000", tmp_path, 1, 0, 0, 0)
+    r["presence_final"]["n_expected"] = 4
+    r["presence_final"]["n_amber"] = 3
+    final = ev.aggregate([r])["presence_final"]
+    assert final["pooled"]["accuracy"] == 1.0 and final["coverage"] == 0.25 and final["n_amber"] == 3
+
+
+def test_routes_are_scored_apart_including_amber_suggestions():
+    class Truth:
+        def present(self, frame, label):
+            return label == "liver"
+
+    rows = [{"kf": "a", "label": "liver", "status": "accept", "final_present": True, "route": "both_passes_present"},
+            {"kf": "a", "label": "blood", "status": "accept", "final_present": True, "route": "amber_said_present"},
+            {"kf": "a", "label": "grasper", "status": "AMBER", "final_present": None, "route": "amber_said_absent", "amber_suggests": "absent"},
+            {"kf": "b", "label": "liver", "status": "AMBER", "final_present": None, "route": "amber_said_absent", "amber_suggests": "absent"},
+            {"kf": "b", "label": "blood", "status": "AMBER", "final_present": None, "route": "amber_unresolved"}]
+    out = ev.score_routes(rows, {"a": 0, "b": 1}, Truth())
+    assert out["both_passes_present"]["tp"] == 1
+    assert out["amber_said_present"]["fp"] == 1 and out["amber_said_present"]["precision"] == 0.0
+    assert out["amber_said_absent"]["tn"] == 1 and out["amber_said_absent"]["fn"] == 1
+    assert out["amber_said_absent"]["status_counts"]["AMBER"] == 2
+    assert out["amber_unresolved"]["n"] == 0 and out["amber_unresolved"]["status_counts"]["AMBER"] == 1

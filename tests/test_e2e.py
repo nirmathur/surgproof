@@ -123,9 +123,22 @@ def test_masks_only_for_accepted_present(mock_job):
     meta = _meta(mock_job)
     decisions = read_jsonl(j / "decisions.jsonl")
     want = {f"{r['kf']}_{r['label']}.png" for r in decisions if r["status"] == "accept" and r["final_present"]}
+    amber = {f"{r['kf']}_{r['label']}.png" for r in decisions if r["status"] == "AMBER"}
     got = {p.name for p in (j / "masks").glob("*.png")}
-    assert got == want
     assert want, "no masks at all: nothing tested"
+    assert want <= got, f"accepted labels with no mask: {want - got}"
+    # A mask beyond the accepted ones may only be a proposal for a reviewer: never a rejected label, always marked.
+    assert got - want <= amber, f"masks for labels that are neither accepted nor amber: {got - want - amber}"
+    marked = {f"{r['kf']}_{r['label']}.png": r["status"] for r in read_jsonl(j / "masks.jsonl")}
+    assert all(marked.get(name) == "AMBER" for name in got - want), {n: marked.get(n) for n in got - want}
+    # And a proposal stays out of the dataset.
+    coco = read_json(j / "dataset_coco.json")
+    cats = {c["id"]: c["name"] for c in coco["categories"]}
+    frames = {i["id"]: i.get("frame_index") for i in coco["images"]}
+    amber_at = {(k["frame_index"], r["label"]) for r in decisions if r["status"] == "AMBER"
+                for k in meta["keyframes"] if k["kf"] == r["kf"]}
+    leaked = [a["id"] for a in coco["annotations"] if (frames.get(a["image_id"]), cats[a["category_id"]]) in amber_at]
+    assert not leaked, f"amber proposals reached the dataset: {leaked[:5]}"
     for p in (j / "masks").glob("*.png"):
         m = np.array(Image.open(p))
         assert m.shape == (meta["height"], meta["width"])
@@ -261,7 +274,12 @@ def test_scorer_finds_truth_for_remuxed_source_and_frames_align(mock_job, test_v
     r = read_json(mock_job["job"] / "eval_report.json")
     assert r["mock_run"] is True
     assert r["alignment"]["ok"] and r["alignment"]["n_bad"] == 0
-    assert r["presence_final"]["n"] == SECONDS * 6
+    final = r["presence_final"]
+    # Every keyframe and label is accounted for: resolved, or amber and counted against coverage. None lost.
+    assert final["n"] + final["n_amber"] == SECONDS * 6, final
+    assert final["n_missing_rows"] == 0 and final["n_undecided"] == 0, final
+    assert final["coverage"] == round(final["n"] / (SECONDS * 6), 4)
+    assert r["presence_detect_raw"]["n"] == SECONDS * 6, "detect lost a row"
     (mock_job["job"] / "eval_report.json").unlink()
 
 

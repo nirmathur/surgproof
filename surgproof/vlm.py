@@ -32,9 +32,11 @@ SYSTEM_PROMPT = (
 PAUSE_POLL_S = 300  # how often a job paused by a plan limit tries again
 MAX_PAUSE_S = 6 * 3600  # after this the job stops, and running it again resumes from the cache
 USAGE_LIMIT = re.compile(
-    r"(usage|session|weekly|plan|hourly|daily)\s+limit|limit\s+(reached|will\s+reset)|hit\s+your\b.*\blimit|rate[_ -]?limit|\b429\b",
+    r"(usage|session|weekly|plan|hourly|daily|\d+-hour)\s+limit|limit\s+(will\s+reset|resets)|(hit|reached)\s+your\b.*\blimit|rate[_ -]?limit"
+    r"|\b(http|status|error|code)\s*:?\s*429\b",
     re.I,
 )
+NOT_A_USAGE_LIMIT = re.compile(r"not\s+your\s+(\w+\s+)?limit", re.I)
 GEMINI_MODELS = {SONNET: "gemini-4-argon", HAIKU: "gemini-3.8-flash"}
 
 _lock = threading.Lock()
@@ -65,7 +67,9 @@ class VlmCostCap(VlmError):
 
 
 def is_usage_limit(text):
-    return bool(USAGE_LIMIT.search(str(text)))
+    """True for a plan limit that will lift, so waiting helps. Claude Code says "(not your usage limit)" for a
+    server blip, which is an ordinary retry. Running out of credits never lifts, so it stays a visible failure."""
+    return bool(USAGE_LIMIT.search(str(text))) and not NOT_A_USAGE_LIMIT.search(str(text))
 
 
 def configure(cache_path=None, concurrency=None):

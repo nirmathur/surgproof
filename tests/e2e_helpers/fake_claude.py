@@ -57,6 +57,25 @@ def apply_mode(mode, reply, prompt, images):
     elif mode == "amber_flips" and is_amber:
         h = hash(tuple(images)) % 2 == 0
         reply.update(present=h, conf=0.4, polygon=None, reason="flip")
+    elif mode == "amber_says_absent" and is_amber:  # a confident "absent" from the loop must not settle a reject
+        reply.update(present=False, conf=0.99, polygon=None, reason="absent")
+    elif mode in ("second_pass_dead", "second_pass_partly_dead") and is_amber:  # confident, but no stand-in for a second pass
+        reply.update(present=True, conf=0.99, reason="present")
+    elif mode == "not_surgery" and (is_detect or is_verify):
+        for k in labels:
+            reply["objects"][k] = {"present": False, "conf": 0.95, "polygon" if is_detect else "box": None}
+        reply["phase"] = {"name": "Unknown", "conf": 0.95}
+        reply["scene"] = {"laparoscopic": False, "procedure": "unclear", "other_procedure": None}
+    elif mode == "other_procedure" and is_detect:
+        reply["scene"] = {"laparoscopic": True, "procedure": "other", "other_procedure": "appendectomy"}
+    elif mode == "phase_unknown" and (is_detect or is_verify):
+        reply["phase"] = {"name": "Unknown", "conf": 0.95}
+    elif mode == "polygon_jumps" and is_detect:  # the object teleports between keyframes, so flow cannot agree
+        w = reply["objects"]
+        side = 0 if _next_count() % 2 else 200  # needs SURGPROOF_VLM_CONCURRENCY=1, so calls come in keyframe order
+        for k in labels:
+            if w[k]["present"]:
+                w[k]["polygon"] = [[side + 10, 10], [side + 90, 10], [side + 90, 90], [side + 10, 90]]
     elif mode == "amber_stuck" and is_amber:  # the loop cannot settle cystic_duct, so it goes to the human
         reply.update(present=True, conf=0.3, polygon=None, reason="cannot tell")
     elif mode == "narrate_lies" and is_narrate:
@@ -84,6 +103,18 @@ def apply_mode(mode, reply, prompt, images):
     return reply
 
 
+def _next_count():
+    """How many calls came before this one, counted in FAKE_CLAUDE_COUNTER."""
+    path = Path(os.environ["FAKE_CLAUDE_COUNTER"])
+    seen = int(path.read_text()) if path.exists() else 0
+    path.write_text(str(seen + 1))
+    return seen
+
+
+def _first_calls(n):
+    return _next_count() < n
+
+
 def main():
     prompt = arg("-p", "")
     model = arg("--model", "")
@@ -103,6 +134,15 @@ def main():
         if not os.path.exists(p):
             print(json.dumps({"is_error": True, "result": f"cannot read {p}"}))
             return 1
+    if mode == "plan_limit" or (mode == "plan_limit_once" and _first_calls(5)):
+        print(json.dumps({"is_error": True, "result": "Claude usage limit reached. Your limit will reset at 7pm"}))
+        return 1
+    if mode == "second_pass_partly_dead" and body.startswith("You are auditing") and _first_calls(3):
+        print(json.dumps({"result": "I can't help with that, sorry.", "total_cost_usd": 0}))
+        return 0
+    if mode == "second_pass_dead" and body.startswith("You are auditing"):
+        print(json.dumps({"result": "I can't help with that, sorry.", "total_cost_usd": 0}))
+        return 0
     if mode == "garbage":
         print(json.dumps({"result": "I can't help with that, sorry.", "total_cost_usd": 0}))
         return 0
@@ -110,7 +150,7 @@ def main():
         print(json.dumps({"result": json.dumps({"hello": "world"}), "total_cost_usd": 0}))
         return 0
     reply = apply_mode(mode, base_reply(body, images, model), body, images)
-    print(json.dumps({"result": "Here is the JSON:\n```json\n" + json.dumps(reply) + "\n```", "total_cost_usd": 0.001, "is_error": False}))
+    print(json.dumps({"result": "Here is the JSON:\n```json\n" + json.dumps(reply) + "\n```", "total_cost_usd": float(os.environ.get("FAKE_CLAUDE_COST", "0.001")), "is_error": False}))
     return 0
 
 

@@ -9,16 +9,21 @@ from pathlib import Path
 
 import pytest
 
-from tests.e2e_helpers.harness import HAVE_FFMPEG, ROOT, fake_env, read_json, read_jsonl, run_cli, synthetic_video
+from tests.e2e_helpers.harness import (HAVE_FFMPEG, REVIEWER, ROOT, fake_env, local_client, read_json, read_jsonl, run_cli, sign_in,
+                                        synthetic_video, upload)
 
 needed = ("server", "pipeline", "masks", "propagate", "render", "export")
 ready = all((ROOT / "surgproof" / f"{m}.py").exists() for m in needed)
 pytestmark = pytest.mark.skipif(not (ready and HAVE_FFMPEG), reason="other lanes not merged, or no ffmpeg")
 if ready:
     pytest.importorskip("fastapi")
-    from fastapi.testclient import TestClient
-
     from surgproof import server as srv
+
+
+@pytest.fixture(autouse=True)
+def room_on_disk(monkeypatch):
+    """The upload preflight has its own test. Elsewhere a nearly full machine must not fail unrelated attacks."""
+    monkeypatch.setenv("SURGPROOF_MIN_FREE_MB", "1")
 
 
 @pytest.fixture(scope="module")
@@ -38,7 +43,8 @@ def world(tmp_path, finished_job):
     shutil.copytree(finished_job, jobs / "job1")
     (tmp_path / "secret.txt").write_text("SECRET")
     (jobs / "secret2.txt").write_text("SECRET")
-    with TestClient(srv.create_app(jobs_dir=jobs)) as c:
+    with local_client(srv.create_app(jobs_dir=jobs)) as c:
+        sign_in(c)
         yield {"c": c, "jobs": jobs, "job": jobs / "job1", "fp": "/api/jobs/job1/final-pass", "files": "/api/jobs/job1/files"}
 
 
@@ -49,11 +55,11 @@ def view(w):
 
 
 def click(w, kf, label, action="approve", **kw):
-    return w["c"].post(w["fp"], json={"action": action, "kf": kf, "label": label, "reviewer": "qa", **kw})
+    return w["c"].post(w["fp"], json={"action": action, "kf": kf, "label": label, **kw})
 
 
 def release(w):
-    return w["c"].post(w["fp"], json={"action": "release", "reviewer": "qa"})
+    return w["c"].post(w["fp"], json={"action": "release"})
 
 
 def clear_queue(w, skip=None):
@@ -128,7 +134,10 @@ def test_hand_edited_final_pass_line_for_other_labels_changes_nothing(world):
     clear_queue(world)
     with open(world["job"] / "final_pass.jsonl", "a") as f:
         f.write(json.dumps({"kf": "kf_00000", "label": "blood", "action": "correct", "polygon": [[0, 0], [50, 0], [50, 50]], "reviewer": "x"}) + "\n")
-    assert release(world).status_code == 200
+    r = release(world)
+    if r.status_code != 200:  # read as a failed audit item is fine: it may stop the release, but not add to one
+        assert r.status_code == 409 and not (world["job"] / "released_coco.json").exists()
+        return
     coco = read_json(world["job"] / "released_coco.json")
     cats = {c["id"]: c["name"] for c in coco["categories"]}
     assert not [a for a in coco["annotations"] if cats[a["category_id"]] == "blood"]
@@ -163,7 +172,8 @@ def test_audit_sample_is_stable_and_cannot_be_rerolled(world):
     a = [(i["kf"], i["label"]) for i in view(world)["items"]]
     b = [(i["kf"], i["label"]) for i in view(world)["items"]]
     assert a == b
-    with TestClient(srv.create_app(jobs_dir=world["jobs"])) as c2:
+    with local_client(srv.create_app(jobs_dir=world["jobs"])) as c2:
+        sign_in(c2)
         assert [(i["kf"], i["label"]) for i in c2.get(world["fp"]).json()["items"]] == a
 
 
@@ -205,7 +215,13 @@ def test_human_reject_removes_the_label_and_what_flowed_from_it(world):
         target = (i["kf"], i["label"]) == (audit["kf"], audit["label"])
         action = "reject" if target or i["kind"] == "amber" else "approve"
         assert click(world, i["kf"], i["label"], action).status_code == 200
-    assert release(world).status_code == 200
+    # One failed sample out of a small audit trips the stop rule, so the whole set has to be reviewed first.
+    assert release(world).status_code == 409
+    done = {(audit["kf"], audit["label"])} | {(i["kf"], i["label"]) for i in items}
+    for i in view(world)["items"]:
+        if (i["kf"], i["label"]) not in done:
+            assert click(world, i["kf"], i["label"], "approve").status_code == 200
+    assert release(world).status_code == 200, "a full review is the way out of a failed audit"
     rel = read_json(world["job"] / "released_coco.json")
     cats = {c["id"]: c["name"] for c in rel["categories"]}
     meta = read_json(world["job"] / "meta.json")
@@ -235,18 +251,21 @@ def test_release_is_signed_and_counts_are_true(world):
     assert release(world).status_code == 200
     info = read_json(world["job"] / "released_coco.json")["info"]
     v = view(world)
-    assert info["released"] is True and info["reviewer"] == "qa"
+    assert info["released"] is True and info["reviewer"] == REVIEWER
     assert info["final_pass"]["n_amber_resolved"] == v["n_amber"]
     assert info["final_pass"]["n_audit"] == v["n_audit"]
     assert world["c"].get(f"{world['files']}/dataset_coco.json").status_code == 200
 
 
 def test_anonymous_release_is_not_a_sign_off(world):
-    """The release is the one human accountability step. A nameless one is not a sign-off."""
+    """The release is the one human accountability step. Someone not signed in cannot perform it or name another."""
     clear_queue(world)
-    r = world["c"].post(world["fp"], json={"action": "release"})
-    if r.status_code == 200:
-        assert read_json(world["job"] / "released_coco.json")["info"]["reviewer"] not in (None, "", "unnamed reviewer"), "released with no named reviewer"
+    world["c"].post("/api/auth/logout")
+    assert world["c"].post(world["fp"], json={"action": "release", "reviewer": "Dr Forged"}).status_code == 401
+    assert not (world["job"] / "released_coco.json").exists()
+    sign_in(world["c"])
+    assert world["c"].post(world["fp"], json={"action": "release", "reviewer": "Dr Forged"}).status_code == 200
+    assert read_json(world["job"] / "released_coco.json")["info"]["reviewer"] == REVIEWER
 
 
 def test_claimed_done_without_outputs_is_failed(world):
@@ -283,7 +302,7 @@ def test_scorer_output_is_not_part_of_the_job_api(world):
 # ---------- upload ----------
 
 def _post(c, name, data):
-    return c.post("/api/jobs", files={"file": (name, data, "application/octet-stream")})
+    return upload(c, name, data)
 
 
 def test_upload_rejects_bad_files(world, tmp_path):
@@ -313,7 +332,8 @@ def test_whole_web_flow_with_mock_model(tmp_path, monkeypatch):
     monkeypatch.delenv("SURGPROOF_CACHE", raising=False)
     video = synthetic_video(tmp_path / "v.mp4", seconds=3)
     jobs = tmp_path / "jobs"
-    with TestClient(srv.create_app(jobs_dir=jobs)) as c:
+    with local_client(srv.create_app(jobs_dir=jobs)) as c:
+        sign_in(c)
         for page in ("/", "/app.js", "/style.css"):
             assert c.get(page).status_code == 200, page
         r = _post(c, "my surgery.mp4", video.read_bytes())
@@ -334,12 +354,14 @@ def test_whole_web_flow_with_mock_model(tmp_path, monkeypatch):
         assert c.get(f"/api/jobs/{jid}/video").status_code == 200
         assert c.get(f"/api/jobs/{jid}/watch").status_code == 200
         assert c.get(f"/api/jobs/{jid}/overlay?start=0&end=30").status_code == 200
-        for f in ("annotated.mp4", "provenance.jsonl"):
-            assert c.get(f"/api/jobs/{jid}/files/{f}?download=true").status_code == 200, f
-        assert c.get(f"/api/jobs/{jid}/files/dataset_coco.json").status_code == 403
+        # Before a person has signed off, every artifact of the dataset is locked, however it is asked for.
+        for f in ("annotated.mp4", "provenance.jsonl", "dataset_coco.json", "released_coco.json", "final_pass.jsonl"):
+            assert c.get(f"/api/jobs/{jid}/files/{f}?download=true").status_code == 403, f
         fp = f"/api/jobs/{jid}/final-pass"
         for it in c.get(fp).json()["items"]:
-            assert c.post(fp, json={"action": "approve", "kf": it["kf"], "label": it["label"], "reviewer": "qa"}).status_code == 200
-        assert c.post(fp, json={"action": "release", "reviewer": "qa"}).status_code == 200
+            assert c.post(fp, json={"action": "approve", "kf": it["kf"], "label": it["label"]}).status_code == 200
+        assert c.post(fp, json={"action": "release"}).status_code == 200
+        for f in ("annotated.mp4", "provenance.jsonl"):
+            assert c.get(f"/api/jobs/{jid}/files/{f}?download=true").status_code == 200, f
         assert c.get(f"/api/jobs/{jid}/files/released_coco.json").status_code == 200
         assert c.get(f"/api/jobs/{jid}/files/dataset_coco.json").status_code == 200

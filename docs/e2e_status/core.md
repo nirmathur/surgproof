@@ -11,7 +11,7 @@ DONE, by brief item:
 6. Narration: whole-clause grammar stays. Every segment starts "AI draft." and narration.json has `draft` and `notice`. "Verified" wording removed from narration, the narration prompt and the CLI.
 
 TESTS:
-- tests/test_core_*.py: 188 pass, 1 real-model test opt-in. 50 of the first 51 hardening tests failed on the old code. The disguised-playlist test already passed, so it is a guard, not proof of a fix.
+- tests/test_core_*.py: 206 pass, 1 real-model test opt-in. 50 of the first 51 hardening tests failed on the old code. The disguised-playlist test already passed, so it is a guard, not proof of a fix.
 - Merged run with masks, web and qa at f637afe: 358 pass, 7 fail, 2 skipped. All 7 assert old behaviour the brief changed; none is a core defect. Listed below, QA is updating them. So QA's suite is NOT green until that lands.
   test_qa_redteam: test_nothing_seen_means_nothing_drawn, test_unsure_model_stays_amber_and_nothing_is_exported, test_degenerate_polygon_is_never_accepted, test_absurd_coordinates_do_not_become_a_full_frame_mask, test_rerun_into_the_same_folder_leaves_no_stale_results (nothing accepted now exits 1).
   test_e2e: test_masks_only_for_accepted_present (masks' AMBER proposal for cystic_duct now exists), test_scorer_finds_truth_for_remuxed_source_and_frames_align (presence_final n is 30 with 6 amber, not 36).
@@ -27,7 +27,7 @@ OPEN, NOT PROVEN:
 - 3 l_hook false positives on unseen calib clips from the "bare shaft counts" definition, giving 75 false-positive annotations in that clip's COCO export. The amber rule does not stop them: they were amber accepts. Deliberately not tuned further.
 - Blood and cystic duct: calib has almost no positives, so these are effectively unmeasured.
 - Phase is often wrong or uncertain from single frames.
-- The plan-limit pause was tested with simulated errors. The message patterns are my best knowledge of the wording, never seen from a real limit. An unmatched wording would be retried, then counted as a failure, not silently passed.
+- The plan-limit pause was tested with simulated errors. Patterns now use wording QA found in the Claude Code 2.1.316 binary, but which strings reach a headless call is unknown, and no real limit has been hit. An unmatched wording would be retried, then counted as a failure, not silently passed. Credit errors fail visibly on purpose: they never lift.
 - 5-minute video never run. About $11 and 20+ minutes are linear estimates.
 - One outline per label, so a second instrument of the same kind is not outlined.
 

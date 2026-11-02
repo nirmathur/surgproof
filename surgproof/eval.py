@@ -330,6 +330,26 @@ def score_presence(rows: list[dict], kf_index: dict, gt: GroundTruth, present_fi
     return out
 
 
+def score_routes(rows: list[dict], kf_index: dict, gt: GroundTruth) -> dict:
+    """How each decision route did. Pooled accuracy hides a weak route behind a strong one, and an amber route's
+    suggestion counts even when the label stays amber, because a person will read that suggestion."""
+    out: dict[str, list[tuple[bool, bool]]] = {}
+    for r in rows:
+        if r.get("kf") not in kf_index or r.get("label") not in C.LABELS:
+            continue
+        pred = r.get("final_present")
+        if not isinstance(pred, bool):
+            suggests = r.get("amber_suggests")
+            pred = {"absent": False, "present": True}.get(suggests)
+        if pred is None:
+            out.setdefault(str(r.get("route")), [])
+            continue
+        out.setdefault(str(r.get("route")), []).append((pred, gt.present(kf_index[r["kf"]], r["label"])))
+    return {route: {**confusion(pairs), "status_counts": {
+        s: sum(1 for r in rows if str(r.get("route")) == route and r.get("status") == s) for s in ("accept", "reject", "AMBER")}}
+        for route, pairs in out.items()}
+
+
 def score_decisions(rows: list[dict], kf_index: dict, gt: GroundTruth) -> dict:
     """Resolved labels only (what the dataset would contain), plus how many stayed amber and how they'd have scored."""
     resolved = [r for r in rows if r.get("status") in ("accept", "reject")]
@@ -541,6 +561,7 @@ def score_job(job: Path, raw: Path = DEFAULT_RAW, registry: Path = DEFAULT_REGIS
         "presence_detect_raw": score_presence(_read_jsonl(job / "detect.jsonl"), kf_index, gt, "present"),
         "presence_verify_raw": score_presence(_read_jsonl(job / "verify.jsonl"), kf_index, gt, "present"),
         "presence_final": score_decisions(decisions, kf_index, gt),
+        "by_route": score_routes(decisions, kf_index, gt),
         "masks_keyframe": score_keyframe_masks(job, decisions, kf_index, gt),
         "all_frames": score_tracks(job, gt),
         "dataset_coco": score_coco(job / "dataset_coco.json", gt),
@@ -596,7 +617,10 @@ def summary_lines(r: dict) -> list[str]:
 
 # Looked at per label in an earlier round, or named by the audit. Scoring them again would flatter every number.
 SPENT_CLIPS = frozenset({"video12_15750", "video12_19500", "video12_19580", "video28_00000", "video28_00080",
-                         "video55_00508", "video55_00588"})
+                         "video55_00508", "video55_00588",
+                         # train, but read by eye while the first prompts were written
+                         "video01_00080", "video01_00160", "video01_00240", "video01_00400", "video01_14859",
+                         "video01_14939", "video01_15019"})
 PHASE_NOT_SCORED = ("CholecSeg8k has no phase labels and no Cholec80 phase annotations are on this machine, so phase "
                     "accuracy is unmeasured. Agreement between the two passes is shown instead; it is not accuracy.")
 # Two-sided 95% t critical values by degrees of freedom. A normal interval would be too narrow for a handful of videos.
@@ -697,6 +721,16 @@ def aggregate(reports: list[dict], allow_spent: bool = False, allow_mixed_splits
     for name in ("presence_detect_raw", "presence_verify_raw", "presence_final"):
         out[name] = _pass_summary({v: [r[name] for r in rs] for v, rs in by_video.items()})
 
+    final = out["presence_final"]
+    final["coverage"] = round(final["pooled"]["n"] / final["n_expected"], 4) if final["n_expected"] else None
+    routes: dict[str, dict] = {}
+    for r in reports:
+        for route, block in r.get("by_route", {}).items():
+            routes.setdefault(route, []).append(block)
+    out["by_route"] = {route: {**_sum_confusions(blocks), "status_counts": {
+        s: sum(b.get("status_counts", {}).get(s, 0) for b in blocks) for s in ("accept", "reject", "AMBER")}}
+        for route, blocks in routes.items()}
+
     iou = {}
     for v, rs in by_video.items():
         vals = [(m["mean"], m["n"]) for m in (r["masks_keyframe"]["iou_with_errors"] for r in rs) if m["n"]]
@@ -737,7 +771,8 @@ def aggregate_main(argv) -> int:
     a.out.write_text(json.dumps(result, indent=1))
     final = result["presence_final"]
     print(f"{result['n_videos']} videos, {result['n_clips']} clips, split {result['splits']}: final accuracy "
-          f"{final['video_mean_accuracy']} over videos, 95% CI {final['ci95_over_videos']}, n={final['pooled']['n']}")
+          f"{final['video_mean_accuracy']} over videos, 95% CI {final['ci95_over_videos']}, n={final['pooled']['n']}, "
+          f"coverage {final['coverage']}")
     return 0
 
 
