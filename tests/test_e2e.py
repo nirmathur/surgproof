@@ -155,6 +155,7 @@ def test_annotated_video_at_source_frame_rate(mock_job, test_video):
 
 
 def test_annotated_video_is_not_just_the_source(mock_job):
+    """The render may upscale to its house size, so compare at the source's size."""
     import cv2
 
     meta = _meta(mock_job)
@@ -162,7 +163,8 @@ def test_annotated_video_is_not_just_the_source(mock_job):
     a, s = cv2.VideoCapture(str(j / "annotated.mp4")), cv2.VideoCapture(str(j / meta.get("source", "source.mp4")))
     ok1, f1 = a.read()
     ok2, f2 = s.read()
-    assert ok1 and ok2 and f1.shape == f2.shape
+    assert ok1 and ok2
+    f1 = cv2.resize(f1, (f2.shape[1], f2.shape[0]))
     assert np.abs(f1.astype(int) - f2).mean() > 0.5, "overlay drew nothing"
 
 
@@ -217,10 +219,31 @@ def test_every_label_traces_to_a_recorded_response(mock_job):
 
 
 def test_provenance_covers_every_exported_annotation(mock_job):
+    """Each keyframe annotation has an accepted provenance row whose mask hash matches the file on disk; each
+    propagated annotation sits inside a recorded run from accepted keyframes."""
+    import hashlib
+
     j = mock_job["job"]
     prov = read_jsonl(j / "provenance.jsonl")
-    assert prov
-    assert len(prov) >= len(read_json(j / "dataset_coco.json")["annotations"]) or any("annotation_id" in p for p in prov)
+    coco = read_json(j / "dataset_coco.json")
+    assert coco["annotations"]
+    cats = {c["id"]: c["name"] for c in coco["categories"]}
+    frames = {i["id"]: i["frame_index"] for i in coco["images"]}
+    kf_rows = {(r["kf"], r["label"]): r for r in prov if r["type"] == "keyframe_label"}
+    runs = [r for r in prov if r["type"] == "propagated_run"]
+    cache = cache_rows(mock_job["cache"])
+    for a in coco["annotations"]:
+        at, label, fi = a["attributes"], cats[a["category_id"]], frames[a["image_id"]]
+        if at.get("propagated"):
+            assert any(r["label"] == label and r["source_kfs"] == at["source_keyframes"] and r["first_frame"] <= fi <= r["last_frame"]
+                       for r in runs), a["id"]
+            for kf in at["source_keyframes"]:
+                assert kf_rows[(kf, label)]["status"] == "accept", f"propagated from a keyframe that was not accepted: {kf} {label}"
+        else:
+            row = kf_rows[(at["keyframe"], label)]
+            assert row["status"] == "accept" and row["final_present"] is True
+            assert row["detect"]["raw_ref"] in cache
+            assert hashlib.sha256((j / row["mask"]["path"]).read_bytes()).hexdigest() == row["mask"]["sha256"]
 
 
 def test_scorer_refuses_a_mock_run(mock_job, test_video):
