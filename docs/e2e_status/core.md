@@ -10,8 +10,10 @@ DONE, by brief item:
 5. kf_fps cap 5. Cost cap (default $25, SURGPROOF_MAX_COST_USD or --max-cost), checked by estimate before any call and on actual spend during the job. Plan usage limit pauses and resumes by itself. After 6 hours the job stops with result paused, and a rerun resumes from cache.
 6. Narration: whole-clause grammar stays. Every segment starts "AI draft." and narration.json has `draft` and `notice`. "Verified" wording removed from narration, the narration prompt and the CLI.
 
+7. Added on request: prompts.jsonl in each job folder, rows {prompt_hash, stage, model, prompt}, one per distinct prompt, written before the call so failed calls resolve too. This matches masks' reader in export.py. Prompt text is unchanged.
+
 TESTS:
-- tests/test_core_*.py: 206 pass, 1 real-model test opt-in. 50 of the first 51 hardening tests failed on the old code. The disguised-playlist test already passed, so it is a guard, not proof of a fix.
+- tests/test_core_*.py: 210 pass, 1 real-model test opt-in. 50 of the first 51 hardening tests failed on the old code. The disguised-playlist test already passed, so it is a guard, not proof of a fix.
 - Merged run with masks, web and qa at f637afe: 358 pass, 7 fail, 2 skipped. All 7 assert old behaviour the brief changed; none is a core defect. Listed below, QA is updating them. So QA's suite is NOT green until that lands.
   test_qa_redteam: test_nothing_seen_means_nothing_drawn, test_unsure_model_stays_amber_and_nothing_is_exported, test_degenerate_polygon_is_never_accepted, test_absurd_coordinates_do_not_become_a_full_frame_mask, test_rerun_into_the_same_folder_leaves_no_stale_results (nothing accepted now exits 1).
   test_e2e: test_masks_only_for_accepted_present (masks' AMBER proposal for cystic_duct now exists), test_scorer_finds_truth_for_remuxed_source_and_frames_align (presence_final n is 30 with 6 amber, not 36).

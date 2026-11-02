@@ -139,7 +139,7 @@ def read_jsonl(path):
 # Everything a pipeline run or a human review leaves in a job folder. Named explicitly, so that a mistaken
 # --out can never empty a folder of the user's own files. upload.* and job.json belong to the web lane and stay.
 OUTPUT_FILES = (
-    "status.json", "meta.json", "detect.jsonl", "scene.jsonl", "phase.jsonl", "verify.jsonl", "decisions.jsonl", "masks.jsonl",
+    "status.json", "meta.json", "prompts.jsonl", "detect.jsonl", "scene.jsonl", "phase.jsonl", "verify.jsonl", "decisions.jsonl", "masks.jsonl",
     "tracks.jsonl", "narration.json", "narration.vtt", "annotated.mp4", "dataset_coco.json", "provenance.jsonl",
     "final_pass.jsonl", "final_pass_queue.json", "released_coco.json", "source.mp4", "partial_source.mp4",
 )
@@ -156,6 +156,25 @@ def clear_outputs(job, keep=None):
     for name in OUTPUT_DIRS:
         if (job / name).is_dir():
             shutil.rmtree(job / name)
+
+
+_prompt_lock = threading.Lock()
+_prompts_seen = {}
+
+
+def record_prompt(job, stage, model, prompt):
+    """Add a prompt's full text to prompts.jsonl, once, before it is sent. Every prompt_hash in the job's
+    outputs then resolves to the exact text behind it, including calls that went on to fail."""
+    path = Path(job) / "prompts.jsonl"
+    digest = vlm.prompt_hash(prompt)
+    with _prompt_lock:
+        seen = _prompts_seen.get(str(path))
+        if seen is None or not path.exists():  # first use in this process, or cleared by a new run
+            seen = _prompts_seen[str(path)] = {r["prompt_hash"] for r in read_jsonl(path)}
+        if digest not in seen:
+            with open(path, "a") as f:
+                f.write(json.dumps({"prompt_hash": digest, "stage": stage, "model": vlm.model_tag(model), "prompt": prompt}) + "\n")
+            seen.add(digest)
 
 
 class Status:
@@ -515,6 +534,7 @@ def detect(job, meta, status):
     w, h = _view_size(meta)
     prompt, model = P.detect_prompt(w, h), vlm.SONNET
     tag, ph = vlm.model_tag(model), vlm.prompt_hash(prompt)
+    record_prompt(job, "detect", model, prompt)
     path, phase_path = job / "detect.jsonl", job / "phase.jsonl"
     _write_jsonl(path, [])
     _write_jsonl(phase_path, [])
@@ -578,6 +598,7 @@ def verify(job, meta, phases, status):
     w, h = _view_size(meta)
     prompt, model = P.verify_prompt(w, h), vlm.HAIKU
     tag, ph = vlm.model_tag(model), vlm.prompt_hash(prompt)
+    record_prompt(job, "verify", model, prompt)
     lock = threading.Lock()
     rows, verify_phase = [], {}
 
@@ -693,6 +714,7 @@ def _resolve(job, meta, row, d, v):
         region = crop_region(boxes, AMBER_PAD[round_no], meta["width"], meta["height"])
         crop_path, cw, ch, mag = _crop_for_model(job, row["kf"], row["label"], round_no, region)
         prompt = P.amber_prompt(row["label"], cw, ch, round_no)
+        record_prompt(job, "amber", model, prompt)
         reply = vlm.ask([crop_path], prompt, P.AMBER_SCHEMA, model)
         poly = None
         if reply["present"] and reply["polygon"]:
@@ -869,6 +891,7 @@ def narrate(job, meta, phases, decisions, status):
     def worker(seg):
         facts = segment_facts(seg, meta, phases, decisions)
         prompt = P.narrate_prompt(facts)
+        record_prompt(job, "narrate", model, prompt)
         reply = vlm.ask([], prompt, P.NARRATE_SCHEMA, model)
         kept = [s for s in reply["sentences"] if sentence_supported(s, facts)]
         return facts, kept, len(reply["sentences"]) - len(kept), prompt
