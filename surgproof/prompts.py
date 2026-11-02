@@ -12,19 +12,20 @@ PHASES = [
 ]
 UNKNOWN_PHASE = "Unknown"  # lets the model say a frame fits no phase, rather than forcing a guess
 
+# Instruments often show only a shaft, with the tip in tissue or out of frame, so a visible tip is not required.
 DEFINITIONS = {
-    "gallbladder": "the gallbladder: a pear-shaped sac, usually pale green, white or yellow, attached to the underside of the liver",
+    "gallbladder": "the gallbladder: a sac, usually pale green, white or yellow, attached to the underside of the liver. It may be collapsed, held by an instrument, or partly hidden under fat or adhesions, showing only part of its wall",
     "liver": "the liver: a large smooth dark red-brown organ surface",
-    "grasper": "a grasper: a metal or black instrument with a long shaft and two opposing fenestrated or toothed jaws",
-    "l_hook": "an L-hook: a monopolar electrocautery instrument with a thin shaft ending in a single L-shaped metal hook, with no jaws",
+    "grasper": "a grasper: an instrument with a long, usually metallic shaft and two opposing jaws. Count it if its shaft is visible, even when the jaws are closed, buried in tissue or out of frame",
+    "l_hook": "an L-hook: a monopolar electrocautery instrument with a dark insulated shaft, often ending in a conical tip with a thin metal hook or pin and no jaws. Count it if that shaft is visible, even when the hook itself is hidden",
     "cystic_duct": "the cystic duct: a thin pale tubular structure running from the gallbladder neck, usually exposed only after dissection",
     "blood": "blood: visible pooled, smeared or actively flowing red blood, not merely red tissue",
 }
 CRITERIA = {
-    "gallbladder": "It looks like a distended sac with a thin wall. Fat and omentum are lobulated and yellow, and are not the gallbladder.",
+    "gallbladder": "It looks like a sac with a thin wall, possibly under fat or adhesions. Omentum on its own is lobulated yellow fat with no sac beneath it.",
     "liver": "It has a smooth, homogeneous, glossy surface. Reddened or inflamed connective tissue is not liver.",
-    "grasper": "You can see jaws or a clear jaw hinge. A bare shaft with no visible tip counts only if it is clearly not a hook.",
-    "l_hook": "You can see a single thin bent metal tip. Two jaws mean it is a grasper. Clip appliers and scissors are neither.",
+    "grasper": "A surgical instrument is really there and is not a hook: a shaft alone is enough, because the jaws are often closed or hidden.",
+    "l_hook": "The shaft is dark and insulated, or a thin single metal tip shows. Two jaws mean it is a grasper. A hidden tip does not rule it out.",
     "cystic_duct": "It is a distinct tube with defined edges. Bands of fat or fibrous strands are not the duct.",
     "blood": "It is liquid or clotted, glossy, and sits on top of tissue. Cautery char is black or brown and is not blood.",
 }
@@ -101,7 +102,7 @@ For each label below, decide whether it is really visible, and if so outline it.
 {_definitions()}
 
 Rules:
-- Report only what you can see in this frame. Do not assume a structure is there because it usually is in this operation.
+- Report what you can see in this frame, including objects that are small, partly hidden or cut off by the edge. Do not assume a structure is there just because it usually is in this operation.
 - polygon: pixel coordinates tracing the visible boundary closely, in order. Use 12 to 40 vertices for organs, and follow both the shaft and the tip for instruments. Leave out anything covering the object. Use null when present is false.
 - If there are several instances of an instrument, outline the most prominent one.
 - conf: your probability from 0 to 1 that your present/absent answer is correct.
@@ -119,7 +120,7 @@ def verify_prompt(w, h):
     checklist = "\n".join(f"{i}. {k}: {DEFINITIONS[k]}" for i, k in enumerate(order, 1))
     example = {k: {"present": False, "conf": 0.8, "box": None} for k in order}
     example[order[0]] = {"present": True, "conf": 0.8, "box": [100, 50, 220, 160]}
-    return f"""You are auditing a surgical video dataset. Look at this {w}x{h} pixel frame from a laparoscopy and go through the checklist. Be skeptical: answer no for anything you cannot positively identify.
+    return f"""You are auditing a surgical video dataset. Look at this {w}x{h} pixel frame from a laparoscopy and go through the checklist. Judge each item on its own, and include items that are small, partly hidden or cut off by the edge of the view.
 
 Checklist:
 {checklist}
@@ -143,7 +144,7 @@ def amber_prompt(label, w, h, round_no):
 
 Question: is {DEFINITIONS[label]} visible in this crop?
 {extra}
-Answer from what you can see. Being honest about doubt is better than guessing: use a low conf if you are unsure.
+The object may be only partly visible in this crop. Answer from what you can see, and use a low conf if you are unsure.
 
 Reply with only JSON:
 {{"present": true or false, "conf": probability from 0 to 1 that your answer is correct, "polygon": [[x, y], ...] pixel coordinates in this crop tracing the visible boundary with 8 to 40 vertices, or null if not present, "reason": "one short sentence on what you saw"}}"""

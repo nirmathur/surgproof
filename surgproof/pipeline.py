@@ -65,6 +65,7 @@ NARRATION_WORDS = frozenset("""
 CLAUSES = re.compile(r";|\bbut\b|\bwhile\b|\bwhereas\b|\balthough\b|\bthough\b|\byet\b", re.I)
 NEGATION = re.compile(r"\b(no|not|without|none|neither|nor)\b|n't\b", re.I)
 DOUBLE_NEGATION = re.compile(r"\b(not|without)\b.*\b(not|without|no)\b|\bno\b.*\b(not|without)\b|n't\b.*\bnot\b", re.I)
+PRESENCE = re.compile(r"\b(visible|seen|present|shown|appears?|remains?|verified|confirmed)\b", re.I)
 UNSURE = re.compile(r"\b(unsure|uncertain|unconfirmed|cannot|can't|couldn't|unclear|unable|may|possibl[ey])\b|\bcould not\b|\bnot confirmed\b", re.I)
 
 
@@ -692,12 +693,17 @@ def sentence_supported(sentence, facts):
     for clause in CLAUSES.split(text):
         if DOUBLE_NEGATION.search(clause):
             return False
-        if UNSURE.search(clause):
-            required = "unsure"
-        elif NEGATION.search(clause):
-            required = "not_visible"
-        else:
-            required = "visible"
+        doubt, negation = UNSURE.search(clause), NEGATION.search(clause)
+        required = "unsure" if doubt else "not_visible" if negation else "visible"
+        found = [m.start() for label_pattern in MENTIONS.values() for m in re.finditer(label_pattern, clause, re.I)]
+        qualifier = doubt or negation
+        if qualifier:
+            # "Blood is visible, not the L-hook" states one thing and negates another. The qualifier has to
+            # govern the whole clause: no claim of presence ahead of it, and no label ahead of it unless alone.
+            if PRESENCE.search(clause[:qualifier.start()]):
+                return False
+            if len(found) > 1 and min(found) < qualifier.start():
+                return False
         for label, label_pattern in MENTIONS.items():
             if re.search(label_pattern, clause, re.I) and any(label not in frames[e][required] for e in evidence):
                 return False
@@ -713,12 +719,14 @@ def fallback_text(facts):
     def seen(key):
         return sorted({label for k in facts["keyframes"] for label in k[key]})
     parts = []
-    visible, unsure = seen("visible"), seen("unsure")
+    visible, unsure, absent = seen("visible"), seen("unsure"), seen("not_visible")
     if visible:
         parts.append("Verified in this segment: " + ", ".join(visible).replace("_", " ") + ".")
     if unsure:
         parts.append("Could not be confirmed: " + ", ".join(unsure).replace("_", " ") + ".")
-    return " ".join(parts) or "Nothing could be verified in this segment."
+    if not parts and absent:
+        parts.append("Checked and not seen: " + ", ".join(absent).replace("_", " ") + ".")
+    return " ".join(parts) or "No checks completed for this segment."
 
 
 def _segment_text(kept, facts):

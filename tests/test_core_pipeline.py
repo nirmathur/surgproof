@@ -359,6 +359,13 @@ FACTS = {"phase": "GallbladderDissection", "keyframes": [
     ("The liver is visible but no grasper is seen.", ["kf_00001"], False),
     ("Blood could not be confirmed.", ["kf_00001"], False),  # verified absent, not in doubt
     ("This segment is Preparation.", ["kf_00001"], False),  # some other phase
+    ("Blood is visible, not the L-hook.", ["kf_00001"], False),  # both verified absent; negation covers only one
+    ("The grasper, not the L-hook, is visible.", ["kf_00001"], False),
+    ("The liver is visible without blood.", ["kf_00001"], False),
+    ("No blood or L-hook is seen.", ["kf_00001"], True),  # the prompted form must keep working
+    ("Neither blood nor the L-hook is visible.", ["kf_00001"], True),
+    ("The cystic duct is visible, possibly.", ["kf_00001"], False),  # amber, stated as seen
+    ("The cystic duct may be present.", ["kf_00001"], True),
     ("The cystic artery is exposed near the liver.", ["kf_00001"], False),
     ("Gallbladder dissection continues, with the liver in view.", ["kf_00001"], True),  # the phase's own name
 ])
@@ -401,6 +408,12 @@ def test_narration_falls_back_to_decisions_when_nothing_survives(tmp_path, monke
     seg = PL.narrate(job, meta, phases, decisions, types.SimpleNamespace(update=lambda *a: None))[0]
     assert seg["source"] == "decisions" and "stapler" not in seg["text"]
     assert "Verified in this segment: liver." in seg["text"] and "Could not be confirmed: blood." in seg["text"]
+
+
+def test_fallback_text_tells_absent_apart_from_unchecked():
+    frame = {"kf": "kf_00000", "visible": [], "not_visible": ["blood"], "unsure": []}
+    assert PL.fallback_text({"keyframes": [frame]}) == "Checked and not seen: blood."
+    assert PL.fallback_text({"keyframes": [{**frame, "not_visible": []}]}) == "No checks completed for this segment."
 
 
 def test_narration_says_when_the_phase_is_uncertain_even_if_the_model_does_not(tmp_path, monkeypatch):
