@@ -54,7 +54,7 @@ export async function renderFinalPass(root, { id }) {
   const barFill = h('div', { style: 'width:0' });
   const errors = h('div');
   const releaseBox = h('section', { class: 'card stack', id: 'fp-release' });
-  const reviewer = h('input', { class: 'input', id: 'fp-reviewer', placeholder: 'Your name (recorded on every click)', value: readReviewer(), oninput: () => saveReviewer(reviewer.value) });
+  const reviewer = h('input', { class: 'input', id: 'fp-reviewer', placeholder: 'Your name (needed to release)', 'aria-label': 'Reviewer name', value: readReviewer(), oninput: () => { saveReviewer(reviewer.value); renderRelease(); } });
 
   root.append(h('div', { class: 'stack' }, errors, h('div', { class: 'fpgrid' },
     h('section', { class: 'stack' }, heading, frameBox, actions, h('p', { class: 'small muted', id: 'fp-hint' })),
@@ -174,7 +174,7 @@ export async function renderFinalPass(root, { id }) {
     const button = h('button', {
       class: `btn ${pending === 0 && !state.released ? 'good' : ''}`,
       id: 'fp-release-btn',
-      disabled: pending > 0 || state.released,
+      disabled: pending > 0 || state.released || !reviewer.value.trim(),
       onclick: () => release(),
     }, state.released ? 'Released' : 'Release dataset');
     const auditLine = `Audit: ${state.audit_reviewed} of ${state.n_audit} checked, ${state.audit_disagreements} corrected by you (random sample of ${state.n_audit_pool} auto-accepted labels).`;
@@ -183,7 +183,7 @@ export async function renderFinalPass(root, { id }) {
       h('p', { class: 'small muted' }, auditLine),
       state.released
         ? h('p', { class: 'small' }, 'This dataset is released. ', h('a', { href: `#/jobs/${encodeURIComponent(id)}/download` }, 'Download it'))
-        : h('p', { class: 'small muted' }, pending > 0 ? `Locked: ${pending} of ${state.total} items still need your decision.` : 'Every item is reviewed. Releasing writes the final dataset and locks this page.'),
+        : h('p', { class: 'small muted' }, pending > 0 ? `Locked: ${pending} of ${state.total} items still need your decision.` : (reviewer.value.trim() ? 'Every item is reviewed. Releasing writes the final dataset and locks this page.' : 'Every item is reviewed. Enter your name above to sign off.')),
       button);
   }
 

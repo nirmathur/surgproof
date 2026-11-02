@@ -307,7 +307,7 @@ def test_queue_is_stable_between_requests(client, done):
 def test_draft_dataset_and_release_are_locked_until_the_human_finishes(client, done):
     assert client.get("/api/jobs/job-done/files/dataset_coco.json").status_code == 403
     assert client.get("/api/jobs/job-done/files/released_coco.json").status_code == 404
-    res = post(client, action="release")
+    res = post(client, action="release", reviewer="R")
     assert res.status_code == 409
     assert "locked" in res.json()["detail"]
     assert not (done / "released_coco.json").exists()
@@ -315,7 +315,7 @@ def test_draft_dataset_and_release_are_locked_until_the_human_finishes(client, d
     queue = items(client)
     for item in queue[:-1]:
         assert post(client, action="approve", kf=item["kf"], label=item["label"]).status_code == 200
-    assert post(client, action="release").status_code == 409
+    assert post(client, action="release", reviewer="R").status_code == 409
 
     last = queue[-1]
     state = post(client, action="approve", kf=last["kf"], label=last["label"]).json()
@@ -327,12 +327,30 @@ def test_draft_dataset_and_release_are_locked_until_the_human_finishes(client, d
     assert client.get("/api/jobs/job-done/files/dataset_coco.json").status_code == 200
 
 
+@pytest.mark.parametrize("path", ["DATASET_COCO.json", "./dataset_coco.json", "frames/../dataset_coco.json"])
+def test_release_gate_holds_for_other_spellings_of_the_path(client, done, path):
+    assert client.get(f"/api/jobs/job-done/files/{path}").status_code != 200
+
+
+def test_symlink_to_the_draft_is_gated_too(client, done):
+    os.symlink(done / "dataset_coco.json", done / "copy.json")
+    assert client.get("/api/jobs/job-done/files/copy.json").status_code == 403
+
+
 def test_no_changes_after_release(client, done):
     clear_queue(client)
-    assert post(client, action="release").status_code == 200
+    assert post(client, action="release", reviewer="R").status_code == 200
     item = items(client)[0]
     assert post(client, action="reject", kf=item["kf"], label=item["label"]).status_code == 409
-    assert post(client, action="release").status_code == 409
+    assert post(client, action="release", reviewer="R").status_code == 409
+
+
+@pytest.mark.parametrize("reviewer", [None, "", "   "])
+def test_release_needs_a_named_reviewer(client, done, reviewer):
+    clear_queue(client)
+    res = post(client, action="release", reviewer=reviewer)
+    assert res.status_code == 422
+    assert not (done / "released_coco.json").exists()
 
 
 def test_ambers_are_absent_from_the_draft_and_join_only_when_approved(client, done):
@@ -342,7 +360,7 @@ def test_ambers_are_absent_from_the_draft_and_join_only_when_approved(client, do
     in_draft = [a for a in draft["annotations"] if a["image_id"] == image["id"] and a["category_id"] == gallbladder]
     assert in_draft == []
     clear_queue(client)
-    post(client, action="release")
+    post(client, action="release", reviewer="R")
     released = client.get("/api/jobs/job-done/files/released_coco.json").json()
     joined = [a for a in released["annotations"] if a["image_id"] == image["id"] and a["category_id"] == gallbladder]
     assert len(joined) == 1 and joined[0]["attributes"]["human_reviewed"] is True
@@ -368,7 +386,7 @@ def test_human_correction_is_recorded_and_used(client, done):
     clear = [i for i in items(client) if not i["verdict"]]
     for item in clear:
         post(client, action="approve", kf=item["kf"], label=item["label"])
-    post(client, action="release")
+    post(client, action="release", reviewer="R")
     released = client.get("/api/jobs/job-done/files/released_coco.json").json()
     corrected = [a for a in released["annotations"] if a["attributes"].get("source") == "human_correction"
                  or a["attributes"].get("human_corrected")]
@@ -394,6 +412,8 @@ def test_audit_disagreements_are_counted(client, done):
     {"action": "approve", "kf": "kf_00099", "label": "grasper"},
     {"action": "correct", "kf": "kf_00001", "label": "gallbladder"},
     {"action": "correct", "kf": "kf_00001", "label": "gallbladder", "polygon": [[1, 1], [2, 2]]},
+    {"action": "correct", "kf": "kf_00001", "label": "gallbladder", "polygon": [[5, 5], [5, 5], [5, 5]]},
+    {"action": "correct", "kf": "kf_00001", "label": "gallbladder", "polygon": [[-500, 0], [9000, 0], [9000, 900]]},
     {"action": "dance", "kf": "kf_00001", "label": "gallbladder"},
 ])
 def test_invalid_clicks_are_refused_and_not_recorded(client, done, payload):

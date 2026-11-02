@@ -159,7 +159,6 @@ def test_final_pass_then_release_then_download(site, page):
     assert page.locator("#fp-release-btn").is_disabled()
     assert page.locator("#fp-queue .fpitem .pill.AMBER").count() == 1
     page.wait_for_function(f"document.querySelector('#fp-canvas').width === {fx.W}")
-    page.fill("#fp-reviewer", "Test Reviewer")
 
     # First up is the amber. Correct it by drawing, which goes through real canvas clicks.
     assert "kf_00001 · Gallbladder" in page.locator(".fpitem.on").inner_text()
@@ -172,14 +171,19 @@ def test_final_pass_then_release_then_download(site, page):
 
     # Keyboard approve for all but the last, which is rejected: audit disagreements must show.
     total = page.locator("#fp-queue .fpitem").count()
+    ready = "!document.querySelector('#fp-approve').disabled"
     for done in range(1, total - 1):
+        page.wait_for_function(ready)
         page.keyboard.press("a")
         page.wait_for_function("(n) => document.querySelector('#fp-progress').textContent.startsWith(`${n} of`)", arg=done + 1)
     assert page.locator("#fp-release-btn").is_disabled(), "release must stay locked with one item left"
+    page.wait_for_function(ready)
     page.keyboard.press("x")
     page.wait_for_function("(n) => document.querySelector('#fp-progress').textContent.startsWith(`${n} of`)", arg=total)
     assert "1 corrected by you" in page.locator("#fp-release").inner_text()
 
+    assert page.locator("#fp-release-btn").is_disabled(), "release needs a named reviewer"
+    page.fill("#fp-reviewer", "Test Reviewer")
     assert page.locator("#fp-release-btn").is_enabled()
     page.click("#fp-release-btn")
     page.wait_for_function("document.querySelector('#fp-release-btn').textContent === 'Released'")
@@ -200,13 +204,8 @@ def test_no_verdict_before_the_frame_is_on_screen(site, browser):
     fx.finished_job(jobs, "job-slow")
     context = browser.new_context(viewport={"width": 1280, "height": 900})
     page = context.new_page()
-    release_frame = threading.Event()
-
-    def hold(route):
-        release_frame.wait(30)
-        route.continue_()
-
-    page.route("**/files/frames/**", hold)
+    held = []  # keep the frame request open: no blocking here, Playwright's sync API is single-threaded
+    page.route("**/files/frames/**", held.append)
     page.goto(f"{base}/#/jobs/job-slow/final-pass")
     page.wait_for_selector("#fp-approve")
     for selector in ("#fp-approve", "#fp-reject", "#fp-draw"):
@@ -214,7 +213,11 @@ def test_no_verdict_before_the_frame_is_on_screen(site, browser):
     for key in ("a", "x", "d"):
         page.keyboard.press(key)
     assert not (job / "final_pass.jsonl").exists()
-    release_frame.set()
+    page.wait_for_timeout(200)
+    assert held, "the frame request should be in flight"
+    page.unroute("**/files/frames/**")
+    for route in held:
+        route.continue_()
     page.wait_for_function("!document.querySelector('#fp-approve').disabled", timeout=30000)
     assert page.evaluate("document.querySelector('#fp-canvas').width") == fx.W
 

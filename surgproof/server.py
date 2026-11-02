@@ -319,6 +319,15 @@ def playable_video(job_dir: Path) -> Optional[Path]:
     return path if path.is_relative_to(resolved_job) and path.is_file() else None
 
 
+def is_release_gated(job_dir: Path, target: Path) -> bool:
+    """Compare by file identity: on a case-insensitive disk DATASET_COCO.json is the same file."""
+    for name in RELEASE_GATED_FILES:
+        gated = job_dir / name
+        if gated.exists() and os.path.samefile(gated, target):
+            return True
+    return False
+
+
 def last_activity(job_dir: Path, status: dict) -> Optional[datetime]:
     """Newest write in the job folder: liveness comes from artifact freshness, not from a process handle."""
     newest = 0.0
@@ -589,6 +598,18 @@ def final_pass_view(store: Store, job_dir: Path, include_items: bool = True) -> 
     return view
 
 
+def check_correction(polygon: list[list[float]], meta: dict) -> None:
+    """A human outline must enclose something, and lie on the frame the human was looking at."""
+    if len(polygon) < 3 or any(len(point) != 2 for point in polygon):
+        raise HTTPException(422, "a correction needs a polygon of at least 3 points")
+    width, height = meta.get("width"), meta.get("height")
+    if width and height and any(not (0 <= x <= width and 0 <= y <= height) for x, y in polygon):
+        raise HTTPException(422, "the polygon falls outside the frame")
+    doubled = sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(polygon, polygon[1:] + polygon[:1]))
+    if doubled == 0:
+        raise HTTPException(422, "the polygon encloses no area")
+
+
 class FinalPassBody(BaseModel):
     """One human click, or the release. `action` is approve | reject | correct | release."""
 
@@ -767,8 +788,7 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
         target = (job_dir / path).resolve()
         if not target.is_relative_to(job_dir) or not target.is_file():
             raise HTTPException(404, "no such file")
-        rel = target.relative_to(job_dir).as_posix()
-        if rel in RELEASE_GATED_FILES and not (job_dir / "released_coco.json").exists():
+        if is_release_gated(job_dir, target) and not (job_dir / "released_coco.json").exists():
             raise HTTPException(403, "the dataset is locked until a human completes the final pass and releases it")
         name = f"{job_id}_{target.name}" if download else None
         return FileResponse(target, filename=name, content_disposition_type="attachment" if download else "inline")
@@ -868,11 +888,13 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
         job_dir = store.job_dir(job_id)
         require_done(job_dir)
         export = _export()
-        reviewer = (body.reviewer or "").strip()[:80] or "unnamed reviewer"
+        reviewer = (body.reviewer or "").strip()[:80]
         with store.lock(job_id):
             if (job_dir / "released_coco.json").exists():
                 raise HTTPException(409, "this dataset has already been released")
             if body.action == "release":
+                if not reviewer:
+                    raise HTTPException(422, "a release is a sign-off: give the reviewer's name")
                 try:
                     export.release(job_dir, reviewer=reviewer)
                 except export.ReleaseLocked as exc:
@@ -881,9 +903,10 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                 if body.action == ACTION_APPROVE and not has_mask(job_dir, body.kf or "", body.label or ""):
                     raise HTTPException(422, "there is no AI mask to approve here: mark it not present, "
                                              "or draw a correction")
-                row = {"kf": body.kf, "label": body.label, "action": body.action, "reviewer": reviewer,
-                       "ts": now_iso()}
+                row = {"kf": body.kf, "label": body.label, "action": body.action,
+                       "reviewer": reviewer or None, "ts": now_iso()}
                 if body.polygon is not None:
+                    check_correction(body.polygon, store.meta(job_dir))
                     row["polygon"] = body.polygon
                 if body.note:
                     row["note"] = body.note
