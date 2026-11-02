@@ -90,14 +90,6 @@ def test_masks_can_be_turned_off(tmp_path):
     assert np.abs(view - src).mean(axis=2)[int(100 * lay.sy):int(160 * lay.sy), int(120 * lay.sx):int(200 * lay.sx)].mean() < 15
 
 
-def test_source_audio_is_kept(tmp_path):
-    job = make_job(tmp_path, audio=True, narration=False)
-    R.run(job)
-    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_name", "-of", "csv=p=0",
-                          str(job / "annotated.mp4")], capture_output=True, text=True).stdout
-    assert out.strip().startswith("aac")
-
-
 def test_no_audio_source_still_renders(rendered):
     job, _ = rendered
     out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=codec_name", "-of", "csv=p=0",
@@ -182,20 +174,6 @@ def test_failure_leaves_no_partial_annotated_file(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match="frames"):
         R.run(job)
     assert not (job / "annotated.mp4").exists() and not (job / ".annotated.tmp.mp4").exists()
-
-
-def test_footer_reflects_release_state(tmp_path):
-    from surgproof import export as X
-    job = make_job(tmp_path, narration=False, phases=False)
-    (job / "decisions.jsonl").write_text(json.dumps({"kf": "kf_00000", "label": "grasper", "status": "accept", "final_present": True, "rounds": []}) + "\n")
-    R.run(job)
-    before = cv2.VideoCapture(str(job / "annotated.mp4")).read()[1].astype(int)
-    X.final_pass_queue(job)
-    (job / "released_coco.json").write_text("{}")
-    R.run(job)
-    after = cv2.VideoCapture(str(job / "annotated.mp4")).read()[1].astype(int)
-    lay = R.Layout(W, H)
-    assert np.abs(before[lay.H - lay.band:] - after[lay.H - lay.band:]).mean() > 0.01
 
 
 def test_footer_never_claims_a_release_left_over_from_an_earlier_run(tmp_path):

@@ -27,6 +27,8 @@ FRONT_TO_BACK = ["grasper", "l_hook", "blood", "cystic_duct", "gallbladder", "li
 ORGANS = {"gallbladder", "liver"}
 
 ACCEPT, REJECT, AMBER = "accept", "reject", "AMBER"
+# Every mask is a first draft: GrabCut finishing without a fallback says nothing about whether it is right.
+MASK_QUALITY = "draft"
 
 MAX_SIDE = 960          # GrabCut working resolution cap (longest side, px)
 # Sure-foreground erosion, as a fraction of sqrt(seed area). Whatever is sure foreground can never be removed, so a
@@ -64,6 +66,8 @@ def atomic_write(path, data: bytes | str):
     try:
         with os.fdopen(fd, "wb") as f:
             f.write(data.encode() if isinstance(data, str) else data)
+            f.flush()
+            os.fsync(f.fileno())
         os.chmod(tmp, 0o644)
         os.replace(tmp, path)
     except BaseException:
@@ -292,7 +296,7 @@ def plan_seeds(job, meta, w, h):
             det, dec, ver = detect.get((kf, label)), decisions.get((kf, label)), verify.get((kf, label))
             if det is None and dec is None:
                 continue
-            # An unadjudicated detection is unverified, which is what AMBER means. Never accepted by default.
+            # An unadjudicated detection has had no second opinion, which is what AMBER means. Never accepted by default.
             status = dec["status"] if dec else AMBER
             if status == REJECT:
                 continue
@@ -346,13 +350,14 @@ def _process_keyframe(job, kf, items):
         mask, fallback = grabcut_refine(img, it["seed"], label, occ if occ.any() else None)
         if not mask.any():
             rows.append({"kf": kf, "label": label, "status": it["status"], "seed": it["seed_kind"],
-                         "fallback": fallback, "area": 0, "box": None, "path": None,
+                         "fallback": fallback, "area": 0, "box": None, "path": None, "quality": MASK_QUALITY,
                          "model": it["model"], "prompt_hash": it["prompt_hash"]})
             continue
         write_mask(mask_path(job, kf, label), mask)
         rows.append({"kf": kf, "label": label, "status": it["status"], "seed": it["seed_kind"], "fallback": fallback,
                      "seed_area": int(it["seed"].sum()), "area": int(mask.sum()), "box": mask_box(mask),
-                     "path": f"masks/{kf}_{label}.png", "model": it["model"], "prompt_hash": it["prompt_hash"]})
+                     "path": f"masks/{kf}_{label}.png", "quality": MASK_QUALITY,
+                     "model": it["model"], "prompt_hash": it["prompt_hash"]})
         occ |= mask
     return rows
 
