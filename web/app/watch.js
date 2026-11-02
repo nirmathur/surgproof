@@ -140,6 +140,8 @@ export async function renderWatch(root, { id }) {
         if (!stopped) {
           showFailure(`Annotations could not be loaded (${err.message}). This is the plain video, with no AI overlay. Retrying.`);
           redraw();
+          // A paused video produces no frames to retry from, so the retry cannot wait for the next one.
+          setTimeout(() => { if (!stopped && chunks.get(index) === entry) chunk(index); }, RETRY_MS + 50);
         }
       });
       if (chunks.size > MAX_CHUNKS) chunks.delete(chunks.keys().next().value);
