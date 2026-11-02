@@ -59,7 +59,8 @@ def click(w, kf, label, action="approve", **kw):
 
 
 def release(w):
-    return w["c"].post(w["fp"], json={"action": "release"})
+    """wait: release runs in the background, and these tests are about what comes out of it."""
+    return w["c"].post(w["fp"], json={"action": "release", "wait": True})
 
 
 def clear_queue(w, skip=None):
@@ -263,10 +264,10 @@ def test_anonymous_release_is_not_a_sign_off(world):
     """The release is the one human accountability step. Someone not signed in cannot perform it or name another."""
     clear_queue(world)
     world["c"].post("/api/auth/logout")
-    assert world["c"].post(world["fp"], json={"action": "release", "reviewer": "Dr Forged"}).status_code == 401
+    assert world["c"].post(world["fp"], json={"action": "release", "wait": True, "reviewer": "Dr Forged"}).status_code == 401
     assert not (world["job"] / "released_coco.json").exists()
     sign_in(world["c"])
-    assert world["c"].post(world["fp"], json={"action": "release", "reviewer": "Dr Forged"}).status_code == 200
+    assert world["c"].post(world["fp"], json={"action": "release", "wait": True, "reviewer": "Dr Forged"}).status_code == 200
     assert read_json(world["job"] / "released_coco.json")["info"]["reviewer"] == REVIEWER
 
 
@@ -362,7 +363,7 @@ def test_whole_web_flow_with_mock_model(tmp_path, monkeypatch):
         fp = f"/api/jobs/{jid}/final-pass"
         for it in c.get(fp).json()["items"]:
             assert c.post(fp, json={"action": "approve", "kf": it["kf"], "label": it["label"]}).status_code == 200
-        assert c.post(fp, json={"action": "release"}).status_code == 200
+        assert c.post(fp, json={"action": "release", "wait": True}).status_code == 200
         for f in ("annotated.mp4", "provenance.jsonl"):
             assert c.get(f"/api/jobs/{jid}/files/{f}?download=true").status_code == 200, f
         assert c.get(f"/api/jobs/{jid}/files/released_coco.json").status_code == 200

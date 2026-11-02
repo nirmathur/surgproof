@@ -104,7 +104,8 @@ def clear_all(w):
 
 
 def release(w):
-    return w["c"].post(w["fp"], json={"action": "release"})
+    """wait: release runs in the background, and these tests are about what comes out of it."""
+    return w["c"].post(w["fp"], json={"action": "release", "wait": True})
 
 
 # ---------- core 1: input gate ----------
@@ -617,9 +618,14 @@ def test_masks7_bundle_resolves_and_explains_itself(world):
         assert not missing, missing[:5]
         for want in ("card", "schema", "licen", "phase", "narration", "tips", "prompts", "versions"):
             assert any(want in n.lower() for n in names), f"bundle has nothing for {want}: {sorted(names)[:30]}"
-        prompts = z.read(next(n for n in names if "prompts" in n.lower())).decode()
-        assert "This is one frame" in prompts, "full prompt text missing"
-        assert re.search(r"claude-[a-z]+-\d", json.dumps(coco["info"]) + prompts) or "mock" in prompts
+        prompts = json.loads(z.read("prompts/prompts.json"))
+        assert "This is one frame" in json.dumps(prompts), "full prompt text missing"
+        unresolved = [h for h, p in prompts["hashes"].items() if not p.get("text")]
+        assert not unresolved, f"{len(unresolved)} of {len(prompts['hashes'])} prompt hashes have no text"
+        versions = json.loads(z.read("versions.json"))
+        assert versions.get("code") or versions.get("code_version"), versions
+        models = json.dumps(versions.get("models") or versions.get("model_ids"))
+        assert models not in ("null", "[]", "{}"), f"no pinned model ids: {versions}"
 
 
 # ---------- web 1: local, signed in, allowlisted ----------
@@ -811,6 +817,49 @@ def test_web3_retry_after_a_review_has_started_is_refused(world):
 def test_web3_server_kills_the_whole_process_group():
     text = (ROOT / "surgproof" / "server.py").read_text()
     assert "start_new_session=True" in text and "killpg" in text
+
+
+def test_web3_nothing_changes_once_a_release_has_started(world):
+    clear_all(world)
+    it = items(world)[0]
+    r = world["c"].post(world["fp"], json={"action": "release"})
+    assert r.status_code == 202, r.text
+    # Whether it is still running or just finished, the answer to all of these has to be no.
+    assert act(world, it, "reject").status_code == 409
+    assert world["c"].post(world["fp"], json={"action": "release"}).status_code == 409
+    assert world["c"].post("/api/jobs/job1/retry").status_code == 409
+    if (world["c"].get(world["fp"]).json().get("release_job") or {}).get("state") == "running":
+        assert world["c"].delete("/api/jobs/job1").status_code == 409
+    deadline = time.time() + 120
+    while time.time() < deadline and (world["c"].get(world["fp"]).json().get("release_job") or {}).get("state") == "running":
+        time.sleep(0.2)
+    assert (world["job"] / "released_coco.json").exists()
+    assert world["c"].get(world["fp"]).json()["release_job"]["state"] == "done"
+
+
+def test_web3_status_file_saying_done_releases_nothing(world):
+    """The gate has to follow the signed release, not a status file anyone can write."""
+    (world["job"] / srv.RELEASE_STATUS).write_text(json.dumps({"state": "done", "progress": 1.0}))
+    assert world["c"].get(f"{world['files']}/dataset_coco.json").status_code == 403
+    assert world["c"].get(f"{world['files']}/dataset_bundle.zip").status_code == 403
+
+
+def test_web3_release_whose_worker_died_is_reported_and_releases_nothing(world):
+    (world["job"] / srv.RELEASE_STATUS).write_text(json.dumps({"state": "running", "progress": 0.3, "pid": 2 ** 22 - 3}))
+    view = world["c"].get(world["fp"]).json()["release_job"]
+    assert view["state"] == "failed", view
+    assert not (world["job"] / "released_coco.json").exists()
+    assert world["c"].get(f"{world['files']}/dataset_coco.json").status_code == 403
+
+
+def test_web3_release_check_catches_an_edited_release(world):
+    assert world["c"].get("/api/jobs/job1/release-check").status_code in (200, 409)
+    _coco_after_release(world)
+    assert world["c"].get("/api/jobs/job1/release-check").json()["ok"] is True
+    coco = read_json(world["job"] / "released_coco.json")
+    coco["annotations"] = coco["annotations"][:-1]
+    (world["job"] / "released_coco.json").write_text(json.dumps(coco))
+    assert world["c"].get("/api/jobs/job1/release-check").json()["ok"] is False
 
 
 # ---------- web 4: the screens say what happened ----------

@@ -552,3 +552,60 @@ def test_sampling_first_still_asks_every_keyframe_exactly_once(isolated, stub_st
     assert [r["kf"] for r in rows if r["label"] == "liver"] == keyframes  # in order, none missing, none repeated
     assert len(rows) == len(keyframes) * len(P.LABELS)
     assert [r["kf"] for r in PL.read_jsonl(job / "phase.jsonl")] == keyframes
+
+
+# ---- prompts.jsonl: every prompt_hash in a job resolves to its full text --------------------------
+
+def hashes_used(job):
+    used = set()
+    for name in ("detect.jsonl", "verify.jsonl"):
+        used |= {r["prompt_hash"] for r in PL.read_jsonl(job / name)}
+    for row in PL.read_jsonl(job / "decisions.jsonl"):
+        used |= {r["prompt_hash"] for r in row["rounds"]}
+    used |= {s["prompt_hash"] for s in json.load(open(job / "narration.json"))["segments"] if s["prompt_hash"]}
+    return used
+
+
+def test_every_prompt_hash_in_a_job_resolves_to_its_full_text(isolated, stub_stages):
+    job = isolated / "jobs" / "p"
+    PL.run(make_video(isolated / "v.mp4", seconds=3), job)
+    rows = PL.read_jsonl(job / "prompts.jsonl")
+    recorded = {r["prompt_hash"]: r for r in rows}
+    assert len(recorded) == len(rows)  # each prompt once
+    assert hashes_used(job) == set(recorded)
+    assert {r["stage"] for r in rows} == {"detect", "verify", "amber", "narrate"}
+    for h, r in recorded.items():
+        assert vlm.prompt_hash(r["prompt"]) == h  # the text is what was hashed, not a label for it
+        assert r["model"].startswith("mock:")
+
+
+def test_prompts_jsonl_holds_what_the_model_was_sent(isolated, stub_stages, monkeypatch):
+    sent = counting_provider(monkeypatch, cost=0.0)
+    job = isolated / "jobs" / "sent"
+    PL.run(make_video(isolated / "v.mp4", seconds=2), job)
+    assert {r["prompt"] for r in PL.read_jsonl(job / "prompts.jsonl")} == set(sent)
+
+
+def test_a_failed_call_still_has_its_prompt_recorded(isolated, stub_stages, monkeypatch):
+    job = isolated / "jobs" / "f"
+    calls = {"n": 0}
+    real = vlm.ask
+
+    def flaky(images, prompt, schema, model=None):
+        calls["n"] += 1
+        if schema.get("title") == "verify" and calls["n"] % 2:
+            raise vlm.VlmError("model unavailable")
+        return real(images, prompt, schema, model)
+
+    monkeypatch.setattr(PL.vlm, "ask", flaky)
+    PL.run(make_video(isolated / "v.mp4", seconds=3), job)
+    recorded = {r["prompt_hash"] for r in PL.read_jsonl(job / "prompts.jsonl")}
+    assert {r["prompt_hash"] for r in PL.read_jsonl(job / "verify.jsonl")} <= recorded
+
+
+def test_a_new_run_starts_a_new_prompt_record(isolated, stub_stages):
+    job = isolated / "jobs" / "r"
+    (job).mkdir(parents=True)
+    (job / "prompts.jsonl").write_text(json.dumps({"prompt_hash": "old", "prompt": "from an earlier video"}) + "\n")
+    PL.run(make_video(isolated / "v.mp4", seconds=1), job)
+    assert "old" not in {r["prompt_hash"] for r in PL.read_jsonl(job / "prompts.jsonl")}
