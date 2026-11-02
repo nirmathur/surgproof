@@ -211,5 +211,5 @@ def mock_reply(prompt, image_paths, model):
     if prompt.startswith("You are writing subtitle"):
         facts = json.loads(prompt.split("Facts (JSON):\n", 1)[1].split("\n\n", 1)[0])
         kf = [k["kf"] for k in facts["keyframes"]][:1]
-        return {"sentences": [{"text": "Mock narration for tests.", "evidence": kf}]}
+        return {"sentences": [{"text": "The phase is uncertain.", "evidence": kf}]}
     return {}

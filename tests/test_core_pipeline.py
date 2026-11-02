@@ -366,8 +366,20 @@ FACTS = {"phase": "GallbladderDissection", "keyframes": [
     ("Neither blood nor the L-hook is visible.", ["kf_00001"], True),
     ("The cystic duct is visible, possibly.", ["kf_00001"], False),  # amber, stated as seen
     ("The cystic duct may be present.", ["kf_00001"], True),
+    ("No L-hook, blood is visible.", ["kf_00001"], False),  # reads as: blood is visible
+    ("There is not an L-hook, there is blood.", ["kf_00001"], False),
+    ("Blood is seen, no L-hook.", ["kf_00001"], False),
+    ("Blood and no L-hook are visible.", ["kf_00001"], False),
+    ("No blood, L-hook or cystic duct is seen.", ["kf_00001"], False),  # right shape, but the duct is amber
+    ("No blood or L-hook is seen in these frames.", ["kf_00001"], True),
+    ("The liver and a grasper are visible throughout this segment.", ["kf_00001"], True),
+    ("A grasper is visible near the liver.", ["kf_00001"], True),
+    ("The phase is uncertain; the phase checks disagree, but confidence is low.", ["kf_00001"], True),
+    ("Nothing is wrong.", ["kf_00001"], False),
     ("The cystic artery is exposed near the liver.", ["kf_00001"], False),
-    ("Gallbladder dissection continues, with the liver in view.", ["kf_00001"], True),  # the phase's own name
+    ("Gallbladder dissection continues.", ["kf_00001"], True),  # the phase's own name, though it contains a label
+    ("This segment is GallbladderDissection.", ["kf_00001"], True),
+    ("Gallbladder dissection continues, with the liver in view.", ["kf_00001"], False),  # not a known shape
 ])
 def test_sentence_supported(text, evidence, ok):
     assert PL.sentence_supported({"text": text, "evidence": evidence}, FACTS) is ok

@@ -52,21 +52,33 @@ MENTIONS = {
     "cystic_duct": r"\bcystic ducts?\b|\bducts?\b",
     "blood": r"\bblood\b|\bbleed\w*|\bhaemorrhag\w*|\bhemorrhag\w*",
 }
-# Narration may use only these words besides label names and the segment's own phase name. A blacklist cannot
-# work here: "The gallbladder has been perforated" names a verified label and still claims something nobody checked.
-NARRATION_WORDS = frozenset("""
-    a an the this these it there is are was were be being and or but while whereas though although yet
-    in on of at near with within throughout across both all each every also still here
-    visible seen present shown appears appear remains remain view frame frames keyframe keyframes segment segments
-    no not without none neither nor isn't aren't
-    unsure uncertain unconfirmed cannot can't could couldn't unclear unable may possibly possible confirmed verified
-    phase phases surgical checks disagree disagreed confidence low labeled labelled named continues underway ongoing current
-""".split())
-CLAUSES = re.compile(r";|\bbut\b|\bwhile\b|\bwhereas\b|\balthough\b|\bthough\b|\byet\b", re.I)
-NEGATION = re.compile(r"\b(no|not|without|none|neither|nor)\b|n't\b", re.I)
-DOUBLE_NEGATION = re.compile(r"\b(not|without)\b.*\b(not|without|no)\b|\bno\b.*\b(not|without)\b|n't\b.*\bnot\b", re.I)
-PRESENCE = re.compile(r"\b(visible|seen|present|shown|appears?|remains?|verified|confirmed)\b", re.I)
-UNSURE = re.compile(r"\b(unsure|uncertain|unconfirmed|cannot|can't|couldn't|unclear|unable|may|possibl[ey])\b|\bcould not\b|\bnot confirmed\b", re.I)
+# Narration grammar. After labels become @tokens, a clause must match one whole shape below or the sentence is
+# dropped. Word lists and negation tests kept failing here: "No L-hook, blood is visible" uses only allowed words
+# and contains a negation, yet claims blood. Shapes also fix which list of verified facts a clause is checked against.
+_ITEM = r"(?:(?:the|a|an)\s+)?@(?:gallbladder|liver|grasper|l_hook|cystic_duct|blood)"
+_LIST = rf"{_ITEM}(?:(?:\s*,\s*{_ITEM})*\s*,?\s+(?:and|or)\s+{_ITEM})?"  # a list of two or more needs its and/or
+_BE = r"(?:is|are)"
+_SEEN = r"(?:visible|seen|present|shown|in\s+view)"
+_PLACE = r"(?:\s+(?:in|throughout|across|within)\s+(?:(?:this|these|all|each|every|the)\s+)*(?:segments?|frames?|keyframes?|view))?"
+_NEAR = rf"(?:\s+near\s+{_ITEM})?"
+_PHASE = r"(?:(?:the|a)\s+)?@phase(?:\s+phase)?"
+CLAUSE_SHAPES = [(kind, re.compile(pattern)) for kind, pattern in [
+    ("visible", rf"{_LIST}\s+(?:{_BE}\s+(?:also\s+|still\s+)?|remains?\s+|appears?\s+)?{_SEEN}{_NEAR}{_PLACE}"),
+    ("visible", rf"there\s+{_BE}\s+{_LIST}{_PLACE}"),
+    ("not_visible", rf"no\s+{_LIST}\s+{_BE}\s+{_SEEN}{_PLACE}"),
+    ("not_visible", rf"{_LIST}\s+{_BE}\s+not\s+{_SEEN}{_PLACE}"),
+    ("not_visible", rf"there\s+{_BE}\s+no\s+{_LIST}{_PLACE}"),
+    ("not_visible", rf"neither\s+{_ITEM}\s+nor\s+{_ITEM}\s+{_BE}\s+{_SEEN}{_PLACE}"),
+    ("unsure", rf"{_LIST}\s+(?:could\s+not|cannot)\s+be\s+confirmed{_PLACE}"),
+    ("unsure", rf"{_LIST}\s+{_BE}\s+(?:uncertain|unsure|unclear|unconfirmed|not\s+confirmed){_PLACE}"),
+    ("unsure", rf"{_LIST}\s+may\s+be\s+{_SEEN}{_PLACE}"),
+    ("meta", r"the\s+phase\s+is\s+(?:uncertain|unsure|unclear|unconfirmed)"),
+    ("meta", rf"(?:this\s+segment|the\s+phase|it)\s+is\s+(?:labell?ed\s+(?:as\s+)?)?{_PHASE}"),
+    ("meta", rf"{_PHASE}\s+(?:continues|is\s+ongoing|is\s+underway)"),
+    ("meta", r"(?:the\s+)?phase\s+checks\s+(?:disagree|disagreed)"),
+    ("meta", r"(?:the\s+)?(?:phase\s+)?confidence\s+is\s+low"),
+]]
+CLAUSE_BREAK = re.compile(r"[;.]|,?\s*\b(?:but|while|whereas|although|though|yet)\b", re.I)
 
 
 class PipelineError(RuntimeError):
@@ -673,39 +685,29 @@ def _phase_pattern(phase):
 
 
 def sentence_supported(sentence, facts):
-    """True only if a sentence stays within the verified facts for the keyframes it cites.
-
-    Every word must come from a small vocabulary, so a sentence can state presence, absence or doubt
-    and nothing else. Each clause is then checked against the matching list on every cited keyframe.
-    """
+    """True only if a sentence states presence, absence or doubt in a known shape, and each clause
+    holds on every keyframe it cites. Anything else is dropped, and the fallback text covers the gap."""
     text, evidence = sentence["text"].strip(), sentence["evidence"]
     frames = {k["kf"]: k for k in facts["keyframes"]}
     if not text or not evidence or any(e not in frames for e in evidence):
         return False
     pattern = _phase_pattern(facts.get("phase"))
-    if pattern:  # the segment's own phase may be named, even though the name can contain a label
-        text = re.sub(pattern, " ", text, flags=re.I)
-    leftover = text
-    for label_pattern in MENTIONS.values():
-        leftover = re.sub(label_pattern, " ", leftover, flags=re.I)
-    if any(word not in NARRATION_WORDS for word in re.findall(r"[a-z0-9_']+", leftover.lower())):
+    if pattern:  # first, because a phase name can contain a label
+        text = re.sub(pattern, " @phase ", text, flags=re.I)
+    for label, label_pattern in MENTIONS.items():
+        text = re.sub(label_pattern, f"@{label}", text, flags=re.I)
+    clauses = [" ".join(c.split()).lower() for c in CLAUSE_BREAK.split(text)]
+    clauses = [c for c in clauses if c]
+    if not clauses:
         return False
-    for clause in CLAUSES.split(text):
-        if DOUBLE_NEGATION.search(clause):
+    for clause in clauses:
+        kind = next((k for k, shape in CLAUSE_SHAPES if shape.fullmatch(clause)), None)
+        if kind is None:
             return False
-        doubt, negation = UNSURE.search(clause), NEGATION.search(clause)
-        required = "unsure" if doubt else "not_visible" if negation else "visible"
-        found = [m.start() for label_pattern in MENTIONS.values() for m in re.finditer(label_pattern, clause, re.I)]
-        qualifier = doubt or negation
-        if qualifier:
-            # "Blood is visible, not the L-hook" states one thing and negates another. The qualifier has to
-            # govern the whole clause: no claim of presence ahead of it, and no label ahead of it unless alone.
-            if PRESENCE.search(clause[:qualifier.start()]):
-                return False
-            if len(found) > 1 and min(found) < qualifier.start():
-                return False
-        for label, label_pattern in MENTIONS.items():
-            if re.search(label_pattern, clause, re.I) and any(label not in frames[e][required] for e in evidence):
+        if kind == "meta":
+            continue
+        for label in re.findall(r"@(\w+)", clause):
+            if any(label not in frames[e][kind] for e in evidence):
                 return False
     return True
 
