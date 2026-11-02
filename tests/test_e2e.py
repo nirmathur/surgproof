@@ -128,9 +128,14 @@ def test_masks_only_for_accepted_present(mock_job):
     assert want, "no masks at all: nothing tested"
     assert want <= got, f"accepted labels with no mask: {want - got}"
     # A mask beyond the accepted ones may only be a proposal for a reviewer: never a rejected label, always marked.
-    assert got - want <= amber, f"masks for labels that are neither accepted nor amber: {got - want - amber}"
+    # Or a propagated frame drawn out because the audit queued that exact frame for a person to look at.
+    queued = {f"{i['kf']}_{i['label']}.png" for i in read_json(j / "final_pass_queue.json")["items"]}
+    drawn_for_audit = {name for name in got - want if name.startswith("prop_")}
+    assert drawn_for_audit <= queued, f"propagated masks nobody queued: {drawn_for_audit - queued}"
+    proposals = got - want - drawn_for_audit
+    assert proposals <= amber, f"masks for labels that are neither accepted nor amber: {proposals - amber}"
     marked = {f"{r['kf']}_{r['label']}.png": r["status"] for r in read_jsonl(j / "masks.jsonl")}
-    assert all(marked.get(name) == "AMBER" for name in got - want), {n: marked.get(n) for n in got - want}
+    assert all(marked.get(name) == "AMBER" for name in proposals), {n: marked.get(n) for n in proposals}
     # And a proposal stays out of the dataset.
     coco = read_json(j / "dataset_coco.json")
     cats = {c["id"]: c["name"] for c in coco["categories"]}

@@ -172,8 +172,9 @@ def test_core2_every_label_exports_how_it_was_decided(finished):
     assert all(a["attributes"].get("decision_route") for a in keyframe_anns), keyframe_anns[0]["attributes"]
     flowed = [a for a in coco["annotations"] if a["attributes"].get("propagated")]
     assert flowed and all(a["attributes"].get("decision_route") for a in flowed)
-    provenance = read_jsonl(finished / "provenance.jsonl")
-    assert provenance and all(r.get("route") for r in provenance if r.get("status")), provenance[0]
+    provenance = [r for r in read_jsonl(finished / "provenance.jsonl") if r.get("type") == "keyframe_label"]
+    assert provenance, "provenance has no per-label rows"
+    assert all(r.get("route") for r in provenance), [r for r in provenance if not r.get("route")][:1]
 
 
 # ---------- core 3: ingest keeps no identity ----------
@@ -372,6 +373,12 @@ def test_core5_plan_limit_that_never_lifts_leaves_a_paused_job_not_a_failed_one(
     "5-hour limit reached",
     "Weekly limit reached, resets Monday",
     "rate limit exceeded",
+    # Strings found in the installed Claude Code 2.1.316 binary. Which of them reach a headless call is not known.
+    "Usage limit reached",
+    "You've reached your Fable limit",
+    "You've hit your limit \u00b7 resets 7pm",
+    "Your 5-hour limit resets at 7pm",
+    "until your limit resets at 7pm",
 ])
 def test_core5_real_limit_wordings_are_recognised(wording):
     """The pause rests on recognising the wording of a limit, so each known form has to match."""
@@ -385,6 +392,13 @@ def test_core5_real_limit_wordings_are_recognised(wording):
     "cannot read /tmp/frames/kf_00429/429.jpg",
     "connection refused",
     "Not logged in. Please run /login",
+    "output token limit reached",
+    # From the installed binary too. The first two name the usage limit only to say it is not the cause.
+    "Server is temporarily limiting requests (not your usage limit)",
+    "Claude is temporarily limiting requests to the usage page (not your usage limit). Try again in a moment.",
+    "Context limit reached",
+    "Budget limit reached ($5.00 of $5)",
+    "Concurrent subagent limit reached.",
 ])
 def test_core5_ordinary_errors_are_not_mistaken_for_a_limit(wording):
     """A real failure read as a plan limit would sit paused for hours instead of failing."""
@@ -588,19 +602,20 @@ def test_masks6_every_mask_is_a_draft_with_an_instance_id(finished):
 # ---------- masks 7: the bundle stands on its own ----------
 
 def test_masks7_bundle_resolves_and_explains_itself(world):
-    from surgproof import export
-
-    _coco_after_release(world)
-    bundle = export.dataset_bundle(world["job"])
-    assert bundle.exists()
     import zipfile
+
+    assert world["c"].get(f"{world['files']}/dataset_bundle.zip").status_code in (403, 404), "bundle served before release"
+    _coco_after_release(world)
+    bundle = world["job"] / "dataset_bundle.zip"
+    assert bundle.exists()
+    assert world["c"].get(f"{world['files']}/dataset_bundle.zip").status_code == 200
 
     with zipfile.ZipFile(bundle) as z:
         names = set(z.namelist())
         coco = json.loads(z.read(next(n for n in names if n.endswith("released_coco.json"))))
         missing = [i["file_name"] for i in coco["images"] if i["file_name"] not in names and "source.mp4" not in names]
         assert not missing, missing[:5]
-        for want in ("README", "schema", "licen", "phase", "narration", "tips", "prompts", "versions"):
+        for want in ("card", "schema", "licen", "phase", "narration", "tips", "prompts", "versions"):
             assert any(want in n.lower() for n in names), f"bundle has nothing for {want}: {sorted(names)[:30]}"
         prompts = z.read(next(n for n in names if "prompts" in n.lower())).decode()
         assert "This is one frame" in prompts, "full prompt text missing"

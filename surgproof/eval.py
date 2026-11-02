@@ -350,6 +350,20 @@ def score_routes(rows: list[dict], kf_index: dict, gt: GroundTruth) -> dict:
         for route, pairs in out.items()}
 
 
+def score_on_same_labels(decisions: list[dict], detect: list[dict], verify: list[dict], kf_index: dict, gt: GroundTruth) -> dict:
+    """Each pass alone, on only the labels the final step dared to decide. Final accuracy leaves out the hard labels
+    by construction, so comparing it with a pass scored on every label flatters it."""
+    resolved = {(r["kf"], r["label"]): r for r in decisions if r.get("status") in ("accept", "reject")
+                and r.get("kf") in kf_index and r.get("label") in C.LABELS}
+
+    def pairs(rows, field):
+        by_key = {(r["kf"], r["label"]): r.get(field) for r in rows}
+        return [(by_key[k], gt.present(kf_index[k[0]], k[1])) for k in resolved if isinstance(by_key.get(k), bool)]
+
+    return {"final": confusion(pairs(decisions, "final_present")), "detect": confusion(pairs(detect, "present")),
+            "verify": confusion(pairs(verify, "present"))}
+
+
 def score_decisions(rows: list[dict], kf_index: dict, gt: GroundTruth) -> dict:
     """Resolved labels only (what the dataset would contain), plus how many stayed amber and how they'd have scored."""
     resolved = [r for r in rows if r.get("status") in ("accept", "reject")]
@@ -562,6 +576,8 @@ def score_job(job: Path, raw: Path = DEFAULT_RAW, registry: Path = DEFAULT_REGIS
         "presence_verify_raw": score_presence(_read_jsonl(job / "verify.jsonl"), kf_index, gt, "present"),
         "presence_final": score_decisions(decisions, kf_index, gt),
         "by_route": score_routes(decisions, kf_index, gt),
+        "same_labels": score_on_same_labels(decisions, _read_jsonl(job / "detect.jsonl"), _read_jsonl(job / "verify.jsonl"),
+                                            kf_index, gt),
         "masks_keyframe": score_keyframe_masks(job, decisions, kf_index, gt),
         "all_frames": score_tracks(job, gt),
         "dataset_coco": score_coco(job / "dataset_coco.json", gt),
@@ -730,6 +746,14 @@ def aggregate(reports: list[dict], allow_spent: bool = False, allow_mixed_splits
     out["by_route"] = {route: {**_sum_confusions(blocks), "status_counts": {
         s: sum(b.get("status_counts", {}).get(s, 0) for b in blocks) for s in ("accept", "reject", "AMBER")}}
         for route, blocks in routes.items()}
+
+    out["same_labels"] = {}
+    for name in ("final", "detect", "verify"):
+        per_video = {v: _sum_confusions([r.get("same_labels", {}).get(name, {}) for r in rs]) for v, rs in by_video.items()}
+        accs = [c["accuracy"] for c in per_video.values() if c["n"]]
+        out["same_labels"][name] = {"pooled": _sum_confusions(list(per_video.values())),
+                                    "video_mean_accuracy": round(float(np.mean(accs)), 4) if accs else None,
+                                    "ci95_over_videos": video_ci(accs)}
 
     iou = {}
     for v, rs in by_video.items():
