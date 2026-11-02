@@ -617,9 +617,14 @@ def test_masks7_bundle_resolves_and_explains_itself(world):
         assert not missing, missing[:5]
         for want in ("card", "schema", "licen", "phase", "narration", "tips", "prompts", "versions"):
             assert any(want in n.lower() for n in names), f"bundle has nothing for {want}: {sorted(names)[:30]}"
-        prompts = z.read(next(n for n in names if "prompts" in n.lower())).decode()
-        assert "This is one frame" in prompts, "full prompt text missing"
-        assert re.search(r"claude-[a-z]+-\d", json.dumps(coco["info"]) + prompts) or "mock" in prompts
+        prompts = json.loads(z.read(next(n for n in names if "prompts" in n.lower())))
+        assert "This is one frame" in json.dumps(prompts), "full prompt text missing"
+        unresolved = [h for h, p in prompts["hashes"].items() if not p.get("text")]
+        assert not unresolved, f"{len(unresolved)} of {len(prompts['hashes'])} prompt hashes have no text"
+        versions = json.loads(z.read("versions.json"))
+        assert versions.get("code") or versions.get("code_version"), versions
+        models = json.dumps(versions.get("models") or versions.get("model_ids"))
+        assert models not in ("null", "[]", "{}"), f"no pinned model ids: {versions}"
 
 
 # ---------- web 1: local, signed in, allowlisted ----------
