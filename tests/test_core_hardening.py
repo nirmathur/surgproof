@@ -426,6 +426,11 @@ def test_spend_cap_stops_the_job_and_a_rerun_resumes_from_cache(isolated, stub_s
     "You've hit your session limit · resets 7pm",
     "5-hour limit reached",
     "API Error: 429 rate_limit_error",
+    "You've reached your Fable limit",  # this wording and the next four are from Claude Code 2.1.316
+    "Usage limit reached",
+    "· limit resets 7pm",
+    "until your limit resets at 7pm",
+    "Your weekly limit resets Monday",
     "HTTP 429",
     "status: 429",
     "error code: 429",
@@ -441,9 +446,24 @@ def test_plan_limit_messages_are_recognised(text):
     "output token limit reached",  # a real failure: pausing would only hide it for hours
     "file size limit reached",
     "context limit reached",
+    "Server is temporarily limiting requests (not your usage limit)",  # a blip: retry it, do not pause for hours
+    "Claude is temporarily limiting requests to the usage page (not your usage limit). Try again in a moment.",
+    "Your org is out of usage credits",  # never resets, so waiting cannot help: fail visibly
+    "Credit balance is too low",
 ])
 def test_other_errors_are_not_plan_limits(text):
     assert not vlm.is_usage_limit(text)
+
+
+def test_server_blip_mentioning_usage_limit_is_retried_not_paused(tmp_path, monkeypatch):
+    binary = tmp_path / "fake_claude"
+    text = "Server is temporarily limiting requests (not your usage limit)"
+    binary.write_text(f"#!{sys.executable}\nimport json\nprint(json.dumps({{'is_error': True, 'result': {text!r}, 'total_cost_usd': 0}}))\n")
+    binary.chmod(0o755)
+    monkeypatch.setenv("SURGPROOF_CLAUDE_BIN", str(binary))
+    with pytest.raises(vlm.VlmError) as caught:
+        vlm._claude_cli([], "q", "m")
+    assert not isinstance(caught.value, vlm.VlmUsageLimit)
 
 
 def test_plan_limit_pauses_then_resumes_without_failing(isolated, stub_stages, monkeypatch):
