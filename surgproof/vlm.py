@@ -32,7 +32,8 @@ SYSTEM_PROMPT = (
 PAUSE_POLL_S = 300  # how often a job paused by a plan limit tries again
 MAX_PAUSE_S = 6 * 3600  # after this the job stops, and running it again resumes from the cache
 USAGE_LIMIT = re.compile(
-    r"(usage|session|weekly|plan|hourly|daily)\s+limit|limit\s+(reached|will\s+reset)|hit\s+your\b.*\blimit|rate[_ -]?limit|\b429\b",
+    r"(usage|session|weekly|plan|hourly|daily|\d+-hour)\s+limit|limit\s+will\s+reset|hit\s+your\b.*\blimit|rate[_ -]?limit"
+    r"|\b(http|status|error|code)\s*:?\s*429\b",
     re.I,
 )
 GEMINI_MODELS = {SONNET: "gemini-4-argon", HAIKU: "gemini-3.8-flash"}

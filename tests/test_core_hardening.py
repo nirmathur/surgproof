@@ -426,12 +426,22 @@ def test_spend_cap_stops_the_job_and_a_rerun_resumes_from_cache(isolated, stub_s
     "You've hit your session limit · resets 7pm",
     "5-hour limit reached",
     "API Error: 429 rate_limit_error",
+    "HTTP 429",
+    "status: 429",
+    "error code: 429",
 ])
 def test_plan_limit_messages_are_recognised(text):
     assert vlm.is_usage_limit(text)
 
 
-@pytest.mark.parametrize("text", ["Not logged in", "boom", "Image too large"])
+@pytest.mark.parametrize("text", [
+    "Not logged in", "boom", "Image too large",
+    "Parse error at line 429 of the response",  # a bare 429 is not a rate limit
+    "cannot read /tmp/frames/kf_00429/429.jpg",
+    "output token limit reached",  # a real failure: pausing would only hide it for hours
+    "file size limit reached",
+    "context limit reached",
+])
 def test_other_errors_are_not_plan_limits(text):
     assert not vlm.is_usage_limit(text)
 

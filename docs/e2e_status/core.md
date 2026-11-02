@@ -11,7 +11,7 @@ DONE, by brief item:
 6. Narration: whole-clause grammar stays. Every segment starts "AI draft." and narration.json has `draft` and `notice`. "Verified" wording removed from narration, the narration prompt and the CLI.
 
 TESTS:
-- tests/test_core_*.py: 188 pass, 1 real-model test opt-in. 50 of the first 51 hardening tests failed on the old code. The disguised-playlist test already passed, so it is a guard, not proof of a fix.
+- tests/test_core_*.py: 197 pass, 1 real-model test opt-in. 50 of the first 51 hardening tests failed on the old code. The disguised-playlist test already passed, so it is a guard, not proof of a fix.
 - Merged run with masks, web and qa at f637afe: 358 pass, 7 fail, 2 skipped. All 7 assert old behaviour the brief changed; none is a core defect. Listed below, QA is updating them. So QA's suite is NOT green until that lands.
   test_qa_redteam: test_nothing_seen_means_nothing_drawn, test_unsure_model_stays_amber_and_nothing_is_exported, test_degenerate_polygon_is_never_accepted, test_absurd_coordinates_do_not_become_a_full_frame_mask, test_rerun_into_the_same_folder_leaves_no_stale_results (nothing accepted now exits 1).
   test_e2e: test_masks_only_for_accepted_present (masks' AMBER proposal for cystic_duct now exists), test_scorer_finds_truth_for_remuxed_source_and_frames_align (presence_final n is 30 with 6 amber, not 36).
