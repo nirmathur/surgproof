@@ -114,10 +114,15 @@ def write_done(job: Path) -> None:
 
 def finished_job(jobs_dir: Path, job_id: str = "job-done") -> Path:
     """A complete job on disk, with the dataset built by the real surgproof.export."""
-    from surgproof import export
-
     job = jobs_dir / job_id
     job.mkdir(parents=True)
+    fill_finished_job(job)
+    return job
+
+
+def fill_finished_job(job: Path) -> None:
+    from surgproof import export
+
     make_contract_files(job)
     write_jsonl(job / "masks.jsonl", [
         {"kf": row["kf"], "label": row["label"], "status": row["status"], "path": f"masks/{row['kf']}_{row['label']}.png",
@@ -125,7 +130,6 @@ def finished_job(jobs_dir: Path, job_id: str = "job-done") -> Path:
         for row in map(json.loads, (job / "decisions.jsonl").read_text().splitlines())])
     export.run(job)
     write_done(job)
-    return job
 
 
 # ---- a real client: same sign-in and attestation route a browser uses ----
@@ -171,6 +175,14 @@ def pipeline_ok(video: str, out: str, **options) -> None:
 
 def pipeline_boom(video: str, out: str, **options) -> None:
     raise RuntimeError("synthetic failure in the pipeline")
+
+
+def pipeline_done_then_linger(video: str, out: str, **options) -> None:
+    """Reports done with every output written, then takes a while to exit, as a process winding down does."""
+    import os
+
+    fill_finished_job(Path(out))
+    time.sleep(float(os.environ.get("WEB_TEST_LINGER_SECONDS", "4")))
 
 
 def pipeline_done_with_nothing(video: str, out: str, **options) -> None:

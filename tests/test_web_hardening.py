@@ -1031,6 +1031,55 @@ def hold_release_open(done: Path) -> subprocess.Popen:
     return hold_worker_lock(done)
 
 
+def finish_review_of_lingering_job(client, job_id):
+    url = f"/api/jobs/{job_id}/final-pass"
+    for item in client.get(url).json()["items"]:
+        assert client.post(url, json={"action": "approve", "kf": item["kf"], "label": item["label"]}).status_code == 200
+    return url
+
+
+def test_release_straight_after_done_waits_for_the_pipeline_to_exit(jobs, tmp_path, monkeypatch):
+    """Found by qa: status says done while the worker is still exiting, and the release got a confusing 409."""
+    monkeypatch.setenv("WEB_TEST_LINGER_SECONDS", "3")
+    with open_client(jobs, "tests.web_fixture:pipeline_done_then_linger") as client:
+        fx.sign_in(client, jobs)
+        job_id = upload_job(client, tmp_path)
+        wait_state(client, job_id, "done")
+        assert job_id in client.app.state.runner.active, "the window this test is about must be open"
+        url = finish_review_of_lingering_job(client, job_id)
+        assert job_id in client.app.state.runner.active, "the window must still be open at the release"
+        res = client.post(url, json={"action": "release", "wait": True})
+        assert res.status_code == 200, res.text
+        assert (jobs / job_id / "released_coco.json").exists()
+
+
+def test_worker_that_will_not_exit_gets_a_true_message(jobs, tmp_path, monkeypatch):
+    monkeypatch.setenv("WEB_TEST_LINGER_SECONDS", "30")
+    monkeypatch.setattr(server, "WORKER_EXIT_GRACE_SECONDS", 0.2)
+    with open_client(jobs, "tests.web_fixture:pipeline_done_then_linger") as client:
+        fx.sign_in(client, jobs)
+        job_id = upload_job(client, tmp_path)
+        wait_state(client, job_id, "done")
+        url = finish_review_of_lingering_job(client, job_id)
+        res = client.post(url, json={"action": "release"})
+        assert res.status_code == 409 and "has not exited yet" in res.json()["detail"]
+        assert not (jobs / job_id / server.RELEASE_STATUS).exists()
+
+
+def test_a_running_release_is_still_refused_at_once(client, done, monkeypatch):
+    """The wait is only for a pipeline winding down, not for a release that is really running."""
+    clear_queue_only(client)
+    holder = hold_release_open(done)
+    try:
+        started = time.time()
+        res = post_fp(client, action="release")
+        assert res.status_code == 409 and "being released" in res.json()["detail"]
+        assert time.time() - started < server.WORKER_EXIT_GRACE_SECONDS
+    finally:
+        holder.kill()
+        holder.wait()
+
+
 def test_nothing_can_change_while_a_release_runs(client, done):
     clear_queue_only(client)
     holder = hold_release_open(done)

@@ -73,6 +73,7 @@ SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 WORKER_LOCK = ".worker.lock"
 RELEASE_STATUS = "release_status.json"
 RELEASE_WAIT_POLL_SECONDS = 0.2
+WORKER_EXIT_GRACE_SECONDS = 15  # status.json says done a moment before the pipeline's process has gone
 UPLOAD_CHECK_SECONDS = 0.5
 
 UPLOAD_NOTICE = (
@@ -370,9 +371,13 @@ class Runner:
                     return
                 proc = subprocess.Popen(cmd, cwd=REPO, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
                 self._procs[job_id] = proc
-            while (code := proc.poll()) is None:
+            while True:
                 self._drop_upload(job_id, job_dir)
-                time.sleep(UPLOAD_CHECK_SECONDS)
+                try:
+                    code = proc.wait(timeout=UPLOAD_CHECK_SECONDS)  # returns as soon as it exits, unlike a sleep
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
         # However the worker ended, a claude or ffmpeg it started must not run on, spending money, with no owner.
         with contextlib.suppress(ProcessLookupError, PermissionError):
             os.killpg(proc.pid, signal.SIGKILL)
@@ -424,8 +429,10 @@ class Runner:
     def start_release(self, job_id: str, job_dir: Path, reviewer: str) -> None:
         """Not through the job pool: a person who finished reviewing should not queue behind someone else's upload."""
         with self._lock:
-            if job_id in self.active or self._stopping:
-                raise RuntimeError("this job already has a worker")
+            if self._stopping:
+                raise RuntimeError("the server is stopping")
+            if job_id in self.active:
+                raise RuntimeError("the pipeline worker for this job has not exited yet: try again in a moment")
             self.active.add(job_id)
             self._dirs[job_id] = job_dir
         _write_release_status(job_dir, state="running", progress=0.0, message="Starting the release",
@@ -459,6 +466,11 @@ class Runner:
                 _write_release_status(job_dir, state="failed", locked=False, error=f"{type(exc).__name__}: {exc}", finished=now_iso())
         finally:
             self._release(job_id)
+
+    def wait_for_exit(self, job_id: str, seconds: float) -> None:
+        deadline = time.time() + seconds
+        while job_id in self.active and time.time() < deadline:
+            time.sleep(0.05)
 
     def _signal_group(self, job_id: str, sig: int) -> None:
         """By the process we started, not the lock file: this works even before the worker has taken its lock."""
@@ -1778,6 +1790,9 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
         require_done(job_dir)
         export = _export()
         reviewer = request.state.user  # from the session: any name in the request body is ignored
+        if body.action == "release" and not release_running(job_dir, runner):
+            # The job reads done, so its pipeline is only winding down. Outside the job lock: pages keep answering.
+            runner.wait_for_exit(job_id, WORKER_EXIT_GRACE_SECONDS)
         with store.lock(job_id):
             if (job_dir / "released_coco.json").exists():
                 raise HTTPException(409, "this dataset has already been released")
