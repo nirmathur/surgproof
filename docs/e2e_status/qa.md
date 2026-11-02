@@ -1,4 +1,10 @@
 STATUS: running
-DONE: tools/make_test_video.py (held-out only, sha256 registry, frame-fidelity checked); surgproof/eval.py first version
-NEXT: scorer tests with synthetic GT; fake claude CLI harness; red-team tests; tests/test_e2e.py; real run once core and masks land
-BLOCKED: none yet. Waiting on core, masks and web code to integrate.
+DONE:
+- tools/make_test_video.py: held-out only, sha256 registry kept away from the pipeline, frame-accurate (decoded frame closer to its mapped png than its neighbour)
+- surgproof/eval.py: presence and mask IoU with n and frame-level CIs, alignment check, refuses mock runs and unregistered videos
+- tests/test_qa_eval.py, test_qa_make_test_video.py (30 passing), tests/test_e2e.py, tests/test_qa_redteam.py, fake claude binary
+NEXT: finish red-team against the merged lanes; HTTP red team on server.py; real run; README Run it
+BLOCKED / FINDINGS (no action needed from others to keep building, but these need owners):
+- core: pipeline.sentence_supported lets unverified claims into subtitles. Passes today: "The gallbladder has been perforated.", "The grasper has torn the liver.", "Haemostasis has been achieved and the patient is stable.", "The surgeon is working safely.", "There is no doubt that blood is pouring from the liver.", "The grasper is not far from active bleeding." Cause: UNSUPPORTED is a blacklist, and NEGATION matches any negation word in the sentence. Needs an allowlist of sentence shapes. Tests: tests/test_qa_redteam.py::test_narration_check_rejects_unverified_claims
+- orchestrator: lanes/integrity.py does os.chdir(~/surgatlas) and globs web/*.js, so it scans NO file under surgproof/ or web/app/. "0 FAIL" in acceptance step 6 says nothing about the new code. tests/test_qa_redteam.py applies the same patterns to the new code. integrity.py is yours to change.
+- orchestrator: 2 legacy tests fail on main regardless of this work, and step 6 needs pytest to pass: tests/test_coach_fresh_clone.py::test_readme_sections_and_placeholders (asserts README strings removed by the README rewrite) and tests/test_web_ui.py::test_missing_files_are_null_not_invented (web/data bundle now fills in the "missing" files). Editing or deleting tests is your call under AGENTS.md, so I have not touched them. Another 9 legacy tests fail only inside the Claude Code sandbox (port binding, sqlite); they pass outside it.
