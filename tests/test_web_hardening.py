@@ -29,6 +29,12 @@ ROOT = Path(__file__).resolve().parent.parent
 HANG = "tests.web_fixture:pipeline_hang"
 
 
+@pytest.fixture(autouse=True)
+def roomy_disk(monkeypatch):
+    """This machine runs low on disk, and only the disk tests here should depend on that."""
+    monkeypatch.setenv("SURGPROOF_MIN_FREE_MB", "1")
+
+
 @pytest.fixture
 def jobs(tmp_path):
     return tmp_path / "jobs"
@@ -263,8 +269,10 @@ def test_unreleased_artifacts_are_gated(client, done, name):
 
 def test_released_artifacts_are_served_after_release(client, done):
     clear_and_release(client)
-    for name in server.DOWNLOADABLE:
+    for name in ("annotated.mp4", "released_coco.json", "provenance.jsonl", "final_pass.jsonl"):
         assert client.get(f"/api/jobs/job-done/files/{name}").status_code == 200, name
+    for name in server.DOWNLOADABLE:  # the rest appear as the release produces them
+        assert client.get(f"/api/jobs/job-done/files/{name}").status_code == (200 if (done / name).exists() else 404), name
 
 
 @pytest.mark.parametrize("path", [
@@ -278,6 +286,17 @@ def test_everything_off_the_allowlist_is_not_served_even_after_release(client, d
     (done / "upload.mp4").write_bytes(b"x")
     clear_and_release(client)
     assert client.get(f"/api/jobs/job-done/files/{path}").status_code == 404, path
+
+
+def test_release_artifacts_stay_gated_before_release(client, done):
+    for name in ("dataset_bundle.zip", "release_manifest.json"):
+        (done / name).write_bytes(b"x")
+        assert client.get(f"/api/jobs/job-done/files/{name}").status_code == 403
+
+
+def test_audited_propagated_frame_is_served_like_a_keyframe(client, done):
+    shutil.copy(done / "frames" / "kf_00000.jpg", done / "frames" / "prop_000005.jpg")
+    assert client.get("/api/jobs/job-done/files/frames/prop_000005.jpg").status_code == 200
 
 
 def test_frames_are_served_for_the_review_page(client, done):
@@ -357,6 +376,73 @@ def test_original_name_in_meta_is_not_passed_to_the_browser(client, done):
     meta = json.loads((done / "meta.json").read_text())
     (done / "meta.json").write_text(json.dumps({**meta, "original_name": "SMITH_JOHN.mp4"}))
     assert "SMITH" not in client.get("/api/jobs/job-done").text
+
+
+def test_original_upload_goes_once_ingest_is_done_but_retry_still_works(jobs, tmp_path, monkeypatch):
+    """On the real pipeline with the mock model. Audio and metadata must not survive anywhere in the job."""
+    pytest.importorskip("surgproof.pipeline")
+    pytest.importorskip("surgproof.export")
+    monkeypatch.setenv("SURGPROOF_VLM", "mock")
+    monkeypatch.setenv("SURGPROOF_VLM_BACKOFF_S", "0")
+    monkeypatch.delenv("SURGPROOF_CACHE", raising=False)
+    tagged = tmp_path / "tagged.mp4"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc=duration=3:size=320x180:rate=10",
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-shortest", "-metadata", "title=SMITH_JOHN_MRN12345", str(tagged)], check=True)
+    with fx.local_client(server.create_app(jobs)) as real:
+        fx.sign_in(real, jobs)
+        job_id = send_video(real, tagged, **fx.attestation()).json()["id"]
+        job = jobs / job_id
+        body = wait_state(real, job_id, "done", "failed", "stalled")
+        assert body["state"] == "done", body
+        assert not list(job.glob("upload.*")), "the original file, with its audio and metadata, is still there"
+        record = json.loads((job / "job.json").read_text())
+        assert record["upload"] is None and record["upload_deleted_at"]
+        for path in job.rglob("*"):
+            if path.is_file():
+                assert b"SMITH_JOHN" not in path.read_bytes(), path.name
+        streams = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-of", "csv=p=0",
+                                  str(job / "source.mp4")], capture_output=True, text=True).stdout.split()
+        assert streams == ["video"]
+
+        # Retry has no upload left to use, so it must run from the stripped copy.
+        (job / "annotated.mp4").unlink()
+        wait_state(real, job_id, "failed")  # once the worker has exited
+        assert real.post(f"/api/jobs/{job_id}/retry").status_code == 200
+        body = wait_state(real, job_id, "done", "failed", "stalled")
+        assert body["state"] == "done", body
+        assert (job / "annotated.mp4").exists()
+        assert real.get(f"/api/jobs/{job_id}/video").status_code == 200
+
+
+def test_upload_is_kept_while_ingest_has_not_finished(tmp_path):
+    job = tmp_path / "job"
+    job.mkdir()
+    (job / "upload.mp4").write_bytes(b"original")
+    (job / "job.json").write_text(json.dumps({"upload": "upload.mp4"}))
+    (job / "status.json").write_text(json.dumps({"stage": "ingest", "error": None}))
+    (job / "meta.json").write_text(json.dumps({"source": "source.mp4"}))
+    assert server.drop_upload_after_ingest(job) is False, "no source.mp4 yet"
+    (job / "source.mp4").write_bytes(b"stripped")
+    assert server.drop_upload_after_ingest(job) is False, "ingest is still running"
+    assert (job / "upload.mp4").exists()
+    (job / "status.json").write_text(json.dumps({"stage": "detect", "error": None}))
+    assert server.drop_upload_after_ingest(job) is True
+    assert not (job / "upload.mp4").exists()
+    assert server.pipeline_input(job).name == "source.mp4"
+
+
+def test_leftover_upload_is_dropped_at_startup(jobs):
+    """A server that died mid-job never got to delete it."""
+    job = jobs / "job-x"
+    job.mkdir(parents=True)
+    (job / "upload.mp4").write_bytes(b"original")
+    (job / "source.mp4").write_bytes(b"stripped")
+    (job / "job.json").write_text(json.dumps({"upload": "upload.mp4"}))
+    (job / "meta.json").write_text(json.dumps({"source": "source.mp4"}))
+    (job / "status.json").write_text(json.dumps({"stage": "render", "error": None}))
+    with open_client(jobs):
+        assert not (job / "upload.mp4").exists()
 
 
 def test_kf_fps_is_capped(client, jobs, tmp_path):
@@ -526,7 +612,7 @@ def low_disk(monkeypatch, free: int):
 
 def test_upload_is_refused_up_front_when_the_disk_is_short(client, jobs, tmp_path, monkeypatch):
     video = fx.make_video(tmp_path / "clip.mp4")
-    low_disk(monkeypatch, 10 * 1024**2)
+    low_disk(monkeypatch, 1024)
     res = send_video(client, video, **fx.attestation())
     assert res.status_code == 507
     assert "disk" in res.json()["detail"]
@@ -855,6 +941,21 @@ def test_overlay_says_who_each_annotation_belongs_to(client, done):
     assert other_key["origin"] == "ai_keyframe"
     # Tracked from a reviewed keyframe is still not something a person saw.
     assert grasper_tracked["origin"] == "propagated" and grasper_tracked["derived_from_reviewed"] is True
+
+
+def test_a_person_seeing_a_tracked_frame_marks_only_that_frame(client, done):
+    fx.write_jsonl(done / "final_pass.jsonl", [{"kf": "prop_000005", "label": "grasper", "action": "approve", "reviewer": "x"}])
+    frames = client.get("/api/jobs/job-done/overlay", params={"start": 5, "end": 7}).json()["frames"]
+    assert next(o for o in frames["5"] if o["label"] == "grasper")["origin"] == "human"
+    assert next(o for o in frames["6"] if o["label"] == "grasper")["origin"] == "propagated"
+
+
+def test_approve_on_an_ai_absent_label_needs_no_mask_but_a_silent_present_does(tmp_path):
+    job = tmp_path
+    (job / "masks").mkdir()
+    assert server.can_approve(job, "kf_00000", "blood", False) is True
+    assert server.can_approve(job, "kf_00000", "blood", True) is False
+    assert server.can_approve(job, "kf_00000", "blood", None) is False
 
 
 def test_health_reports_disk_and_needs_no_session(anon, monkeypatch):

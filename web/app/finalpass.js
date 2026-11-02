@@ -1,5 +1,13 @@
 import { h, api, postJson, jobHeader, labelColour, labelName, tracePolygon, drawChip, displayScale, AMBER } from '/lib.js';
 
+function whyHere(item) {
+  if (item.kind === 'amber') return item.reason || 'The amber loop did not settle this label';
+  if (item.kind === 'escalation') return 'The audit found too many errors, so every label now needs a person';
+  if (item.stratum === 'propagated') return 'Random audit of a frame tracked between keyframes';
+  if (item.ai_present === false) return 'Random audit of a label the AI said was absent';
+  return 'Random audit of a label the AI accepted on its own';
+}
+
 function boundsOf(item, width, height) {
   const points = item.outline.flat();
   if (item.verify_box) points.push([item.verify_box[0], item.verify_box[1]], [item.verify_box[2], item.verify_box[3]]);
@@ -130,7 +138,7 @@ export async function renderFinalPass(root, { id, user }) {
   function renderDetails(item) {
     const answer = (value) => (value === null || value === undefined ? 'no answer' : (value ? 'present' : 'absent'));
     const rows = [
-      ['Why here', item.kind === 'amber' ? (item.reason || 'The amber loop did not settle this label') : 'Random audit of a label the AI accepted on its own'],
+      ['Why here', whyHere(item)],
       ['AI decision', item.ai_status],
       ['AI proposes', answer(item.ai_present)],
       ['Second pass', answer(item.verify_present)],
@@ -153,7 +161,7 @@ export async function renderFinalPass(root, { id, user }) {
       return;
     }
     actions.append(
-      h('button', { class: 'btn good', id: 'fp-approve', disabled: locked || !item.can_approve, title: item.can_approve ? null : 'The AI drew no mask here', onclick: () => review('approve') }, 'Approve', h('kbd', {}, 'A')),
+      h('button', { class: 'btn good', id: 'fp-approve', disabled: locked || !item.can_approve, title: item.can_approve ? null : 'The AI drew no mask here', onclick: () => review('approve') }, item.ai_present === false ? 'Approve: not present' : 'Approve', h('kbd', {}, 'A')),
       h('button', { class: 'btn bad', id: 'fp-reject', disabled: locked, onclick: () => review('reject') }, 'Not present', h('kbd', {}, 'X')),
       h('button', { class: 'btn', id: 'fp-draw', disabled: locked, onclick: () => { drawing = []; render(); } }, 'Draw correction', h('kbd', {}, 'D')));
     if (item.verdict) {
@@ -166,13 +174,14 @@ export async function renderFinalPass(root, { id, user }) {
     const button = h('button', {
       class: `btn ${pending === 0 && !state.released ? 'good' : ''}`,
       id: 'fp-release-btn',
-      disabled: pending > 0 || state.released,
+      disabled: state.locked || state.released,
       onclick: () => release(),
     }, state.released ? 'Released' : 'Release dataset');
-    const auditLine = `Audit: ${state.audit_reviewed} of ${state.n_audit} checked, ${state.audit_disagreements} corrected by you (random sample of ${state.n_audit_pool} auto-accepted labels).`;
+    const auditLine = `Audit: ${state.audit_reviewed} of ${state.n_audit} checked, ${state.audit_disagreements} corrected by you (random sample of the AI's own decisions).`;
     releaseBox.replaceChildren(
       h('h2', { style: 'margin:0' }, 'Release'),
       h('p', { class: 'small muted' }, auditLine),
+      state.escalation_reason ? h('div', { class: 'notice', id: 'fp-escalated' }, `Audit stop rule: ${state.escalation_reason}. Every keyframe label now needs a person before this can be released.`) : null,
       state.released
         ? h('p', { class: 'small' }, 'This dataset is released. ', h('a', { href: `#/jobs/${encodeURIComponent(id)}/download` }, 'Download it'))
         : h('p', { class: 'small muted' }, pending > 0 ? `Locked: ${pending} of ${state.total} items still need your decision.` : `Every item is reviewed. Releasing signs the dataset as ${user} and locks this page.`),

@@ -22,6 +22,11 @@ from tests import web_fixture as fx  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 
 
+@pytest.fixture(autouse=True)
+def roomy_disk(monkeypatch):
+    monkeypatch.setenv("SURGPROOF_MIN_FREE_MB", "1")
+
+
 @pytest.fixture
 def jobs(tmp_path):
     return tmp_path / "jobs"

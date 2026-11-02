@@ -71,6 +71,7 @@ JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$")
 PUBLIC_API = {"/api/health", "/api/auth/state", "/api/auth/setup", "/api/auth/login", "/api/auth/logout"}
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 WORKER_LOCK = ".worker.lock"
+UPLOAD_CHECK_SECONDS = 0.5
 
 UPLOAD_NOTICE = (
     "Frames from this video are sent to a third-party AI model provider to be labelled. "
@@ -96,10 +97,11 @@ TERMINAL_STAGES = {"done"}
 # A job is only "done" if these exist. A status line saying so is not enough.
 REQUIRED_OUTPUTS = ["decisions.jsonl", "annotated.mp4", "dataset_coco.json", "provenance.jsonl"]
 # Served over HTTP only by exact name. Nothing else in a job folder is reachable: not masks, logs, raw model rows.
-FRAME_FILE_RE = re.compile(r"^frames/kf_\d+\.jpg$")
+FRAME_FILE_RE = re.compile(r"^frames/(kf_|prop_)\d+\.jpg$")  # prop_: a propagated frame queued for audit
 # Nothing is exported until a person has released it (VISION.md, FINAL PASS). Watch shows the AI draft in the app.
-RELEASE_GATED_FILES = {"dataset_coco.json", "released_coco.json", "annotated.mp4", "provenance.jsonl", "final_pass.jsonl"}
-DOWNLOADABLE = ["annotated.mp4", "released_coco.json", "provenance.jsonl", "final_pass.jsonl"]
+DOWNLOADABLE = ["annotated.mp4", "released_coco.json", "dataset_bundle.zip", "provenance.jsonl", "final_pass.jsonl",
+                "release_manifest.json"]
+RELEASE_GATED_FILES = {"dataset_coco.json", *DOWNLOADABLE}
 RAW_REF_FILES = ("detect.jsonl", "verify.jsonl", "decisions.jsonl", "phase.jsonl", "narration.json", "provenance.jsonl")
 
 HELD_STATUS = "AMBER"
@@ -319,7 +321,10 @@ class Runner:
                 if self._stopping or job_id in self._stopped_jobs:
                     return
             proc = subprocess.Popen(cmd, cwd=REPO, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
-            code = proc.wait()
+            while (code := proc.poll()) is None:
+                self._drop_upload(job_id, job_dir)
+                time.sleep(UPLOAD_CHECK_SECONDS)
+        self._drop_upload(job_id, job_dir)
         status = read_json(job_dir / "status.json", {}) or {}
         finished = normalise_stage(status.get("stage")) in TERMINAL_STAGES
         with self._lock:
@@ -336,6 +341,13 @@ class Runner:
             self._fail(job_id, job_dir, "the worker exited without finishing the job")
         else:
             self._fail(job_id, job_dir, f"the worker exited with code {code}: {_log_tail(log_path)}")
+
+    @staticmethod
+    def _drop_upload(job_id: str, job_dir: Path) -> None:
+        try:
+            drop_upload_after_ingest(job_dir)
+        except OSError as exc:
+            log.error("job %s: could not delete the original upload: %s", job_id, exc)
 
     def stop(self, job_id: str, job_dir: Path, timeout: float = 20.0) -> None:
         """Kill this job's worker and wait until the runner has let go of it."""
@@ -444,11 +456,35 @@ class Store:
 
 
 def upload_path(job_dir: Path) -> Optional[Path]:
-    """The file as uploaded: what a retry feeds back to the pipeline."""
+    """The file as uploaded, with whatever audio and metadata it came with. Gone once ingest has finished."""
     record = read_json(job_dir / "job.json", {}) or {}
     if record.get("upload") and (job_dir / record["upload"]).is_file():
         return job_dir / record["upload"]
     return None
+
+
+def pipeline_input(job_dir: Path) -> Optional[Path]:
+    """What a retry feeds the pipeline: the upload, or after ingest the stripped copy (core accepts it as its own input)."""
+    return upload_path(job_dir) or playable_video(job_dir)
+
+
+def drop_upload_after_ingest(job_dir: Path) -> bool:
+    """Delete the original file as soon as ingest has written the stripped source.mp4. Nothing later reads it."""
+    upload = upload_path(job_dir)
+    if upload is None or playable_video(job_dir) is None:
+        return False
+    status = read_json(job_dir / "status.json", {}) or {}
+    stage = normalise_stage(status.get("stage"))
+    if status.get("error") and not (job_dir / "frames").is_dir():
+        return False
+    if stage not in TERMINAL_STAGES and stage not in STAGE_KEYS[1:]:
+        return False
+    upload.unlink(missing_ok=True)
+    record = read_json(job_dir / "job.json", {}) or {}
+    record["upload"] = None
+    record["upload_deleted_at"] = now_iso()
+    write_json_atomic(job_dir / "job.json", record)
+    return True
 
 
 def playable_video(job_dir: Path) -> Optional[Path]:
@@ -871,8 +907,16 @@ def human_final_present(verdict: dict) -> bool:
 
 
 def has_mask(job_dir: Path, kf: str, label: str) -> bool:
-    """surgproof.export can only keep a keyframe annotation if the mask file exists."""
     return (job_dir / "masks" / f"{kf}_{label}.png").exists()
+
+
+def can_approve(job_dir: Path, kf: str, label: str, ai_present: Optional[bool]) -> bool:
+    """Approve agrees with the AI, so there must be something to agree with: its mask, or its answer of absent.
+
+    In surgproof.export an approve with no mask means absent. An AI that said present but drew nothing must not
+    turn into that by a click on Approve.
+    """
+    return has_mask(job_dir, kf, label) or ai_present is False
 
 
 def final_pass_view(store: Store, job_dir: Path, include_items: bool = True) -> dict:
@@ -895,7 +939,9 @@ def final_pass_view(store: Store, job_dir: Path, include_items: bool = True) -> 
         "n_audit": lock["n_audit"],
         "n_audit_pool": (read_json(job_dir / "final_pass_queue.json", {}) or {}).get("n_accepted_pool"),
         "audit_reviewed": len(audit_verdicts),
-        "audit_disagreements": sum(1 for v in audit_verdicts if v.get("action") != ACTION_APPROVE),
+        "audit_disagreements": lock.get("n_audit_failed", sum(1 for v in audit_verdicts if v.get("action") != ACTION_APPROVE)),
+        "n_escalation": lock.get("n_escalation", 0),
+        "escalation_reason": lock.get("escalation_reason"),
         "released": lock["released"],
         "width": meta.get("width"),
         "height": meta.get("height"),
@@ -907,6 +953,8 @@ def final_pass_view(store: Store, job_dir: Path, include_items: bool = True) -> 
         kf, label = entry["kf"], entry["label"]
         decision = decisions.get((kf, label), {})
         proposal = proposal_for(store, job_dir, kf, label, decision)
+        if entry.get("stratum") == "propagated":
+            proposal["present"] = True  # a propagated frame is only ever queued where the label was carried
         verdict = verdicts.get((kf, label))
         outline, outline_source = outline_for(job_dir, meta, kf, label, decision, proposal)
         view["items"].append({
@@ -925,7 +973,8 @@ def final_pass_view(store: Store, job_dir: Path, include_items: bool = True) -> 
             "rounds": [{k: v for k, v in r.items() if k != "polygon"} for r in entry.get("rounds") or []],
             "outline": outline,
             "outline_source": outline_source,
-            "can_approve": has_mask(job_dir, kf, label),
+            "can_approve": can_approve(job_dir, kf, label, proposal["present"]),
+            "stratum": entry.get("stratum"),
             "verdict": verdict,
             "final_present": human_final_present(verdict) if verdict else None,
         })
@@ -1158,7 +1207,9 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
         for job_id in store.list_ids():
             job_dir = store.jobs_dir / job_id
             status = read_json(job_dir / "status.json", {}) or {}
-            video = upload_path(job_dir)
+            video = pipeline_input(job_dir)
+            with contextlib.suppress(OSError):
+                drop_upload_after_ingest(job_dir)  # a server that died mid-job left it behind
             if (normalise_stage(status.get("stage")) == "queued" and not status.get("error") and video
                     and worker_pid(job_dir) is None):
                 options = (read_json(job_dir / "job.json", {}) or {}).get("options") or {}
@@ -1359,9 +1410,9 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                 raise HTTPException(409, "a person has already reviewed this job: a rerun would discard that review")
             if summary["state"] not in ("failed", "stalled"):
                 raise HTTPException(409, f"job is {summary['state']}, only failed or stalled jobs can be retried")
-            video = upload_path(job_dir)
+            video = pipeline_input(job_dir)
             if video is None:
-                raise HTTPException(409, "the uploaded video for this job is not available to retry")
+                raise HTTPException(409, "the video for this job is not available to retry")
             try:
                 if job_id in runner.active:
                     runner.stop(job_id, job_dir)
@@ -1475,6 +1526,7 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
         by_frame = store.cache.get("tracks_by_frame", job_dir / "tracks.jsonl",
                                    lambda: _group_tracks(read_jsonl(job_dir / "tracks.jsonl")), {})
         verdicts = latest_verdicts(job_dir)
+        prop_prefix = "prop_"  # how surgproof.export names a propagated frame queued for audit
         frames: dict[str, list[dict]] = {}
         pending: list[tuple[dict, Path]] = []
         for frame in range(start, end):
@@ -1483,20 +1535,25 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                 label = row.get("label")
                 keyframe = row.get("keyframe")
                 sources = row.get("source_kfs") or ([keyframe] if keyframe else [])
+                audited = verdicts.get((f"{prop_prefix}{frame:06d}", label))  # this exact tracked frame, audited
                 rulings = [verdicts[(kf, label)] for kf in sources if (kf, label) in verdicts]
+                if audited:
+                    rulings.append(audited)
                 overruled = [r for r in rulings if r.get("action") in (ACTION_REJECT, ACTION_CORRECT)]
                 box, polygons = row.get("box"), None
                 if overruled:
                     # Same rule as the released dataset: an overruled mask, and what flowed from it, is gone.
-                    drawn = next((r for r in overruled if r.get("kf") == keyframe and r.get("polygon")), None)
+                    exact = (keyframe, f"{prop_prefix}{frame:06d}")
+                    drawn = next((r for r in overruled if r.get("kf") in exact and r.get("polygon")), None)
                     if drawn is None:
                         continue
                     polygons = [drawn["polygon"]]
                     xs, ys = zip(*drawn["polygon"])
                     box = [min(xs), min(ys), max(xs), max(ys)]
                 # A person saw this exact keyframe label, or the AI drew it, or optical flow carried it here.
-                seen_by_human = bool(keyframe) and (keyframe, label) in verdicts
+                seen_by_human = audited is not None or (bool(keyframe) and (keyframe, label) in verdicts)
                 origin = "human" if seen_by_human else ("ai_keyframe" if keyframe else "propagated")
+                # "human" means this exact annotation was seen, on a tracked frame as much as on a keyframe.
                 entry = {
                     "label": label,
                     "box": box,
@@ -1548,7 +1605,10 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                 except export.ReleaseLocked as exc:
                     raise HTTPException(409, f"release is locked: {exc}") from exc
             elif body.action in (ACTION_APPROVE, ACTION_REJECT, ACTION_CORRECT):
-                if body.action == ACTION_APPROVE and not has_mask(job_dir, body.kf or "", body.label or ""):
+                kf, label = body.kf or "", body.label or ""
+                decision = store.decisions(job_dir).get((kf, label), {})
+                if (body.action == ACTION_APPROVE and not has_mask(job_dir, kf, label)
+                        and not can_approve(job_dir, kf, label, proposal_for(store, job_dir, kf, label, decision)["present"])):
                     raise HTTPException(422, "there is no AI mask to approve here: mark it not present, "
                                              "or draw a correction")
                 row = {"kf": body.kf, "label": body.label, "action": body.action,

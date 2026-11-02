@@ -5,6 +5,7 @@ browser, or binding a local port, is not available (some sandboxes refuse both).
 """
 from __future__ import annotations
 
+import os
 import shutil
 import socket
 import threading
@@ -36,6 +37,7 @@ def free_port() -> int:
 @pytest.fixture(scope="module")
 def site(tmp_path_factory):
     pytest.importorskip("surgproof.export")
+    os.environ["SURGPROOF_MIN_FREE_MB"] = "1"  # the disk preflight has its own tests
     jobs = tmp_path_factory.mktemp("browser") / "jobs"
     fx.finished_job(jobs)
     port = free_port()
@@ -113,6 +115,15 @@ def wait_for_annotated_frame(page, frame: int):
     page.wait_for_function(
         """(n) => { const t = document.querySelector('#watch-frame').textContent;
         return t.includes(`frame ${n} of`) && !t.includes('loading'); }""", arg=frame, timeout=60000)
+
+
+def click_on_canvas(page, fractions):
+    """Mouse clicks use viewport coordinates, and clicking a button can scroll the page: bring the canvas back first."""
+    canvas = page.locator("#fp-canvas")
+    canvas.scroll_into_view_if_needed()
+    box = canvas.bounding_box()
+    for fx_, fy in fractions:
+        page.mouse.click(box["x"] + box["width"] * fx_, box["y"] + box["height"] * fy)
 
 
 def canvas_has_pixels(page, selector: str) -> bool:
@@ -205,7 +216,7 @@ def test_final_pass_then_release_then_download(site, page):
     sign_in_browser(page.signed_in_context, site)
     page.goto(f"{base}/#/jobs/job-done/download")
     page.wait_for_selector(".dl")
-    assert page.locator(".dl").nth(1).locator("button").inner_text() == "Locked"
+    assert page.locator(".dl button").all_inner_texts() == ["Locked"] * page.locator(".dl").count()
 
     page.goto(f"{base}/#/jobs/job-done/final-pass")
     page.wait_for_selector("#fp-queue .fpitem")
@@ -217,9 +228,7 @@ def test_final_pass_then_release_then_download(site, page):
     # First up is the amber. Correct it by drawing, which goes through real canvas clicks.
     assert "kf_00001 · Gallbladder" in page.locator(".fpitem.on").inner_text()
     page.click("#fp-draw")
-    box = page.locator("#fp-canvas").bounding_box()
-    for fx_, fy in ((0.1, 0.1), (0.5, 0.1), (0.5, 0.6)):
-        page.mouse.click(box["x"] + box["width"] * fx_, box["y"] + box["height"] * fy)
+    click_on_canvas(page, ((0.1, 0.1), (0.5, 0.1), (0.5, 0.6)))
     page.click("#fp-save-draw")
     page.wait_for_function("document.querySelector('#fp-progress').textContent.startsWith('1 of')")
 
@@ -244,9 +253,9 @@ def test_final_pass_then_release_then_download(site, page):
 
     page.goto(f"{base}/#/jobs/job-done/download")
     page.wait_for_selector(".dl a.btn.primary")
-    assert page.locator(".dl a.btn.primary").count() == 4
+    assert page.locator(".dl a.btn.primary").count() >= 4
     with page.expect_download() as download_info:
-        page.locator(".dl").nth(1).locator("a").click()
+        page.locator(".dl[data-file='released_coco.json'] a").click()
     assert download_info.value.suggested_filename == "job-done_released_coco.json"
 
     # The wording must match the file: how many annotations a person actually reviewed.
@@ -294,9 +303,7 @@ def test_no_verdict_before_the_frame_is_on_screen(site, browser):
 
     # Points land in video pixels, wherever the canvas sits on screen.
     page.click("#fp-draw")
-    box = page.locator("#fp-canvas").bounding_box()
-    for x, y in ((32, 18), (160, 18), (160, 90)):
-        page.mouse.click(box["x"] + box["width"] * x / fx.W, box["y"] + box["height"] * y / fx.H)
+    click_on_canvas(page, [(x / fx.W, y / fx.H) for x, y in ((32, 18), (160, 18), (160, 90))])
     page.click("#fp-save-draw")
     page.wait_for_function("document.querySelector('#fp-progress').textContent.startsWith('1 of')")
     row = server.json.loads((job / "final_pass.jsonl").read_text().splitlines()[0])

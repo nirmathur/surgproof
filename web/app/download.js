@@ -16,7 +16,7 @@ function fileCard(title, description, url, name, info, lockedReason) {
 // Says exactly how much a person looked at, from the released file itself. Most of a dataset is unreviewed AI output.
 function reviewedLine(fp, counts) {
   if (!counts) return null;
-  const pool = fp.n_audit_pool === null || fp.n_audit_pool === undefined ? '' : ` drawn at random from ${fp.n_audit_pool} labels the AI accepted`;
+  const pool = fp.n_audit_pool === null || fp.n_audit_pool === undefined ? '' : ` drawn at random from ${fp.n_audit_pool} of the AI's decisions`;
   return h('section', { class: 'card stack', id: 'dl-reviewed' },
     h('h2', { style: 'margin:0' }, 'What was reviewed'),
     h('p', { class: 'small' },
@@ -45,6 +45,8 @@ export async function renderDownload(root, { id }) {
       url, 'annotated.mp4', out['annotated.mp4'], locked),
     fileCard('COCO dataset', 'Polygons, boxes and provenance attributes, with the final-pass decisions applied. Each annotation says whether a person reviewed it.',
       url, 'released_coco.json', out['released_coco.json'], locked),
+    fileCard('Dataset bundle', 'Everything in one zip, so every image in the dataset can be resolved.',
+      url, 'dataset_bundle.zip', out['dataset_bundle.zip'], fp.released && !out['dataset_bundle.zip'] ? 'Not produced by this release.' : locked),
     fileCard('Provenance', 'One row per annotation: model, prompt hash and how it was decided.',
       url, 'provenance.jsonl', out['provenance.jsonl'], locked),
     fileCard('Final-pass record', 'Every review click, with who made it and when.',
