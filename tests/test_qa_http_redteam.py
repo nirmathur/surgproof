@@ -210,7 +210,9 @@ def test_amber_excluded_until_resolved_then_follows_the_human(world):
 
 def test_human_reject_removes_the_label_and_what_flowed_from_it(world):
     items = view(world)["items"]
-    audit = [i for i in items if i["kind"] == "audit"][0]
+    # A keyframe item: this test follows what flowed from a keyframe, and a propagated sample has none of its own.
+    audit = [i for i in items if i["kind"] == "audit" and i.get("stratum") != "propagated" and i["kf"] in
+             {k["kf"] for k in read_json(world["job"] / "meta.json")["keyframes"]}][0]
     for i in items:
         target = (i["kf"], i["label"]) == (audit["kf"], audit["label"])
         action = "reject" if target or i["kind"] == "amber" else "approve"

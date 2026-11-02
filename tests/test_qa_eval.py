@@ -460,3 +460,18 @@ def test_routes_are_scored_apart_including_amber_suggestions():
     assert out["amber_said_absent"]["tn"] == 1 and out["amber_said_absent"]["fn"] == 1
     assert out["amber_said_absent"]["status_counts"]["AMBER"] == 2
     assert out["amber_unresolved"]["n"] == 0 and out["amber_unresolved"]["status_counts"]["AMBER"] == 1
+
+
+def test_passes_are_compared_on_the_labels_final_decided():
+    """The hard label went amber, so it must leave every pass's score, not only the final one."""
+    class Truth:
+        def present(self, frame, label):
+            return label == "liver"
+
+    dec = [{"kf": "a", "label": "liver", "status": "accept", "final_present": True},
+           {"kf": "a", "label": "blood", "status": "AMBER", "final_present": None}]
+    detect = [{"kf": "a", "label": "liver", "present": True}, {"kf": "a", "label": "blood", "present": True}]
+    verify = [{"kf": "a", "label": "liver", "present": False}, {"kf": "a", "label": "blood", "present": True}]
+    out = ev.score_on_same_labels(dec, detect, verify, {"a": 0}, Truth())
+    assert out["final"]["n"] == 1 and out["detect"]["n"] == 1 and out["verify"]["n"] == 1
+    assert out["final"]["accuracy"] == 1.0 and out["detect"]["accuracy"] == 1.0 and out["verify"]["accuracy"] == 0.0

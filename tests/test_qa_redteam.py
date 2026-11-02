@@ -51,9 +51,11 @@ def display_sources():
 
 def test_eval_is_the_only_ground_truth_reader():
     hits = []
+    # The dataset's licence notice has to name the footage it covers. It is the only mention allowed, and only verbatim.
+    licence_notice = "grants no rights to the footage. Footage from CholecSeg8k or Cholec80 is CC BY-NC-SA 4.0"
     for p in pipeline_sources():
         for i, line in enumerate(p.read_text().splitlines(), 1):
-            if line.strip().startswith("#"):
+            if line.strip().startswith("#") or (p.name == "export.py" and licence_notice in line):
                 continue
             for tok in LICENSED_GT_TOKENS:
                 if re.search(tok, line):
