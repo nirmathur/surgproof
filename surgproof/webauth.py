@@ -52,6 +52,7 @@ class LocalAuth:
         self._sessions: dict[str, tuple[str, float]] = {}
         self._failures: list[float] = []
         self._lock = threading.Lock()
+        self._setup_lock = threading.Lock()
 
     def account(self) -> Optional[dict]:
         try:
@@ -91,10 +92,11 @@ class LocalAuth:
 
     def setup(self, name: str, password: str, code: str) -> str:
         self._throttle()
-        name = name.strip()
-        with self._lock:
-            exists = self.account_path.exists()
-        if exists:
+        with self._setup_lock:  # two setups at once must not both pass the check below
+            return self._create_account(name.strip(), password, code)
+
+    def _create_account(self, name: str, password: str, code: str) -> str:
+        if self.account_path.exists():
             raise AuthError(409, "an account already exists on this machine")
         expected = self.setup_code() or ""
         if not hmac.compare_digest(code.strip().encode(), expected.encode()):

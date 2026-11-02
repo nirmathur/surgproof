@@ -277,6 +277,8 @@ class Runner:
         self._stopping = False
         self._stopped_jobs: set[str] = set()
         self._dirs: dict[str, Path] = {}
+        self._procs: dict[str, subprocess.Popen] = {}
+        self._futures: dict[str, cf.Future] = {}
         self._pool = cf.ThreadPoolExecutor(max_workers=max_jobs, thread_name_prefix="job")
 
     def submit(self, job_id: str, video: Path, job_dir: Path, options: dict) -> None:
@@ -288,12 +290,16 @@ class Runner:
             self._stopped_jobs.discard(job_id)
             self._dirs[job_id] = job_dir
         future = self._pool.submit(self._run, job_id, video, job_dir, options)
+        with self._lock:
+            self._futures[job_id] = future
         future.add_done_callback(lambda _: self._release(job_id))
 
     def _release(self, job_id: str) -> None:
         with self._lock:
             self.active.discard(job_id)
             self._dirs.pop(job_id, None)
+            self._procs.pop(job_id, None)
+            self._futures.pop(job_id, None)
 
     def _fail(self, job_id: str, job_dir: Path, reason: str) -> None:
         log.error("job %s failed: %s", job_id, reason)
@@ -317,13 +323,17 @@ class Runner:
                json.dumps(options)]
         log_path = job_dir / "worker.log"
         with log_path.open("ab") as out:
-            with self._lock:
+            with self._lock:  # with the check, so a stop either sees this process or prevents it
                 if self._stopping or job_id in self._stopped_jobs:
                     return
-            proc = subprocess.Popen(cmd, cwd=REPO, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+                proc = subprocess.Popen(cmd, cwd=REPO, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+                self._procs[job_id] = proc
             while (code := proc.poll()) is None:
                 self._drop_upload(job_id, job_dir)
                 time.sleep(UPLOAD_CHECK_SECONDS)
+        # However the worker ended, a claude or ffmpeg it started must not run on, spending money, with no owner.
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(proc.pid, signal.SIGKILL)
         self._drop_upload(job_id, job_dir)
         status = read_json(job_dir / "status.json", {}) or {}
         finished = normalise_stage(status.get("stage")) in TERMINAL_STAGES
@@ -353,22 +363,43 @@ class Runner:
         """Kill this job's worker and wait until the runner has let go of it."""
         with self._lock:
             self._stopped_jobs.add(job_id)
-        kill_worker_group(job_dir)
+            future = self._futures.get(job_id)
+        if future is not None and future.cancel():  # still waiting for a free slot: there is nothing to kill
+            self._release(job_id)
+            return
+        self._signal_group(job_id, signal.SIGTERM)
+        grace = time.time() + STOP_GRACE_SECONDS
         deadline = time.time() + timeout
         while time.time() < deadline:
             with self._lock:
                 if job_id not in self.active:
                     return
-            kill_worker_group(job_dir)  # it may only just have started
+            if time.time() >= grace:
+                self._signal_group(job_id, signal.SIGKILL)
             time.sleep(0.1)
         raise RuntimeError(f"could not stop the worker for job {job_id}")
+
+    def _signal_group(self, job_id: str, sig: int) -> None:
+        """By the process we started, not the lock file: this works even before the worker has taken its lock."""
+        with self._lock:
+            proc = self._procs.get(job_id)
+        if proc is not None:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(proc.pid, sig)
 
     def shutdown(self) -> None:
         with self._lock:
             self._stopping = True
-            dirs = list(self._dirs.values())
-        for job_dir in dirs:
-            kill_worker_group(job_dir)
+            jobs = list(self._procs)
+        for job_id in jobs:
+            self._signal_group(job_id, signal.SIGTERM)
+
+        def finish_killing() -> None:
+            time.sleep(STOP_GRACE_SECONDS)
+            for job_id in jobs:
+                self._signal_group(job_id, signal.SIGKILL)
+
+        threading.Thread(target=finish_killing, daemon=True).start()
         self._pool.shutdown(wait=True, cancel_futures=True)
 
 
@@ -709,6 +740,7 @@ def purge_cache(store: Store, job_dir: Path) -> int:
     path = cache_path(store)
     if not path.exists():
         return 0
+    shared = bool(os.environ.get("SURGPROOF_CACHE"))  # may hold other folders' jobs, which this cannot see
     others = [store.jobs_dir / name for name in store.list_ids() if name != job_dir.name]
     keep: set[str] = set()
     all_finished = True
@@ -724,7 +756,7 @@ def purge_cache(store: Store, job_dir: Path) -> int:
         has_table = con.execute("select 1 from sqlite_master where type='table' and name='vlm_cache'").fetchone()
         if not has_table:
             return 0
-        if all_finished:
+        if all_finished and not shared:
             stale = [row[0] for row in con.execute("select key from vlm_cache") if row[0] not in keep]
         else:
             stale = sorted(mine)
@@ -1183,8 +1215,8 @@ def released_counts(store: Store, job_dir: Path) -> Optional[dict]:
         attributes = [a.get("attributes") or {} for a in coco.get("annotations", [])]
         return {
             "n_annotations": len(attributes),
-            # A propagated annotation is never one a person saw, whatever flag it carries.
-            "n_human_reviewed": sum(1 for a in attributes if a.get("human_reviewed") and not a.get("propagated")),
+            # surgproof.export sets this only for the exact annotation a person saw, tracked frames included.
+            "n_human_reviewed": sum(1 for a in attributes if a.get("human_reviewed")),
             "n_propagated": sum(1 for a in attributes if a.get("propagated")),
         }
 

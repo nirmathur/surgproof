@@ -90,6 +90,7 @@ def make_contract_files(job: Path) -> None:
                 cv2.imwrite(str(tracks / f"{frame_index}_{label}.png"), _mask(box[0], box[1], box[2], box[3]))
             track_rows.append({"frame_index": frame_index, "label": label, "box": box, "box_raw": box,
                                "propagated": not is_key, "status": status, "source_kfs": [name],
+                               "fb_overlap": None if is_key else 0.95, "flow_check": "keyframe" if is_key else "ok",
                                "keyframe": name if is_key else None, "t": frame_index / FPS})
     write_jsonl(job / "detect.jsonl", detect)
     write_jsonl(job / "verify.jsonl", verify)
@@ -182,6 +183,16 @@ def pipeline_hang(video: str, out: str, **options) -> None:
     (Path(out) / "child.pid").write_text(str(child.pid), encoding="utf-8")
     (Path(out) / "status.json").write_text(json.dumps({"stage": "detect", "progress": 0.1, "error": None}), encoding="utf-8")
     time.sleep(600)
+
+
+def pipeline_die_with_child(video: str, out: str, **options) -> None:
+    """Dies leaving a child running, like a crash while waiting on claude."""
+    import os
+    import signal
+
+    child = subprocess.Popen(["sleep", "600"])
+    (Path(out) / "child.pid").write_text(str(child.pid), encoding="utf-8")
+    os.kill(os.getpid(), signal.SIGKILL)
 
 
 def pipeline_die_hard(video: str, out: str, **options) -> None:

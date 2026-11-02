@@ -261,7 +261,7 @@ def test_final_pass_then_release_then_download(site, page):
     # The wording must match the file: how many annotations a person actually reviewed.
     released = server.json.loads((jobs / "job-done" / "released_coco.json").read_text())
     n_all = len(released["annotations"])
-    n_seen = sum(1 for a in released["annotations"] if a["attributes"].get("human_reviewed") and not a["attributes"].get("propagated"))
+    n_seen = sum(1 for a in released["annotations"] if a["attributes"].get("human_reviewed"))
     text = page.locator("#dl-reviewed").inner_text()
     assert f"Of {n_all} annotations" in text and f"{n_seen} were individually reviewed" in text
     assert f"other {n_all - n_seen}" in text and "nobody looked at" in text

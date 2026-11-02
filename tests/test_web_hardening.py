@@ -119,6 +119,26 @@ def test_host_setting_cannot_expose_the_server(monkeypatch, tmp_path, env_host):
     assert captured["host"] == "127.0.0.1"
 
 
+def test_concurrent_setup_creates_one_account(jobs):
+    jobs.mkdir()
+    auth = webauth.LocalAuth(jobs)
+    code = auth.setup_code()
+    results = []
+
+    def attempt(name):
+        try:
+            results.append(auth.setup(name, "long enough pw", code))
+        except webauth.AuthError as exc:
+            results.append(exc.status)
+
+    import threading
+
+    threads = [threading.Thread(target=attempt, args=(f"N{i}",)) for i in range(4)]
+    [t.start() for t in threads]
+    [t.join() for t in threads]
+    assert sum(isinstance(r, str) for r in results) == 1
+
+
 def test_no_instruction_exposes_the_server():
     for path in (ROOT / "Makefile", ROOT / "surgproof" / "server.py"):
         assert "0.0.0.0" not in path.read_text(encoding="utf-8"), path.name
@@ -522,6 +542,16 @@ def test_delete_leaves_uncited_responses_while_another_job_could_resume(client, 
     assert cache_keys(cache) == {"b1", "b2-not-yet-cited"}
 
 
+def test_delete_leaves_uncited_rows_in_a_cache_shared_with_other_folders(client, jobs, tmp_path, monkeypatch):
+    job_with_refs(jobs, "job-a", ["a1"])
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    cache = seed_cache(shared, {"a1": "x", "someone-elses": "y"})
+    monkeypatch.setenv("SURGPROOF_CACHE", str(cache))
+    assert client.delete("/api/jobs/job-a").status_code == 200
+    assert cache_keys(cache) == {"someone-elses"}
+
+
 def test_real_pipeline_rows_cover_the_cache(client, jobs, tmp_path, monkeypatch):
     """On the real pipeline with the mock model: after delete, not one response from that job remains."""
     pytest.importorskip("surgproof.pipeline")
@@ -902,6 +932,41 @@ def test_hung_worker_reads_stalled_and_retry_kills_its_whole_group(jobs, tmp_pat
     wait_for(lambda: not pid_alive(new_child), 30)  # stopping the server takes workers with it
 
 
+def test_worker_crash_does_not_leave_its_child_running(jobs, tmp_path):
+    with open_client(jobs, "tests.web_fixture:pipeline_die_with_child") as client:
+        fx.sign_in(client, jobs)
+        job_id = upload_job(client, tmp_path)
+        wait_state(client, job_id, "failed")
+        child = int((jobs / job_id / "child.pid").read_text())
+        wait_for(lambda: not pid_alive(child), 20)
+
+
+def test_stopping_the_server_ends_a_worker_that_has_not_taken_its_lock_yet(jobs, tmp_path):
+    """The stop must not depend on the lock file: it hung forever on a worker still starting up."""
+    with open_client(jobs, HANG) as client:
+        fx.sign_in(client, jobs)
+        job_id = upload_job(client, tmp_path)
+        wait_for(lambda: bool(client.app.state.runner._procs.get(job_id)), 30)
+        proc = client.app.state.runner._procs[job_id]
+        started = time.time()
+    assert proc.poll() is not None
+    assert time.time() - started < 60
+
+
+def test_deleting_a_job_queued_behind_another_is_immediate(jobs, tmp_path):
+    with open_client(jobs, HANG) as client:
+        fx.sign_in(client, jobs)
+        first = upload_job(client, tmp_path)
+        second = upload_job(client, tmp_path)
+        wait_for((jobs / first / "child.pid").exists)
+        assert state_of(client, second)["state"] == "queued"
+        started = time.time()
+        assert client.delete(f"/api/jobs/{second}").status_code == 200
+        assert time.time() - started < 10
+        assert not (jobs / second).exists()
+        assert state_of(client, first)["state"] == "running", "the other job is untouched"
+
+
 def test_retry_is_refused_after_release(client, done):
     """The attack: damage a released job so it reads failed, then retry over the signed-off data."""
     clear_and_release(client)
@@ -1006,9 +1071,9 @@ def test_job_detail_counts_what_a_person_saw_from_the_released_file(client, done
     counts = client.get("/api/jobs/job-done").json()["released_counts"]
     released = json.loads((done / "released_coco.json").read_text())
     assert counts["n_annotations"] == len(released["annotations"])
-    seen = [a for a in released["annotations"] if a["attributes"].get("human_reviewed") and not a["attributes"].get("propagated")]
+    seen = [a for a in released["annotations"] if a["attributes"].get("human_reviewed")]
     assert counts["n_human_reviewed"] == len(seen)
-    assert counts["n_propagated"] > 0 and counts["n_human_reviewed"] < counts["n_annotations"], "a propagated frame is never one a person saw"
+    assert counts["n_propagated"] > 0 and counts["n_human_reviewed"] < counts["n_annotations"], "most tracked frames were never seen"
 
 
 def test_ui_does_not_claim_verification():
