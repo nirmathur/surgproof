@@ -12,11 +12,11 @@ import concurrent.futures as cf
 import contextlib
 import importlib
 import json
-import multiprocessing
 import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -58,7 +58,6 @@ REQUIRED_OUTPUTS = ["decisions.jsonl", "annotated.mp4", "dataset_coco.json", "pr
 RELEASE_GATED_FILES = {"dataset_coco.json"}
 DOWNLOADABLE = ["annotated.mp4", "released_coco.json", "provenance.jsonl", "final_pass.jsonl"]
 
-AUTO_STATUSES = ("accept", "reject")
 HELD_STATUS = "AMBER"
 ACTION_APPROVE, ACTION_REJECT, ACTION_CORRECT = "approve", "reject", "correct"
 
@@ -157,49 +156,73 @@ def probe_video(path: Path) -> dict:
 
 
 def _run_pipeline(target: str, video: str, out_dir: str, options: dict) -> None:
-    """Executed in a worker process. Importing here keeps the server up if the pipeline fails to import."""
+    """Runs in the job's child process. Importing here keeps the server up if the pipeline fails to import."""
     module_name, _, func_name = target.partition(":")
     func = getattr(importlib.import_module(module_name), func_name)
     func(video, out_dir, **options)
 
 
 class Runner:
-    """Runs one pipeline per worker process, so a native crash in a job cannot take the server down."""
+    """Up to max_jobs pipelines at once, each in its own process, so a native crash cannot take the server down."""
 
     def __init__(self, target: str, max_jobs: int):
         self.target = target
         self.active: set[str] = set()
+        self._procs: dict[str, subprocess.Popen] = {}
         self._lock = threading.Lock()
-        self._pool = cf.ProcessPoolExecutor(
-            max_workers=max_jobs,
-            mp_context=multiprocessing.get_context("spawn"),
-            max_tasks_per_child=1,
-        )
+        self._stopping = False
+        self._pool = cf.ThreadPoolExecutor(max_workers=max_jobs, thread_name_prefix="job")
 
     def submit(self, job_id: str, video: Path, job_dir: Path, options: dict) -> None:
         with self._lock:
             if job_id in self.active:
                 raise RuntimeError(f"job {job_id} is already active")
             self.active.add(job_id)
-        try:
-            future = self._pool.submit(_run_pipeline, self.target, str(video), str(job_dir), options)
-        except BaseException:
-            with self._lock:
-                self.active.discard(job_id)
-            raise
-        future.add_done_callback(lambda fut: self._finished(job_id, job_dir, fut))
+        future = self._pool.submit(self._run, job_id, video, job_dir, options)
+        future.add_done_callback(lambda _: self._release(job_id))
 
-    def _finished(self, job_id: str, job_dir: Path, future: cf.Future) -> None:
+    def _release(self, job_id: str) -> None:
         with self._lock:
             self.active.discard(job_id)
-        if future.cancelled():
+            self._procs.pop(job_id, None)
+
+    def _run(self, job_id: str, video: Path, job_dir: Path, options: dict) -> None:
+        cmd = [sys.executable, "-m", "surgproof.server", "--run-job", self.target, str(video), str(job_dir),
+               json.dumps(options)]
+        log_path = job_dir / "worker.log"
+        with log_path.open("ab") as log:
+            with self._lock:
+                if self._stopping:
+                    return
+                proc = subprocess.Popen(cmd, cwd=REPO, stdout=log, stderr=subprocess.STDOUT)
+                self._procs[job_id] = proc
+            code = proc.wait()
+        if code == 0:
             return
-        exc = future.exception()
-        if exc is not None:
-            write_status(job_dir, error=f"{type(exc).__name__}: {exc}")
+        # The pipeline records its own errors. This covers everything it cannot: import errors, native crashes.
+        status = read_json(job_dir / "status.json", {}) or {}
+        if not status.get("error"):
+            if self._stopping:
+                reason = "the server stopped while this job was running"
+            else:
+                reason = f"the worker exited with code {code}: {_log_tail(log_path)}"
+            write_status(job_dir, error=reason)
 
     def shutdown(self) -> None:
-        self._pool.shutdown(wait=False, cancel_futures=True)
+        with self._lock:
+            self._stopping = True
+            procs = list(self._procs.values())
+        for proc in procs:
+            with contextlib.suppress(OSError):
+                proc.terminate()
+        self._pool.shutdown(wait=True, cancel_futures=True)
+
+
+def _log_tail(path: Path, n_chars: int = 600) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")[-n_chars:].strip()
+    except OSError:
+        return ""
 
 
 # ---------------------------------------------------------------- job store
@@ -500,81 +523,69 @@ def latest_verdicts(job_dir: Path) -> dict[tuple[str, str], dict]:
     return verdicts
 
 
-def human_final_present(verdict: dict, ai_present: Optional[bool]) -> Optional[bool]:
-    action = verdict.get("action")
-    if action == ACTION_CORRECT:
-        return True
-    if action == ACTION_REJECT:
-        return False
-    return ai_present
+def human_final_present(verdict: dict) -> bool:
+    return verdict.get("action") != ACTION_REJECT
 
 
-def agrees_with_ai(verdict: dict, ai_present: Optional[bool]) -> bool:
-    action = verdict.get("action")
-    return action == ACTION_APPROVE or (action == ACTION_REJECT and ai_present is False)
+def has_mask(job_dir: Path, kf: str, label: str) -> bool:
+    """surgproof.export can only keep a keyframe annotation if the mask file exists."""
+    return (job_dir / "masks" / f"{kf}_{label}.png").exists()
 
 
 def final_pass_view(store: Store, job_dir: Path, include_items: bool = True) -> dict:
-    """The review queue and its progress. The lock itself is decided by surgproof.export."""
+    """The review queue and its progress. The queue and the lock themselves are decided by surgproof.export."""
     export = _export()
     queue = export.final_pass_queue(job_dir, audit_frac=AUDIT_FRACTION)
     lock = export.final_pass_state(job_dir)
     decisions = store.decisions(job_dir)
     verdicts = latest_verdicts(job_dir)
     meta = store.meta(job_dir)
-    frame_of, _, _ = keyframe_maps(meta)
 
-    n_amber = n_audit = audit_reviewed = audit_disagreements = 0
-    items = []
-    for entry in queue:
-        kf, label = entry["kf"], entry["label"]
-        key = (kf, label)
-        decision = decisions.get(key, {})
-        kind = "amber" if decision.get("status", HELD_STATUS) == HELD_STATUS else "audit"
-        n_amber += kind == "amber"
-        n_audit += kind == "audit"
-        proposal = proposal_for(store, job_dir, kf, label, decision)
-        verdict = verdicts.get(key)
-        if kind == "audit" and verdict:
-            audit_reviewed += 1
-            audit_disagreements += not agrees_with_ai(verdict, proposal["present"])
-        if include_items:
-            outline, outline_source = outline_for(job_dir, meta, kf, label, decision, proposal)
-            items.append({
-                "id": f"{kf}|{label}",
-                "kf": kf,
-                "label": label,
-                "kind": kind,
-                "frame_url": f"/api/jobs/{job_dir.name}/files/frames/{kf}.jpg",
-                "frame_index": frame_of.get(kf),
-                "ai_status": decision.get("status"),
-                "ai_present": proposal["present"],
-                "detect_conf": proposal["detect"].get("conf"),
-                "verify_present": proposal["verify"].get("present"),
-                "verify_box": proposal["verify"].get("box"),
-                "reason": decision.get("reason"),
-                "rounds": [{k: v for k, v in r.items() if k != "polygon"} for r in decision.get("rounds") or []],
-                "outline": outline,
-                "outline_source": outline_source,
-                "verdict": verdict,
-                "final_present": human_final_present(verdict, proposal["present"]) if verdict else None,
-            })
+    audit_verdicts = [verdicts[(e["kf"], e["label"])] for e in queue
+                      if e["kind"] == "audit" and (e["kf"], e["label"]) in verdicts]
     view = {
-        "total": len(queue),
+        "total": lock["n_required"],
         "reviewed": lock["n_done"],
         "pending": lock["n_required"] - lock["n_done"],
         "locked": lock["locked"],
-        "n_amber": n_amber,
-        "n_audit": n_audit,
-        "n_auto_decided": sum(1 for row in decisions.values() if row.get("status") in AUTO_STATUSES),
-        "audit_reviewed": audit_reviewed,
-        "audit_disagreements": audit_disagreements,
-        "released": (job_dir / "released_coco.json").exists(),
+        "n_amber": lock["n_amber"],
+        "n_audit": lock["n_audit"],
+        "n_audit_pool": (read_json(job_dir / "final_pass_queue.json", {}) or {}).get("n_accepted_pool"),
+        "audit_reviewed": len(audit_verdicts),
+        "audit_disagreements": sum(1 for v in audit_verdicts if v.get("action") != ACTION_APPROVE),
+        "released": lock["released"],
         "width": meta.get("width"),
         "height": meta.get("height"),
     }
-    if include_items:
-        view["items"] = items
+    if not include_items:
+        return view
+    view["items"] = []
+    for entry in queue:
+        kf, label = entry["kf"], entry["label"]
+        decision = decisions.get((kf, label), {})
+        proposal = proposal_for(store, job_dir, kf, label, decision)
+        verdict = verdicts.get((kf, label))
+        outline, outline_source = outline_for(job_dir, meta, kf, label, decision, proposal)
+        view["items"].append({
+            "id": entry["id"],
+            "kf": kf,
+            "label": label,
+            "kind": entry["kind"],
+            "frame_url": f"/api/jobs/{job_dir.name}/files/{entry['frame']}",
+            "frame_index": entry.get("frame_index"),
+            "ai_status": entry.get("status"),
+            "ai_present": proposal["present"],
+            "detect_conf": entry.get("conf"),
+            "verify_present": proposal["verify"].get("present"),
+            "verify_box": proposal["verify"].get("box"),
+            "reason": decision.get("reason"),
+            "rounds": [{k: v for k, v in r.items() if k != "polygon"} for r in entry.get("rounds") or []],
+            "outline": outline,
+            "outline_source": outline_source,
+            "can_approve": has_mask(job_dir, kf, label),
+            "verdict": verdict,
+            "final_present": human_final_present(verdict) if verdict else None,
+        })
     return view
 
 
@@ -814,19 +825,30 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
             out = []
             for row in by_frame.get(frame, ()):
                 label = row.get("label")
-                sources = row.get("source_kfs") or ([row["keyframe"]] if row.get("keyframe") else [])
+                keyframe = row.get("keyframe")
+                sources = row.get("source_kfs") or ([keyframe] if keyframe else [])
                 rulings = [verdicts[(kf, label)] for kf in sources if (kf, label) in verdicts]
-                if any(ruling.get("action") == ACTION_REJECT for ruling in rulings):
-                    continue  # a human ruled this out: stop drawing it
-                mask_path = (job_dir / "masks" / f"{row['keyframe']}_{label}.png" if row.get("keyframe")
-                             else job_dir / "tracks" / f"{frame}_{label}.png")
+                overruled = [r for r in rulings if r.get("action") in (ACTION_REJECT, ACTION_CORRECT)]
+                box, polygons = row.get("box"), None
+                if overruled:
+                    # Same rule as the released dataset: an overruled mask, and what flowed from it, is gone.
+                    drawn = next((r for r in overruled if r.get("kf") == keyframe and r.get("polygon")), None)
+                    if drawn is None:
+                        continue
+                    polygons = [drawn["polygon"]]
+                    xs, ys = zip(*drawn["polygon"])
+                    box = [min(xs), min(ys), max(xs), max(ys)]
+                if polygons is None:
+                    png = (job_dir / "masks" / f"{keyframe}_{label}.png" if keyframe
+                           else job_dir / "tracks" / f"{frame}_{label}.png")
+                    polygons = mask_polygons(png, width, height) if png.exists() else []
                 out.append({
                     "label": label,
-                    "box": row.get("box"),
+                    "box": box,
                     "propagated": bool(row.get("propagated")),
                     "status": row.get("status"),
                     "human": bool(rulings),
-                    "polygons": mask_polygons(mask_path, width, height) if mask_path.exists() else [],
+                    "polygons": polygons,
                 })
             if out:
                 frames[str(frame)] = out
@@ -856,6 +878,9 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                 except export.ReleaseLocked as exc:
                     raise HTTPException(409, f"release is locked: {exc}") from exc
             elif body.action in (ACTION_APPROVE, ACTION_REJECT, ACTION_CORRECT):
+                if body.action == ACTION_APPROVE and not has_mask(job_dir, body.kf or "", body.label or ""):
+                    raise HTTPException(422, "there is no AI mask to approve here: mark it not present, "
+                                             "or draw a correction")
                 row = {"kf": body.kf, "label": body.label, "action": body.action, "reviewer": reviewer,
                        "ts": now_iso()}
                 if body.polygon is not None:
@@ -883,6 +908,9 @@ def _group_tracks(rows: list[dict]) -> dict[int, list[dict]]:
 
 
 def main() -> None:
+    if len(sys.argv) == 6 and sys.argv[1] == "--run-job":
+        _run_pipeline(sys.argv[2], sys.argv[3], sys.argv[4], json.loads(sys.argv[5]))
+        return
     import uvicorn
 
     host = os.environ.get("HOST", "127.0.0.1")

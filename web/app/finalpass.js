@@ -126,7 +126,7 @@ export async function renderFinalPass(root, { id }) {
   function renderDetails(item) {
     const answer = (value) => (value === null || value === undefined ? 'no answer' : (value ? 'present' : 'absent'));
     const rows = [
-      ['Why here', item.kind === 'amber' ? (item.reason || 'The amber loop did not settle this label') : 'Random audit of a label the AI decided on its own'],
+      ['Why here', item.kind === 'amber' ? (item.reason || 'The amber loop did not settle this label') : 'Random audit of a label the AI accepted on its own'],
       ['AI decision', item.ai_status],
       ['AI proposes', answer(item.ai_present)],
       ['Second pass', answer(item.verify_present)],
@@ -141,7 +141,6 @@ export async function renderFinalPass(root, { id }) {
 
   function renderActions(item) {
     const locked = state.released;
-    const canApprove = item.ai_present === false || (item.ai_present === true && item.outline.length > 0);
     actions.replaceChildren();
     if (drawing) {
       actions.append(
@@ -149,9 +148,8 @@ export async function renderFinalPass(root, { id }) {
         h('button', { class: 'btn', onclick: () => { drawing = null; render(); } }, 'Cancel', h('kbd', {}, 'Esc')));
       return;
     }
-    const approveText = item.ai_present === false ? 'Approve: absent' : 'Approve';
     actions.append(
-      h('button', { class: 'btn good', id: 'fp-approve', disabled: locked || !canApprove, onclick: () => review('approve') }, approveText, h('kbd', {}, 'A')),
+      h('button', { class: 'btn good', id: 'fp-approve', disabled: locked || !item.can_approve, title: item.can_approve ? null : 'The AI drew no mask here', onclick: () => review('approve') }, 'Approve', h('kbd', {}, 'A')),
       h('button', { class: 'btn bad', id: 'fp-reject', disabled: locked, onclick: () => review('reject') }, 'Not present', h('kbd', {}, 'X')),
       h('button', { class: 'btn', id: 'fp-draw', disabled: locked, onclick: () => { drawing = []; render(); } }, 'Draw correction', h('kbd', {}, 'D')));
     if (item.verdict) {
@@ -167,7 +165,7 @@ export async function renderFinalPass(root, { id }) {
       disabled: pending > 0 || state.released,
       onclick: () => release(),
     }, state.released ? 'Released' : 'Release dataset');
-    const auditLine = `Audit: ${state.audit_reviewed} of ${state.n_audit} checked, ${state.audit_disagreements} corrected by you (random sample of ${state.n_auto_decided} auto-decided labels).`;
+    const auditLine = `Audit: ${state.audit_reviewed} of ${state.n_audit} checked, ${state.audit_disagreements} corrected by you (random sample of ${state.n_audit_pool} auto-accepted labels).`;
     releaseBox.replaceChildren(
       h('h2', { style: 'margin:0' }, 'Release'),
       h('p', { class: 'small muted' }, auditLine),
