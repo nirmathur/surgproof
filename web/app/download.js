@@ -69,7 +69,9 @@ export async function renderDownload(root, { id }) {
     retentionLine(job),
     reviewedLine(fp, job.released_counts),
     fp.released ? await manifestLine(url) : null,
-    fileCard('Annotated video', 'The source video with the boxes, masks, phase and AI-draft narration drawn in.',
+    fileCard('Annotated video', job.released_counts && job.released_counts.annotated_rerendered === false
+      ? 'Still the unreviewed AI draft, not the reviewed data: the source video was gone at release, so it could not be re-rendered. It is not covered by the signed manifest.'
+      : 'The source video with the boxes, masks, phase and AI-draft narration drawn in, rendered from the released data.',
       url, 'annotated.mp4', out['annotated.mp4'], locked),
     fileCard('COCO dataset', 'Polygons, boxes and provenance attributes, with the final-pass decisions applied. Each annotation says whether a person reviewed it.',
       url, 'released_coco.json', out['released_coco.json'], locked),

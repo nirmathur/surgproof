@@ -380,6 +380,21 @@ def test_release_progress_is_visible_and_survives_a_reload(site, page):
     assert page.locator("#fp-release-btn").is_enabled()
 
 
+def test_download_says_when_the_video_is_still_the_draft(site, page):
+    base, jobs = site
+    sign_in_browser(page.signed_in_context, site)
+    fx.finished_job(jobs, "job-nosource")
+    (jobs / "job-nosource" / "source.mp4").unlink()
+    request = page.signed_in_context.request
+    url = f"{base}/api/jobs/job-nosource/final-pass"
+    for item in request.get(url).json()["items"]:
+        request.post(url, data={"action": "approve", "kf": item["kf"], "label": item["label"]})
+    assert request.post(url, data={"action": "release", "wait": True}).ok
+    page.goto(f"{base}/#/jobs/job-nosource/download")
+    page.wait_for_selector(".dl[data-file='annotated.mp4']")
+    assert "Still the unreviewed AI draft" in page.locator(".dl[data-file='annotated.mp4']").inner_text()
+
+
 def test_overlay_failure_is_visible_not_silent(site, page):
     base, _ = site
     sign_in_browser(page.signed_in_context, site)

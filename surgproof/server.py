@@ -1327,6 +1327,8 @@ def released_counts(store: Store, job_dir: Path) -> Optional[dict]:
             # surgproof.export sets this only for the exact annotation a person saw, tracked frames included.
             "n_human_reviewed": sum(1 for a in attributes if a.get("human_reviewed")),
             "n_propagated": sum(1 for a in attributes if a.get("propagated")),
+            # False: there was no source video, so annotated.mp4 is still the unreviewed draft.
+            "annotated_rerendered": (coco.get("info") or {}).get("annotated_rerendered"),
         }
 
     return store.cache.get("released_counts", path, build, None)
@@ -1380,9 +1382,9 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
     app.add_middleware(Guard, auth=auth)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(ALLOWED_HOSTS))
 
-    @app.exception_handler(ValueError)
-    async def corrupt_job_file(_request: Request, exc: ValueError) -> JSONResponse:
-        # Mostly a damaged JSON file in a job folder. Say so, rather than a bare 500 that reads as a server bug.
+    @app.exception_handler(json.JSONDecodeError)
+    async def corrupt_job_file(_request: Request, exc: json.JSONDecodeError) -> JSONResponse:
+        # A damaged JSON file in a job folder. Say so, rather than a bare 500 that reads as a server bug.
         log.error("refused a request: %s", exc)
         return JSONResponse({"detail": f"a file in this job is damaged or invalid, so this was refused: {exc}"}, status_code=500)
 

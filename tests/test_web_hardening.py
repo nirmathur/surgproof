@@ -1086,7 +1086,7 @@ def test_release_refused_at_once_while_items_remain_or_disk_is_short(client, don
 def test_failed_release_in_the_worker_surfaces_with_its_reason(client, done):
     """It fails after the 202, in the render: the page must get the reason, and nothing may be released."""
     clear_queue_only(client)
-    (done / "source.mp4").unlink()
+    (done / "source.mp4").write_bytes(b"this is not a video")
     assert post_fp(client, action="release").status_code == 202
     job = wait_for(lambda: (lambda j: j if j and j["state"] != "running" else None)(
         client.get("/api/jobs/job-done/final-pass").json()["release_job"]))
@@ -1097,9 +1097,16 @@ def test_failed_release_in_the_worker_surfaces_with_its_reason(client, done):
 
 def test_wait_reports_a_failed_release_as_an_error(client, done):
     clear_queue_only(client)
-    (done / "source.mp4").unlink()
+    (done / "source.mp4").write_bytes(b"this is not a video")
     res = post_fp(client, action="release", wait=True)
     assert res.status_code == 500 and "release failed" in res.json()["detail"]
+
+
+def test_release_with_no_source_video_is_reported_as_not_rerendered(client, done):
+    clear_queue_only(client)
+    (done / "source.mp4").unlink()
+    assert post_fp(client, action="release", wait=True).status_code == 200
+    assert client.get("/api/jobs/job-done").json()["released_counts"]["annotated_rerendered"] is False
 
 
 def test_damaged_queue_file_is_a_clear_refusal_not_a_traceback(client, done):
