@@ -239,7 +239,10 @@ def test_annotated_output_is_not_mistaken_for_source(world):
     (world["job"] / "annotated.mp4").write_bytes(b"x")
     reg = world["tmp"] / "registry"
     reg.mkdir()
-    (reg / f"{ev._sha256(world['job'] / 'annotated.mp4')}.json").write_text(world["manifest"].read_text())
+    # A registry hit on annotated.mp4's hash must not count; n_frames differs so content matching can't rescue it.
+    wrong = json.loads(world["manifest"].read_text())
+    wrong["n_frames"] = 999
+    (reg / f"{ev._sha256(world['job'] / 'annotated.mp4')}.json").write_text(json.dumps(wrong))
     with pytest.raises(ev.NoGroundTruth):
         ev.score_job(world["job"], world["raw"], reg)
 
