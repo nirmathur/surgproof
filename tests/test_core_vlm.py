@@ -257,6 +257,34 @@ def test_meter_counts_this_context_only(monkeypatch, tmp_path):
     assert meter == {"calls": 1, "cache_hits": 1, "cost_usd": 0.25}
 
 
+def test_gemini_provider_is_optional_and_maps_models(monkeypatch, tmp_path, image):
+    import types
+    seen = {}
+
+    class Models:
+        def generate_content(self, model, contents, config):
+            seen.update(model=model, n=len(contents))
+            return types.SimpleNamespace(text='{"ok": true}')
+
+    genai = types.SimpleNamespace(Client=lambda: types.SimpleNamespace(models=Models()))
+    gtypes = types.SimpleNamespace(
+        Part=types.SimpleNamespace(from_bytes=lambda data, mime_type: "part"),
+        GenerateContentConfig=lambda **k: k)
+    google = types.ModuleType("google")
+    google.genai = genai
+    monkeypatch.setitem(sys.modules, "google", google)
+    monkeypatch.setitem(sys.modules, "google.genai", types.SimpleNamespace(types=gtypes, Client=genai.Client))
+    monkeypatch.setattr(vlm, "_cache_path", tmp_path / "g.sqlite")
+    monkeypatch.setenv("SURGPROOF_VLM", "gemini")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(vlm.VlmAuthError):
+        vlm.ask([image], "q", SCHEMA, vlm.SONNET)
+    monkeypatch.setenv("GEMINI_API_KEY", "not-a-real-key")
+    assert vlm.ask([image], "q", SCHEMA, vlm.SONNET) == {"ok": True}
+    assert seen == {"model": "gemini-4-argon", "n": 2}
+    assert vlm.model_tag(vlm.SONNET) == f"gemini:{vlm.SONNET}"
+
+
 @pytest.mark.skipif(not os.environ.get("SURGPROOF_REAL"), reason="calls the real model; set SURGPROOF_REAL=1")
 def test_real_call(tmp_path, monkeypatch):
     monkeypatch.setattr(vlm, "_cache_path", tmp_path / "c.sqlite")

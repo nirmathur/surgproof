@@ -314,7 +314,7 @@ def test_verify_sees_only_the_image_and_records_phase_agreement(tmp_path, monkey
     phases = [{"kf": "kf_00000", "phase": "Preparation", "conf": 0.8}]
     PL.verify(job, meta, phases, types.SimpleNamespace(update=lambda *a: None))
     assert seen["model"] == vlm.HAIKU and len(seen["images"]) == 1
-    assert phases[0]["agree"] is True and phases[0]["verify_phase"] == "Preparation"
+    assert phases[0]["agree"] is True and phases[0]["verify_phase"] == "Preparation" and phases[0]["raw_phase"] == "Preparation"
     assert json.loads(open(job / "phase.jsonl").readline())["verify_conf"] == 0.5
 
 
@@ -383,10 +383,31 @@ def test_narration_falls_back_to_decisions_when_nothing_survives(tmp_path, monke
     assert "Verified in this segment: liver." in seg["text"] and "Could not be confirmed: blood." in seg["text"]
 
 
-def test_smooth_phases_removes_flicker_and_keeps_real_changes():
-    names = ["A", "A", "B", "A", "A", "C", "C", "C", "C", "C"]
-    smoothed = PL.smooth_phases([{"phase": n} for n in names])
-    assert smoothed[2] == "A" and smoothed[-1] == "C" and smoothed[0] == "A"
+def rows_of(names, conf=0.8):
+    return [{"kf": f"kf_{i:05d}", "phase": n, "conf": conf, "verify_phase": n} for i, n in enumerate(names)]
+
+
+def test_stabilise_removes_flicker_keeps_real_changes_and_raw_answers():
+    names = ["A"] * 5 + ["B"] + ["A"] * 5 + ["C"] * 8
+    rows = PL.stabilise_phases(rows_of(names))
+    assert [r["phase"] for r in rows] == ["A"] * 11 + ["C"] * 8
+    assert rows[5]["raw_phase"] == "B" and rows[5]["raw_conf"] == 0.8 and rows[5]["phase"] == "A"
+    assert rows[5]["agree"] is False and rows[0]["agree"] is True  # the second look said B, the row now says A
+
+
+def test_stabilise_absorbs_short_runs_at_the_edges():
+    assert {r["phase"] for r in PL.stabilise_phases(rows_of(["A", "A", "A", "A", "B"]))} == {"A"}
+    assert {r["phase"] for r in PL.stabilise_phases(rows_of(["B", "A", "A", "A", "A"]))} == {"A"}
+    assert [r["phase"] for r in PL.stabilise_phases(rows_of(["A", "B"]))] in (["A", "A"], ["B", "B"])
+    assert PL.stabilise_phases(rows_of(["A"]))[0]["phase"] == "A"
+    assert PL.stabilise_phases([]) == []
+
+
+def test_stabilise_trusts_confident_answers_over_unsure_ones():
+    rows = rows_of(["A", "A", "B", "B", "B"], conf=0.2)
+    for r in rows[:2]:
+        r["conf"] = 0.9
+    assert {r["phase"] for r in PL.stabilise_phases(rows)} == {"A"}
 
 
 def test_phase_segments_cover_the_video_and_split_long_runs():

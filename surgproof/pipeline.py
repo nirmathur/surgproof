@@ -38,6 +38,7 @@ AMBER_PAD = {1: 0.35, 2: 0.15}
 AMBER_MIN_SIDE = 768  # crops are magnified to at least this long side
 MAX_FAILED_FRACTION = 0.5
 PHASE_WINDOW = 5
+PHASE_MIN_RUN = 3  # keyframes: a shorter run of one phase is flicker from judging single frames
 NARRATE_MAX_SECONDS = 45.0
 PHASE_UNSURE_CONF = 0.6
 
@@ -448,8 +449,39 @@ def verify(job, meta, phases, status):
         second = verify_phase.get(row["kf"])
         row["verify_phase"] = second["name"] if second else None
         row["verify_conf"] = second["conf"] if second else None
-        row["agree"] = bool(second) and second["name"] == row["phase"]
+    stabilise_phases(phases)
     _write_jsonl(job / "phase.jsonl", phases)
+    return rows
+
+
+def stabilise_phases(rows, window=PHASE_WINDOW, min_run=PHASE_MIN_RUN):
+    """Single-frame phase calls flicker. Set each row's phase to a confidence-weighted vote over nearby
+    keyframes, then absorb very short runs, so the video header, Watch page and subtitles all show the same
+    phase. The model's own answer stays in raw_phase and raw_conf. Works in place."""
+    raw = [(r["phase"], r["conf"]) for r in rows]
+    names = []
+    for i, (name, _) in enumerate(raw):
+        votes = Counter()
+        for other, conf in raw[max(0, i - window // 2):i + window // 2 + 1]:
+            votes[other] += max(conf, 0.01)
+        best = max(votes.values())
+        names.append(name if votes[name] == best else next(k for k, v in votes.items() if v == best))
+    i = 0
+    while i < len(names):
+        j = i
+        while j < len(names) and names[j] == names[i]:
+            j += 1
+        if j - i < min_run and (i > 0 or j < len(names)):
+            names[i:j] = [names[i - 1] if i > 0 else names[j]] * (j - i)
+            if i == 0:
+                continue  # the first run took on its neighbour's name, so measure the run again
+        i = j
+    for i, (row, name) in enumerate(zip(rows, names)):
+        lo, hi = max(0, i - window // 2), i + window // 2 + 1
+        support = [conf for other, conf in raw[lo:hi] if other == name]
+        row.update(raw_phase=raw[i][0], raw_conf=raw[i][1], phase=name,
+                   conf=round(raw[i][1] if raw[i][0] == name else (sum(support) / len(support) if support else 0.0), 3))
+        row["agree"] = row.get("verify_phase") == name
     return rows
 
 
@@ -553,28 +585,15 @@ def decide(job, meta, detect_rows, verify_rows, status):
 
 # ---- stage 7: narrate -----------------------------------------------------------------------------
 
-def smooth_phases(phases, window=PHASE_WINDOW):
-    """Temporal majority over the phase sequence, for narration segments. Raw rows stay in phase.jsonl."""
-    names = [p["phase"] for p in phases]
-    out = []
-    for i in range(len(names)):
-        lo, hi = max(0, i - window // 2), min(len(names), i + window // 2 + 1)
-        counts = Counter(names[lo:hi])
-        top = max(counts.values())
-        out.append(names[i] if counts[names[i]] == top else counts.most_common(1)[0][0])
-    return out
-
-
 def phase_segments(meta, phases):
     """Runs of one phase, split so no subtitle covers more than NARRATE_MAX_SECONDS."""
-    kfs = meta["keyframes"]
-    names = smooth_phases(phases)
     segments = []
-    for i, kf in enumerate(kfs):
-        if segments and segments[-1]["phase"] == names[i] and kf["t"] - segments[-1]["t0"] < NARRATE_MAX_SECONDS:
+    for i, kf in enumerate(meta["keyframes"]):
+        name = phases[i]["phase"]
+        if segments and segments[-1]["phase"] == name and kf["t"] - segments[-1]["t0"] < NARRATE_MAX_SECONDS:
             segments[-1]["kfs"].append(i)
         else:
-            segments.append({"phase": names[i], "t0": kf["t"], "kfs": [i]})
+            segments.append({"phase": name, "t0": kf["t"], "kfs": [i]})
     for s, nxt in zip(segments, segments[1:] + [None]):
         s["t1"] = nxt["t0"] if nxt else meta["duration"]
     return segments
@@ -594,9 +613,9 @@ def segment_facts(segment, meta, phases, decisions):
             "not_visible": [r["label"] for r in rows if r["status"] == "reject"],
             "unsure": [r["label"] for r in rows if r["status"] == "AMBER"],
         })
-    chosen = [phases[i] for i in segment["kfs"] if phases[i]["phase"] == segment["phase"]]
-    conf = sum(p["conf"] for p in chosen) / len(chosen) if chosen else 0.0
-    agree = bool(chosen) and all(p.get("agree") for p in chosen)
+    chosen = [phases[i] for i in segment["kfs"]]
+    conf = sum(p["conf"] for p in chosen) / len(chosen)
+    agree = all(p.get("agree") for p in chosen)
     return {"phase": segment["phase"], "t0": segment["t0"], "t1": segment["t1"],
             "phase_conf": round(conf, 2), "phase_checks_agree": agree, "keyframes": keyframes}
 
