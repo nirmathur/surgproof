@@ -5,13 +5,17 @@ DONE:
 - Prompts fixed on the calib split only. Tuning clips (16 keyframes, 3 calib videos, final presence, resolved labels only):
   before: 0.909 (n=33), 0.882 (n=34), 0.944 (n=18). After: 1.000 (n=36), 1.000 (n=34), 0.947 (n=19). Ambers after: 2 and 5 on two of the videos.
   These are TUNING numbers on the clips the fix was designed from, so they are upper bounds and not evidence the fix generalises.
+- Validation of the prompt fix on unseen calib clips (full pipeline with masks lane code, no tuning after seeing these). New segments but the same patients as the tuning clips, so weaker than new videos, and still calib, not a held-out result:
+  video27 (3 clips, 10 keyframes): final 0.950 (n=60, 0 amber), detect only 0.933, verify only 0.983, baseline 0.500. Mask IoU counting errors as 0: 0.621 (n=33). Propagated frames, both present: 0.647 (n=690).
+  video35 (2 clips, 7 keyframes): final 0.975 (n=40, 2 amber), detect only 0.905, verify only 0.929, baseline 0.525. Mask IoU counting errors as 0: 0.692 (n=19). Propagated frames, both present: 0.644 (n=443).
+  Final beats detect alone on both. Verify alone beats final on video27.
+  COST OF THE FIX: the "bare shaft counts" definition caused 3 l_hook false positives on video27 (detect and amber both accepted a dark shaft). The COCO export for that clip has 75 false-positive annotations from them. Before the fix calib had none. Not tuned away, so as not to spend more calib on it.
+- Real narration against the grammar: both segments kept model sentences (`source` is the model), with 1 and 2 sentences dropped. Their phase is often wrong or uncertain: both clips said Preparation, marked uncertain.
 NOT DONE:
-- Validation on unseen calib clips (video27_00400/00480/00640, video35_00940/01100). Run failed on the machine problem below. Only partial data: detect alone 0.889 (n=36) on the video35 clips, which says nothing about final decisions.
-- Held-out result with the new prompts: none yet. QA's earlier held-out number (0.613, n=31, equal to baseline, 1 clip) was on the old prompts and still stands until someone re-runs it.
-- Mask IoU not measured by core on calib: these runs stop before masks to save disk.
-- Merged cross-lane test run after the last two commits. Previous one (at 666bbbc): 156 pass, 1 fail, since fixed in a local change now committed.
-BLOCKED:
-- Machine: disk is at about 400 MB free, with "No space left on device" during my run, and /opt/homebrew/bin/claude is currently missing, so no real model call can run on this machine, for any lane. Not touched by me: shared infra. Needs Nir or Aether.
+- Held-out result with the new prompts: none yet. QA owns that run (video09, video17, video48). QA's held-out 0.613 was on the old prompts.
+- Merged cross-lane test run on the latest commits.
+- 5-minute video: never run. Cost and time are linear estimates.
+BLOCKED: nothing now. claude came back at 19:17 and about 1.6 GB of disk is free.
 KNOWN LIMITS:
 - Narration grammar has not yet seen real model output, because claude is missing. If real sentences miss the shapes, subtitles fall back to text built from decisions: honest but plainer. Check this on the next real run.
 - One outline per label, so a second grasper in a frame is not outlined. Costs mask IoU where two instruments are present.
