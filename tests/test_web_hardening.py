@@ -967,6 +967,21 @@ def test_deleting_a_job_queued_behind_another_is_immediate(jobs, tmp_path):
         assert state_of(client, first)["state"] == "running", "the other job is untouched"
 
 
+def test_audit_stop_rule_holds_through_the_server(client, done):
+    """A person contradicting an AI-accepted label trips it: release is refused and the queue grows."""
+    url = "/api/jobs/job-done/final-pass"
+    items = client.get(url).json()["items"]
+    target = next(i for i in items if i["kind"] == "audit" and i["ai_present"] is True and i["stratum"] != "propagated")
+    for item in items:
+        action = "reject" if item["id"] == target["id"] else "approve"
+        assert client.post(url, json={"action": action, "kf": item["kf"], "label": item["label"]}).status_code == 200
+    state = client.get(url).json()
+    assert state["audit_disagreements"] == 1 and state["escalation_reason"]
+    res = client.post(url, json={"action": "release"})
+    assert res.status_code == 409 and "locked" in res.json()["detail"]
+    assert not (done / "released_coco.json").exists()
+
+
 def test_retry_is_refused_after_release(client, done):
     """The attack: damage a released job so it reads failed, then retry over the signed-off data."""
     clear_and_release(client)
