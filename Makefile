@@ -2,11 +2,26 @@ PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo 
 PORT ?= 8600
 SRC ?= gt_corrupted
 
-.PHONY: all setup demo run gt corrupted eval recheck render test clean-tracker
+.PHONY: all setup serve setup-full demo run gt corrupted eval recheck render test clean-tracker
 
 all: gt corrupted eval recheck render
 
+# End-to-end app: a private .venv with what the upload-to-dataset pipeline needs. No API key: it uses `claude`.
 setup:
+	@command -v ffmpeg >/dev/null || { echo "ffmpeg is required (macOS: brew install ffmpeg)"; exit 1; }
+	@command -v ffprobe >/dev/null || { echo "ffprobe is required (macOS: brew install ffmpeg)"; exit 1; }
+	@command -v claude >/dev/null || echo "warning: the claude CLI was not found; the pipeline needs it to call the model"
+	@[ -x .venv/bin/python ] || python3 -m venv .venv
+	.venv/bin/python -m pip install --quiet --upgrade pip
+	.venv/bin/python -m pip install --quiet -r requirements-e2e.txt
+	@echo "Ready. Now: make serve"
+
+# Start the app at http://localhost:$(PORT). HOST=0.0.0.0 exposes it to the network, and it has no login.
+serve:
+	PORT=$(PORT) $(PY) -m surgproof.server
+
+# The original research pipeline (Gemini, torch, streamlit).
+setup-full:
 	$(PY) -m pip install -r requirements.txt -r web/requirements.txt || $(PY) -m pip install --break-system-packages -r requirements.txt -r web/requirements.txt
 	@if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi
 
