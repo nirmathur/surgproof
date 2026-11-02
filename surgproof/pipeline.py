@@ -10,6 +10,7 @@ import inspect
 import json
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import threading
@@ -29,6 +30,18 @@ STAGES = ["ingest", "detect", "verify", "amber", "masks", "propagate", "narrate"
 WEIGHTS = {"ingest": 3, "detect": 35, "verify": 15, "amber": 10, "masks": 8, "propagate": 10, "narrate": 7, "render": 10, "export": 2}
 EXTERNAL_STAGES = {"masks": "surgproof.masks", "propagate": "surgproof.propagate", "render": "surgproof.render", "export": "surgproof.export"}
 
+SUPPORTED_PROCEDURE = "laparoscopic cholecystectomy"
+GATE_SAMPLE = 5  # keyframes checked for scope before paying for the rest of the video
+GATE_MAX_BAD_FRACTION = 0.5
+MAX_KF_FPS = 5.0
+MAX_FPS = 120.0
+MAX_LONG_SIDE, MAX_SHORT_SIDE = 3840, 2160
+PROBE_TIMEOUT_S, FFMPEG_TIMEOUT_S = 120, 1800
+INPUT_FORMATS = "mov,mp4,m4a,3gp,3g2,mj2"  # no playlists: those can pull other files in through the file protocol
+INPUT_GUARD = ["-protocol_whitelist", "file,pipe", "-format_whitelist", INPUT_FORMATS]
+PTS_TOLERANCE = 0.25  # fraction of the typical frame gap a timestamp may wander before frames count as non-uniform
+DEFAULT_MAX_COST_USD = 25.0
+COST_PER_KEYFRAME_USD = 0.04  # measured on calib runs, including the amber loop
 MODEL_VIEW_MAX_SIDE = 1024  # the model sees at most this; its coordinates are scaled back to full frame
 MAX_MINUTES = 5.0
 ACCEPT_CONF = 0.6  # both passes must be at least this sure to settle a label without the amber loop
@@ -44,6 +57,7 @@ PHASE_MIN_RUN = 3  # keyframes: a shorter run of one phase is flicker from judgi
 NARRATE_MAX_SECONDS = 45.0
 PHASE_UNSURE_CONF = 0.6
 
+AI_DRAFT = "AI draft"
 MENTIONS = {
     "gallbladder": r"\bgall\s?bladders?\b",
     "liver": r"\blivers?\b",
@@ -86,6 +100,14 @@ class PipelineError(RuntimeError):
     pass
 
 
+class OutOfScope(PipelineError):
+    """The video is not something this tool supports, or nothing in it could be accepted."""
+
+    def __init__(self, message, result="out_of_scope"):
+        super().__init__(message)
+        self.result = result
+
+
 # ---- job folder helpers ---------------------------------------------------------------------------
 
 def _now():
@@ -117,7 +139,7 @@ def read_jsonl(path):
 # Everything a pipeline run or a human review leaves in a job folder. Named explicitly, so that a mistaken
 # --out can never empty a folder of the user's own files. upload.* and job.json belong to the web lane and stay.
 OUTPUT_FILES = (
-    "status.json", "meta.json", "detect.jsonl", "phase.jsonl", "verify.jsonl", "decisions.jsonl", "masks.jsonl",
+    "status.json", "meta.json", "detect.jsonl", "scene.jsonl", "phase.jsonl", "verify.jsonl", "decisions.jsonl", "masks.jsonl",
     "tracks.jsonl", "narration.json", "narration.vtt", "annotated.mp4", "dataset_coco.json", "provenance.jsonl",
     "final_pass.jsonl", "final_pass_queue.json", "released_coco.json", "source.mp4", "partial_source.mp4",
 )
@@ -148,7 +170,7 @@ class Status:
         self.state = {name: "pending" for name in STAGES}
         self.data = {"stage": "ingest", "progress": 0.0, "message": "starting", "started": self.started,
                      "updated": self.started, "error": None, "stage_index": 0, "n_stages": len(STAGES),
-                     "stage_progress": 0.0, "stages": self._stages(), "cost_usd": 0.0}
+                     "stage_progress": 0.0, "stages": self._stages(), "cost_usd": 0.0, "result": None, "paused": False}
         self._flush()
 
     def _stages(self):
@@ -186,16 +208,22 @@ class Status:
         done = sum(WEIGHTS[s] for s in STAGES[:STAGES.index(stage)])
         return round((done + WEIGHTS[stage] * fraction) / sum(WEIGHTS.values()), 4)
 
-    def fail(self, stage, error):
+    def fail(self, stage, error, result="failed", paused=False):
         with self.lock:
             self.state[stage] = "failed"
-            self.data.update(error=error, message=f"failed in {stage}", stages=self._stages())
+            self.data.update(error=error, message=f"failed in {stage}" if not paused else "paused", stages=self._stages(),
+                             result=result, paused=paused)
+            self._flush()
+
+    def set_paused(self, paused, message):
+        with self.lock:
+            self.data.update(paused=paused, message=message)
             self._flush()
 
     def finish(self, message):
         with self.lock:
             self.data.update(stage="done", progress=1.0, stage_progress=1.0, message=message,
-                             stage_index=len(STAGES), stages=self._stages())
+                             stage_index=len(STAGES), stages=self._stages(), result="done", paused=False)
             self._flush()
 
 
@@ -277,19 +305,49 @@ def crop_region(boxes, pad, width, height):
 
 # ---- stage 1: ingest ------------------------------------------------------------------------------
 
-def _probe(video):
+def _media(cmd, timeout, what):
+    """Run ffmpeg or ffprobe with a time limit. Error text never carries the file's name."""
     try:
-        out = subprocess.run(
-            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_packets",
-             "-show_entries", "stream=codec_name,pix_fmt,avg_frame_rate,r_frame_rate,nb_read_packets:format=duration,format_name",
-             "-of", "json", str(video)],
-            capture_output=True, text=True, check=True).stdout
-    except subprocess.CalledProcessError as e:
-        raise PipelineError(f"could not read this video: {e.stderr.strip()[:300]}") from e
-    info = json.loads(out)
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        raise PipelineError(f"{what} timed out after {timeout}s") from e
+
+
+def _probe(video):
+    proc = _media(["ffprobe", "-v", "error", *INPUT_GUARD, "-select_streams", "v:0", "-count_packets",
+                   "-show_entries", "stream=codec_name,pix_fmt,width,height,avg_frame_rate,r_frame_rate,nb_read_packets:format=duration,format_name",
+                   "-of", "json", str(video)], PROBE_TIMEOUT_S, "reading the video")
+    if proc.returncode != 0:
+        raise PipelineError("could not read this video: it is damaged, or not an mp4 or mov file")
+    info = json.loads(proc.stdout)
     if not info.get("streams"):
         raise PipelineError("this file has no video stream")
     return info["streams"][0], info.get("format", {})
+
+
+def _read_pts(video):
+    proc = _media(["ffprobe", "-v", "error", *INPUT_GUARD, "-select_streams", "v:0", "-show_entries", "packet=pts_time",
+                   "-of", "csv=p=0", str(video)], PROBE_TIMEOUT_S, "reading the video timestamps")
+    if proc.returncode != 0:
+        raise PipelineError("could not read the timestamps of this video")
+    values = []
+    for line in proc.stdout.split():
+        try:
+            values.append(float(line.strip(",")))
+        except ValueError:
+            continue  # a packet with no timestamp
+    return sorted(values)
+
+
+def pts_uniform(pts):
+    """True if frames are evenly spaced. An average frame rate cannot show this: alternating jitter or a
+    gap balanced elsewhere keeps the average right, while frame index and time drift apart."""
+    if len(pts) < 3:
+        return True
+    gaps = sorted(b - a for a, b in zip(pts, pts[1:]))
+    typical = gaps[len(gaps) // 2]
+    tolerance = max(typical * PTS_TOLERANCE, 0.0015)  # 0.0015 s allows millisecond-rounded timestamps
+    return all(abs(g - typical) <= tolerance for g in gaps)
 
 
 def _rate(text):
@@ -300,45 +358,48 @@ def _rate(text):
         return 0.0
 
 
-def _make_playable(video, dest, stream, fmt, fps):
-    """Write source.mp4: H.264, constant frame rate, so frame index and time stay in step and any browser
-    plays it. Streams are copied when the file already qualifies."""
-    variable = abs(_rate(stream.get("r_frame_rate")) - fps) > 0.01 * max(fps, 1)
+def _make_playable(video, dest, stream, fps):
+    """Write source.mp4: H.264 with evenly spaced frames, so frame index and time stay in step and any browser
+    plays it. No audio and no metadata: both can identify a person, and neither is needed. Streams are copied
+    when the file already qualifies."""
     h264 = stream.get("codec_name") == "h264" and stream.get("pix_fmt") == "yuv420p"
-    base = ["ffmpeg", "-y", "-v", "error", "-i", str(video), "-map", "0:v:0", "-map", "0:a:0?"]
     partial = dest.with_name(f"partial_{dest.name}")  # so the input can safely be dest itself
+    base = ["ffmpeg", "-y", "-v", "error", *INPUT_GUARD, "-i", str(video), "-map", "0:v:0", "-an", "-sn", "-dn",
+            "-map_metadata", "-1", "-map_metadata:s", "-1", "-map_chapters", "-1", "-fflags", "+bitexact"]
     tail = ["-movflags", "+faststart", str(partial)]
-    if h264 and not variable:
-        copy = subprocess.run(base + ["-c", "copy"] + tail, capture_output=True, text=True)
-        if copy.returncode == 0:
+    if h264 and pts_uniform(_read_pts(video)):
+        if _media(base + ["-c", "copy"] + tail, FFMPEG_TIMEOUT_S, "preparing the video").returncode == 0:
             os.replace(partial, dest)
             return
     encode = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
-              "-vf", f"fps={fps},pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:a", "aac"]
-    try:
-        subprocess.run(base + encode + tail, capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as e:
-        raise PipelineError(f"could not convert this video: {e.stderr.strip()[:300]}") from e
+              "-vf", f"fps={fps},pad=ceil(iw/2)*2:ceil(ih/2)*2"]
+    if _media(base + encode + tail, FFMPEG_TIMEOUT_S, "converting the video").returncode != 0:
+        raise PipelineError("could not convert this video")
     os.replace(partial, dest)
 
 
 def ingest(video, job, status, kf_fps=1.0, max_minutes=MAX_MINUTES):
     video = Path(video)
     if not video.is_file():
-        raise PipelineError(f"no such video: {video}")
-    if kf_fps <= 0:
-        raise PipelineError("kf_fps must be above 0")
+        raise PipelineError("no such video file")
+    if not 0 < kf_fps <= MAX_KF_FPS:
+        raise PipelineError(f"kf_fps must be above 0 and at most {MAX_KF_FPS:g}")
     stream, fmt = _probe(video)
     fps = _rate(stream.get("avg_frame_rate"))
     if fps <= 0:
         raise PipelineError("could not determine the frame rate of this video")
+    if fps > MAX_FPS:
+        raise PipelineError(f"frame rate {fps:g} is above the limit of {MAX_FPS:g}")
+    long_side, short_side = sorted((int(stream.get("width") or 0), int(stream.get("height") or 0)), reverse=True)
+    if long_side > MAX_LONG_SIDE or short_side > MAX_SHORT_SIDE:
+        raise PipelineError(f"resolution {long_side}x{short_side} is above the limit of {MAX_LONG_SIDE}x{MAX_SHORT_SIDE}")
     duration = float(fmt.get("duration") or 0) or int(stream.get("nb_read_packets") or 0) / fps
     if max_minutes and duration > max_minutes * 60:
         raise PipelineError(f"video is {duration / 60:.1f} minutes long, the limit is {max_minutes:g}")
 
     status.update("ingest", 0.05, "preparing a playable copy")
     source = job / "source.mp4"
-    _make_playable(video, source, stream, fmt, fps)
+    _make_playable(video, source, stream, fps)
 
     frames_dir, view_dir = job / "frames", job / "frames_view"
     frames_dir.mkdir(exist_ok=True)
@@ -376,7 +437,7 @@ def ingest(video, job, status, kf_fps=1.0, max_minutes=MAX_MINUTES):
     meta = {
         "fps": fps, "width": width, "height": height, "n_frames": index, "kf_fps": kf_fps,
         "keyframes": keyframes, "duration": round(index / fps, 3), "source": source.name, "source_video": source.name,
-        "original_name": video.name, "view_scale": scale, "vlm_provider": vlm.provider(),
+        "display_name": f"job-{secrets.token_hex(4)}", "view_scale": scale, "vlm_provider": vlm.provider(),
     }
     _write_json(job / "meta.json", meta)
     return meta
@@ -389,12 +450,13 @@ def _view_path(job, kf):
 
 # ---- shared helper: run one model call per item, streaming finished rows --------------------------
 
-def _fan_out(items, worker, stage, status, label):
-    """Call worker(item) concurrently. Collects (item, result, error). Stops the job on auth failure."""
+def _fan_out(items, worker, stage, status, label, done=0, total=None):
+    """Call worker(item) concurrently. Collects (item, result, error). Stops the job on auth failure,
+    an outlasting plan limit, or the cost cap. done and total let one stage report across several batches."""
     results = []
     if not items:
         return results
-    done = 0
+    total = total or len(items)
     with ThreadPoolExecutor(max_workers=vlm.concurrency()) as pool:
         futures = {pool.submit(copy_context().run, worker, item): item for item in items}
         try:
@@ -402,12 +464,12 @@ def _fan_out(items, worker, stage, status, label):
                 item = futures[fut]
                 try:
                     results.append((item, fut.result(), None))
-                except vlm.VlmAuthError:
+                except (vlm.VlmAuthError, vlm.VlmUsageLimit, vlm.VlmCostCap):
                     raise
                 except vlm.VlmError as e:
                     results.append((item, None, str(e)))
                 done += 1
-                status.update(stage, done / len(items), f"{label} {done}/{len(items)}")
+                status.update(stage, done / total, f"{label} {done}/{total}")
         except BaseException:
             for f in futures:
                 f.cancel()
@@ -419,6 +481,28 @@ def _guard_failures(results, stage):
     failed = [e for _, _, e in results if e]
     if results and len(failed) / len(results) > MAX_FAILED_FRACTION:
         raise PipelineError(f"{stage}: the model failed on {len(failed)} of {len(results)} calls, stopping. First error: {failed[0]}")
+
+
+# ---- scope gate ------------------------------------------------------------------------------------
+
+def scope_problem(scenes, phases):
+    """A reason this video is out of scope, or None. Frames that could not tell do not count against it."""
+    def explain(detail):
+        return f"Out of scope: this tool supports {SUPPORTED_PROCEDURE} only. {detail}"
+
+    if scenes:
+        not_surgery = sum(1 for r in scenes if r.get("laparoscopic") is False)
+        if not_surgery / len(scenes) > GATE_MAX_BAD_FRACTION:
+            return explain(f"{not_surgery} of {len(scenes)} frames checked are not laparoscopic surgery.")
+        other = [r for r in scenes if r.get("procedure") == "other"]
+        if len(other) / len(scenes) > GATE_MAX_BAD_FRACTION:
+            names = Counter(r.get("other_procedure") or "another procedure" for r in other)
+            return explain(f"{len(other)} of {len(scenes)} frames checked look like {names.most_common(1)[0][0]}.")
+    judged = [r for r in phases if not r.get("error")]
+    unknown = sum(1 for r in judged if r["phase"] == P.UNKNOWN_PHASE)
+    if judged and unknown / len(judged) > GATE_MAX_BAD_FRACTION:
+        return explain(f"The surgical phase could not be recognised on {unknown} of {len(judged)} frames checked.")
+    return None
 
 
 # ---- stage 2: detect ------------------------------------------------------------------------------
@@ -435,7 +519,7 @@ def detect(job, meta, status):
     _write_jsonl(path, [])
     _write_jsonl(phase_path, [])
     lock = threading.Lock()
-    rows, phases = [], []
+    rows, phases, scenes = [], [], []
 
     def worker(kf):
         image = _view_path(job, kf["kf"])
@@ -451,11 +535,24 @@ def detect(job, meta, status):
         with lock:  # streamed so the job page can show labels arriving
             rows.extend(new)
             phases.append(phase)
+            if reply.get("scene"):
+                scenes.append({"kf": kf["kf"], **reply["scene"]})
             with open(path, "a") as f:
                 f.writelines(json.dumps(r) + "\n" for r in new)
         return True
 
-    results = _fan_out(meta["keyframes"], worker, "detect", status, "keyframe")
+    # Look at a spread of frames first, so an out-of-scope video costs a few calls and not the whole video.
+    keyframes = meta["keyframes"]
+    step = max(len(keyframes) / GATE_SAMPLE, 1)
+    sample = [keyframes[int(i * step)] for i in range(min(GATE_SAMPLE, len(keyframes)))]
+    results = _fan_out(sample, worker, "detect", status, "keyframe", total=len(keyframes))
+    problem = scope_problem(scenes, phases)
+    if problem:
+        _write_jsonl(job / "scene.jsonl", scenes)
+        raise OutOfScope(problem)
+    in_sample = {k["kf"] for k in sample}
+    results += _fan_out([k for k in keyframes if k["kf"] not in in_sample], worker, "detect", status, "keyframe",
+                        done=len(sample), total=len(keyframes))
     _guard_failures(results, "detect")
     for kf, _, error in results:
         if error:
@@ -465,8 +562,13 @@ def detect(job, meta, status):
     order = {k["kf"]: i for i, k in enumerate(meta["keyframes"])}
     rows.sort(key=lambda r: (order[r["kf"]], P.LABELS.index(r["label"])))
     phases.sort(key=lambda r: order[r["kf"]])
+    scenes.sort(key=lambda r: order[r["kf"]])
     _write_jsonl(path, rows)
     _write_jsonl(phase_path, phases)
+    _write_jsonl(job / "scene.jsonl", scenes)
+    problem = scope_problem(scenes, phases)
+    if problem:
+        raise OutOfScope(problem)
     return rows, phases
 
 
@@ -545,10 +647,14 @@ def stabilise_phases(rows, window=PHASE_WINDOW, min_run=PHASE_MIN_RUN):
 
 # ---- first decision, before the amber loop --------------------------------------------------------
 
+def pass_missing(d, v):
+    return d is None or v is None or d["present"] is None or v["present"] is None
+
+
 def first_decision(d, v):
     """Compare the two independent passes for one keyframe and label. Returns (status, reason)."""
-    if d["present"] is None or v["present"] is None:
-        return "AMBER", "a model call failed"
+    if pass_missing(d, v):
+        return "AMBER", "a model pass failed or is missing"
     if d["present"] != v["present"]:
         return "AMBER", "the two passes disagree on presence"
     if d["conf"] < ACCEPT_CONF or v["conf"] < ACCEPT_CONF:
@@ -600,12 +706,15 @@ def _resolve(job, meta, row, d, v):
         })
         if reply["conf"] >= RESOLVE_CONF:
             if not reply["present"]:
-                row.update(status="reject", final_present=False, polygon=None, reason=f"amber round {round_no}: absent")
+                # The loop may not settle a reject: a crop that shows nothing cannot clear what a pass claimed
+                # to see. The label stays AMBER for the human, with this answer shown as a suggestion.
+                row.update(route="amber_said_absent", amber_suggests="absent", reason=f"amber round {round_no}: absent, left for the human")
                 return row
             # The latest outline any round drew, else the first pass's outline.
             outline = next((r["polygon"] for r in reversed(row["rounds"]) if r["polygon"]), d.get("polygon"))
             if outline:
-                row.update(status="accept", final_present=True, polygon=outline, reason=f"amber round {round_no}: present")
+                row.update(status="accept", final_present=True, polygon=outline, route="amber_said_present",
+                           reason=f"amber round {round_no}: present")
                 return row
         if poly:  # look closer at where this round found it
             boxes = [polygon_box(poly)]
@@ -619,14 +728,18 @@ def decide(job, meta, detect_rows, verify_rows, status):
     for kf in meta["keyframes"]:
         for label in P.LABELS:
             key = (kf["kf"], label)
-            state, reason = first_decision(d_idx[key], v_idx[key])
-            row = {"kf": kf["kf"], "label": label, "status": state, "final_present": None, "rounds": [], "reason": reason, "polygon": None}
+            state, reason = first_decision(d_idx.get(key), v_idx.get(key))
+            row = {"kf": kf["kf"], "label": label, "status": state, "final_present": None, "rounds": [], "reason": reason,
+                   "polygon": None, "route": "amber_unresolved"}
             if state == "accept":
-                row.update(final_present=True, polygon=d_idx[key]["polygon"])
+                row.update(final_present=True, polygon=d_idx[key]["polygon"], route="both_passes_present")
             elif state == "reject":
-                row["final_present"] = False
+                row.update(final_present=False, route="both_passes_absent")
+            elif pass_missing(d_idx.get(key), v_idx.get(key)):
+                row["route"] = "pass_failed"
             rows.append(row)
-    ambers = [r for r in rows if r["status"] == "AMBER"]
+    # Without both passes there is nothing independent to weigh, so the loop cannot settle these.
+    ambers = [r for r in rows if r["status"] == "AMBER" and r["route"] != "pass_failed"]
     status.update("amber", 0.0, f"{len(ambers)} ambers after the second pass")
 
     def worker(row):
@@ -734,7 +847,7 @@ def fallback_text(facts):
     parts = []
     visible, unsure, absent = seen("visible"), seen("unsure"), seen("not_visible")
     if visible:
-        parts.append("Verified in this segment: " + ", ".join(visible).replace("_", " ") + ".")
+        parts.append("Seen in this segment: " + ", ".join(visible).replace("_", " ") + ".")
     if unsure:
         parts.append("Could not be confirmed: " + ", ".join(unsure).replace("_", " ") + ".")
     if not parts and absent:
@@ -746,7 +859,7 @@ def _segment_text(kept, facts):
     text = " ".join(s["text"].strip() for s in kept) if kept else fallback_text(facts)
     if phase_is_uncertain(facts) and not re.search(r"\bphase\b[^.;]*\b(uncertain|unsure|unclear|unconfirmed)\b", text, re.I):
         text += " The phase is uncertain."
-    return text
+    return f"{AI_DRAFT}. {text}"
 
 
 def narrate(job, meta, phases, decisions, status):
@@ -781,7 +894,7 @@ def narrate(job, meta, phases, decisions, status):
             "error": error,
         })
     out.sort(key=lambda s: s["t0"])
-    _write_json(job / "narration.json", {"segments": out})
+    _write_json(job / "narration.json", {"draft": True, "notice": f"{AI_DRAFT}: written by a model from its own checks, not reviewed by a human.", "segments": out})
     return out
 
 
@@ -804,15 +917,25 @@ def _run_external(stage, job, status):
 
 # ---- orchestration --------------------------------------------------------------------------------
 
-def run(video, out, kf_fps=1.0, max_minutes=MAX_MINUTES, stop_after=None, concurrency=None, on_status=None):
+def _hide_name(text, video):
+    for name in {str(video), os.path.realpath(video), Path(video).name}:
+        text = text.replace(name, "<video>")
+    return text
+
+
+def run(video, out, kf_fps=1.0, max_minutes=MAX_MINUTES, stop_after=None, concurrency=None, on_status=None, max_cost=None):
     """Run every stage on one video. Returns the final status dict. Raises on failure, after
-    recording the error in status.json."""
+    recording the error in status.json. An error status has result out_of_scope, nothing_accepted,
+    cost_cap, paused or failed."""
     job = Path(out)
     job.mkdir(parents=True, exist_ok=True)
     (job / ".gitignore").write_text("*\n")  # frames of licensed video must never reach git
     clear_outputs(job, keep=video)
     vlm.configure(cache_path=job.parent / "cache.sqlite", concurrency=concurrency)
-    status = Status(job, on_status, vlm.start_meter())
+    cost_cap = float(max_cost if max_cost is not None else os.environ.get("SURGPROOF_MAX_COST_USD", DEFAULT_MAX_COST_USD))
+    holder = {}
+    meter = vlm.start_meter(cost_cap=cost_cap, on_pause=lambda paused, message: holder["status"].set_paused(paused, message))
+    status = holder["status"] = Status(job, on_status, meter)
     current = "ingest"
 
     def step(stage):
@@ -824,6 +947,10 @@ def run(video, out, kf_fps=1.0, max_minutes=MAX_MINUTES, stop_after=None, concur
         step("ingest")
         meta = ingest(video, job, status, kf_fps=kf_fps, max_minutes=max_minutes)
         status.end("ingest", f"{len(meta['keyframes'])} keyframes from {meta['n_frames']} frames")
+        estimate = len(meta["keyframes"]) * COST_PER_KEYFRAME_USD
+        if estimate > cost_cap:
+            raise PipelineError(f"estimated cost ${estimate:.2f} is above the cost cap of ${cost_cap:.2f}. "
+                                "Lower kf_fps, use a shorter video, or raise SURGPROOF_MAX_COST_USD.")
         if stop_after != "ingest":
             step("detect")
             detect_rows, phases = detect(job, meta, status)
@@ -836,6 +963,9 @@ def run(video, out, kf_fps=1.0, max_minutes=MAX_MINUTES, stop_after=None, concur
             decisions = decide(job, meta, detect_rows, verify_rows, status)
             counts = Counter(r["status"] for r in decisions)
             status.end("amber", f"{counts['accept']} accept, {counts['reject']} reject, {counts['AMBER']} amber")
+            if not counts["accept"]:
+                raise OutOfScope(f"Nothing was accepted in any keyframe ({counts['reject']} absent, {counts['AMBER']} unresolved). "
+                                 f"This tool supports {SUPPORTED_PROCEDURE} only.", result="nothing_accepted")
         if stop_after in ("ingest", "detect", "amber"):
             status.finish(f"stopped after {stop_after}")
             return status.data
@@ -853,6 +983,18 @@ def run(video, out, kf_fps=1.0, max_minutes=MAX_MINUTES, stop_after=None, concur
         counts = Counter(r["status"] for r in decisions)
         status.finish(f"done: {counts['accept']} accept, {counts['reject']} reject, {counts['AMBER']} amber for the final pass")
         return status.data
+    except vlm.VlmUsageLimit as e:
+        status.fail(current, f"Stopped by the plan usage limit: {e}. Run this job again to resume: finished calls are reused from the cache.",
+                    result="paused", paused=True)
+        raise
+    except vlm.VlmCostCap as e:
+        message = f"Stopped: {e}. Raise SURGPROOF_MAX_COST_USD and run again: finished calls are reused from the cache, at no extra cost."
+        status.fail(current, message, result="cost_cap")
+        raise PipelineError(message) from e
+    except OutOfScope as e:
+        status.fail(current, _hide_name(str(e), video), result=e.result)
+        raise
     except Exception as e:
-        status.fail(current, f"{e}" if isinstance(e, (PipelineError, vlm.VlmError)) else f"{e}\n{traceback.format_exc(limit=5)}")
+        text = f"{e}" if isinstance(e, (PipelineError, vlm.VlmError)) else f"{e}\n{traceback.format_exc(limit=5)}"
+        status.fail(current, _hide_name(text, video))
         raise

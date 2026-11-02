@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -28,6 +29,12 @@ SYSTEM_PROMPT = (
     "You are a careful annotator of laparoscopic surgery video. Use the Read tool to open any image "
     "file named in the request. Your entire final reply must be one JSON object and nothing else."
 )
+PAUSE_POLL_S = 300  # how often a job paused by a plan limit tries again
+MAX_PAUSE_S = 6 * 3600  # after this the job stops, and running it again resumes from the cache
+USAGE_LIMIT = re.compile(
+    r"(usage|session|weekly|plan|hourly|daily)\s+limit|limit\s+(reached|will\s+reset)|hit\s+your\b.*\blimit|rate[_ -]?limit|\b429\b",
+    re.I,
+)
 GEMINI_MODELS = {SONNET: "gemini-4-argon", HAIKU: "gemini-3.8-flash"}
 
 _lock = threading.Lock()
@@ -38,6 +45,7 @@ _limit = int(os.environ.get("SURGPROOF_VLM_CONCURRENCY", DEFAULT_CONCURRENCY))
 _sem = threading.BoundedSemaphore(_limit)
 _stats = {"calls": 0, "cache_hits": 0, "cost_usd": 0.0}
 _meter = ContextVar("surgproof_vlm_meter", default=None)  # per-job usage, safe with concurrent jobs
+_job_limits = ContextVar("surgproof_vlm_limits", default=None)  # per-job cost cap and pause callback
 
 
 class VlmError(RuntimeError):
@@ -46,6 +54,18 @@ class VlmError(RuntimeError):
 
 class VlmAuthError(VlmError):
     """Not logged in or no credentials. Retrying cannot help, so the job should stop."""
+
+
+class VlmUsageLimit(VlmError):
+    """The plan's usage limit was hit. Nothing is wrong with the job: it waits, then carries on."""
+
+
+class VlmCostCap(VlmError):
+    """This job reached its cost cap. Paid answers are cached, so a rerun with a higher cap resumes."""
+
+
+def is_usage_limit(text):
+    return bool(USAGE_LIMIT.search(str(text)))
 
 
 def configure(cache_path=None, concurrency=None):
@@ -62,10 +82,12 @@ def concurrency():
     return _limit
 
 
-def start_meter():
-    """Count this job's calls and cost separately. Worker threads must run in a copy of this context."""
+def start_meter(cost_cap=None, on_pause=None):
+    """Count this job's calls and cost separately. Worker threads must run in a copy of this context.
+    on_pause(paused, message) is told when a plan limit starts and stops holding the job up."""
     meter = {"calls": 0, "cache_hits": 0, "cost_usd": 0.0}
     _meter.set(meter)
+    _job_limits.set({"cost_cap": cost_cap, "on_pause": on_pause})
     return meter
 
 
@@ -282,11 +304,16 @@ def _claude_cli(image_paths, prompt, model):
     except ValueError:
         env = None
     if not isinstance(env, dict):
-        raise VlmError(f"claude exited {proc.returncode}, no JSON envelope: {(proc.stderr or proc.stdout)[:300]}")
+        detail = (proc.stderr or proc.stdout)[:300]
+        if is_usage_limit(detail):
+            raise VlmUsageLimit(detail)
+        raise VlmError(f"claude exited {proc.returncode}, no JSON envelope: {detail}")
     if env.get("is_error") or proc.returncode != 0:
         detail = str(env.get("result"))[:300]
         if "not logged in" in detail.lower() or "/login" in detail.lower():
             raise VlmAuthError(detail)
+        if is_usage_limit(detail):
+            raise VlmUsageLimit(detail)
         raise VlmError(f"claude reported an error: {detail}")
     return env.get("result", ""), float(env.get("total_cost_usd") or 0.0)
 
@@ -324,7 +351,7 @@ def _call_provider(image_paths, prompt, model):
     for attempt in range(TRANSIENT_RETRIES):
         try:
             return PROVIDERS[name](image_paths, prompt, model)
-        except VlmAuthError:
+        except (VlmAuthError, VlmUsageLimit):
             raise
         except VlmError as e:
             last = e
@@ -335,6 +362,35 @@ def _call_provider(image_paths, prompt, model):
 
 def _backoff_s():
     return float(os.environ.get("SURGPROOF_VLM_BACKOFF_S", 5))
+
+
+def _check_budget():
+    limits, meter = _job_limits.get(), _meter.get()
+    if limits and meter is not None and limits["cost_cap"] is not None and meter["cost_usd"] >= limits["cost_cap"]:
+        raise VlmCostCap(f"this job reached its cost cap of ${limits['cost_cap']:.2f}")
+
+
+def _call_waiting_out_limits(image_paths, prompt, model):
+    """One provider call. A plan limit holds the call here, not holding a concurrency slot, until it lifts."""
+    limits = _job_limits.get() or {}
+    notify = limits.get("on_pause") or (lambda paused, message: None)
+    waiting_since = None
+    while True:
+        _check_budget()
+        try:
+            with _sem:
+                result = _call_provider(image_paths, prompt, model)
+        except VlmUsageLimit as e:
+            now = time.time()
+            waiting_since = waiting_since or now
+            if now - waiting_since >= float(os.environ.get("SURGPROOF_VLM_MAX_PAUSE_S", MAX_PAUSE_S)):
+                raise
+            notify(True, f"paused by the plan usage limit, will resume by itself: {str(e)[:120]}")
+            time.sleep(float(os.environ.get("SURGPROOF_VLM_PAUSE_POLL_S", PAUSE_POLL_S)))
+            continue
+        if waiting_since:
+            notify(False, "resumed after the plan usage limit")
+        return result
 
 
 def ask(image_paths, prompt, schema, model=SONNET):
@@ -355,8 +411,7 @@ def ask(image_paths, prompt, schema, model=SONNET):
         if error:
             text = f"{prompt}\n\nYour previous reply was rejected ({error}). Reply with only the required JSON."
         t0 = time.time()
-        with _sem:
-            raw, cost = _call_provider(image_paths, text, model)
+        raw, cost = _call_waiting_out_limits(image_paths, text, model)
         _bump("calls")
         _bump("cost_usd", cost)
         try:

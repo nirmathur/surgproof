@@ -47,10 +47,21 @@ def _objects(item):
     }
 
 
+# Not required by the schema: a reply without it just adds nothing to the scope check, and the check on
+# phases and on accepted labels still applies.
+_SCENE = {
+    "type": "object", "required": ["laparoscopic", "procedure"],
+    "properties": {
+        "laparoscopic": {"type": "boolean"},
+        "procedure": {"type": "string", "enum": ["cholecystectomy", "other", "unclear"]},
+        "other_procedure": {"type": ["string", "null"]},
+    },
+}
 DETECT_SCHEMA = {
     "title": "detect", "type": "object", "required": ["objects", "phase"],
     "properties": {
         "phase": _PHASE,
+        "scene": _SCENE,
         "objects": _objects({
             "type": "object", "required": ["present", "conf", "polygon"],
             "properties": {"present": {"type": "boolean"}, "conf": _CONF, "polygon": _POLYGON},
@@ -110,8 +121,13 @@ Rules:
 
 Also give the surgical phase, one of: {_phase_list()}. Use {UNKNOWN_PHASE} if the frame does not show enough to tell. phase.conf is your probability that it is correct.
 
+Also describe the scene, because this tool only supports laparoscopic cholecystectomy:
+- laparoscopic: true only if this is a view from a laparoscope inside a body during surgery. False for anything else, such as a room, a person, a diagram, a title card or an unrelated video.
+- procedure: "cholecystectomy" if the frame fits gallbladder removal, "other" if it clearly shows a different operation, "unclear" if one frame cannot tell.
+- other_procedure: the name of that other operation, otherwise null.
+
 Reply with only JSON in this shape:
-{json.dumps({"objects": example, "phase": {"name": PHASES[0], "conf": 0.8}})}
+{json.dumps({"objects": example, "phase": {"name": PHASES[0], "conf": 0.8}, "scene": {"laparoscopic": True, "procedure": "cholecystectomy", "other_procedure": None}})}
 The objects field must have all of these keys: {", ".join(LABELS)}."""
 
 
@@ -151,12 +167,12 @@ Reply with only JSON:
 
 
 def narrate_prompt(facts):
-    return f"""You are writing subtitle commentary for a segment of laparoscopic surgery video. You cannot see the video. You may only use the verified facts below.
+    return f"""You are writing subtitle commentary for a segment of laparoscopic surgery video. You cannot see the video. You may only use the checked facts below.
 
 Facts (JSON):
 {json.dumps(facts, indent=1)}
 
-"visible" means checked and verified as present, "not_visible" means checked and verified as absent, "unsure" means the checks could not settle it.
+"visible" means the checks found it present, "not_visible" means the checks found it absent, "unsure" means the checks could not settle it.
 
 Write 1 to 3 short sentences, each in one of these plain forms and with nothing added:
 - "The liver and a grasper are visible." for labels in "visible"
@@ -194,7 +210,7 @@ def mock_reply(prompt, image_paths, model):
     centers = {k: (0.2 + 0.12 * i, 0.5) for i, k in enumerate(LABELS)}
     phase = {"name": PHASES[1], "conf": 0.9}
     if prompt.startswith("This is one frame"):
-        return {"phase": phase, "objects": {
+        return {"phase": phase, "scene": {"laparoscopic": True, "procedure": "cholecystectomy", "other_procedure": None}, "objects": {
             k: {"present": k in _MOCK_DETECT_PRESENT, "conf": 0.9,
                 "polygon": _diamond(w, h, *centers[k]) if k in _MOCK_DETECT_PRESENT else None}
             for k in LABELS}}
