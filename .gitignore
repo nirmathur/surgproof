@@ -17,3 +17,6 @@ venv/
 .pytest_cache/
 .DS_Store
 cache.sqlite*
+# test videos are built from CholecSeg8k (CC BY-NC-SA), never commit them; jobs hold derived frames
+/test_videos/
+/jobs/
