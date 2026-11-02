@@ -220,9 +220,9 @@ def test_amber_accept_converts_crop_coordinates_to_frame(tmp_path, monkeypatch):
     assert row["rounds"][0]["raw_ref"] and row["rounds"][0]["prompt_hash"]
 
 
-def test_amber_reject_on_confident_absent(tmp_path, monkeypatch):
+def test_amber_absent_is_only_a_suggestion(tmp_path, monkeypatch):
     row, _ = amber_case(tmp_path, monkeypatch, [{"present": False, "conf": 0.9, "polygon": None, "reason": "fat only"}])
-    assert row["status"] == "reject" and row["final_present"] is False and row["polygon"] is None
+    assert row["status"] == "AMBER" and row["final_present"] is None and row["polygon"] is None and row["amber_suggests"] == "absent"
 
 
 def test_amber_stays_amber_after_two_low_confidence_rounds(tmp_path, monkeypatch):
@@ -441,10 +441,10 @@ def test_narration_facts_are_only_decisions_and_bad_sentences_are_dropped(tmp_pa
     monkeypatch.setattr(PL.vlm, "ask", fake_ask)
     segments = PL.narrate(job, meta, phases, decisions, types.SimpleNamespace(update=lambda *a: None))
     assert seen["images"] == []
-    assert segments[0]["text"] == "The liver is in view." and segments[0]["evidence"] == ["kf_00000"]
+    assert segments[0]["text"] == "AI draft. The liver is in view." and segments[0]["evidence"] == ["kf_00000"]
     assert segments[0]["dropped_sentences"] == 1 and segments[0]["source"].endswith(vlm.SONNET)
     assert segments[0]["t0"] == 0.0 and segments[0]["t1"] == meta["duration"] and len(segments[0]["raw_ref"]) == 64
-    assert json.load(open(job / "narration.json"))["segments"][0]["text"] == "The liver is in view."
+    assert json.load(open(job / "narration.json"))["segments"][0]["text"] == "AI draft. The liver is in view."
 
 
 def test_narration_falls_back_to_decisions_when_nothing_survives(tmp_path, monkeypatch):
@@ -452,7 +452,7 @@ def test_narration_falls_back_to_decisions_when_nothing_survives(tmp_path, monke
     monkeypatch.setattr(PL.vlm, "ask", lambda *a, **k: {"sentences": [{"text": "A stapler fires.", "evidence": ["kf_00000"]}]})
     seg = PL.narrate(job, meta, phases, decisions, types.SimpleNamespace(update=lambda *a: None))[0]
     assert seg["source"] == "decisions" and "stapler" not in seg["text"]
-    assert "Verified in this segment: liver." in seg["text"] and "Could not be confirmed: blood." in seg["text"]
+    assert "Seen in this segment: liver." in seg["text"] and "Could not be confirmed: blood." in seg["text"]
 
 
 def test_fallback_text_tells_absent_apart_from_unchecked():
@@ -466,7 +466,7 @@ def test_narration_says_when_the_phase_is_uncertain_even_if_the_model_does_not(t
     phases[0]["agree"] = False
     monkeypatch.setattr(PL.vlm, "ask", lambda *a, **k: {"sentences": [{"text": "The liver is visible.", "evidence": ["kf_00000"]}]})
     seg = PL.narrate(job, meta, phases, decisions, types.SimpleNamespace(update=lambda *a: None))[0]
-    assert seg["text"] == "The liver is visible. The phase is uncertain."
+    assert seg["text"] == "AI draft. The liver is visible. The phase is uncertain."
 
 
 def test_narration_outage_keeps_the_job_and_records_the_error(tmp_path, monkeypatch):
@@ -478,7 +478,7 @@ def test_narration_outage_keeps_the_job_and_records_the_error(tmp_path, monkeypa
     monkeypatch.setattr(PL.vlm, "ask", down)
     seg = PL.narrate(job, meta, phases, decisions, types.SimpleNamespace(update=lambda *a: None))[0]
     assert seg["source"] == "decisions" and seg["error"] == "model unavailable" and seg["raw_ref"] is None
-    assert seg["text"].startswith("Verified in this segment: liver.")
+    assert seg["text"].startswith("AI draft. Seen in this segment: liver.")
 
 
 def rows_of(names, conf=0.8):
@@ -568,7 +568,7 @@ def test_full_run_with_mock_provider(isolated, stub_stages):
     assert all(r["model"].startswith("mock:") for r in detect_rows + PL.read_jsonl(job / "verify.jsonl"))
     assert json.load(open(job / "meta.json"))["vlm_provider"] == "mock"
     duct = [r for r in decisions if r["label"] == "cystic_duct"]
-    assert all(r["status"] == "reject" and len(r["rounds"]) == 1 for r in duct)  # went through the amber loop
+    assert all(r["status"] == "AMBER" and r["route"] == "amber_said_absent" and len(r["rounds"]) == 1 for r in duct)
     assert all(r["status"] == "accept" and r["polygon"] for r in decisions if r["label"] == "liver")
     assert all(r["rounds"][0]["model"].startswith("mock:") for r in duct)
     narration = json.load(open(job / "narration.json"))["segments"]
