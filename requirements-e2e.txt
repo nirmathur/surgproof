@@ -1,8 +1,7 @@
+# Runtime dependencies of the end-to-end app. Locked with hashes in requirements-e2e.lock (make lock).
 fastapi
 uvicorn
 python-multipart
 numpy
 opencv-python-headless
 pillow
-pytest
-httpx

@@ -1,16 +1,30 @@
-import { h, api, postJson, jobHeader, fmtBytes } from '/lib.js';
+import { h, api, jobHeader, fmtBytes } from '/lib.js';
 
-function fileCard(title, description, url, info, lockedReason) {
+function fileCard(title, description, url, name, info, lockedReason) {
   const size = info && info.bytes !== undefined ? fmtBytes(info.bytes) : '';
   const action = lockedReason || !info
     ? h('button', { class: 'btn', disabled: true }, lockedReason ? 'Locked' : 'Not available')
-    : h('a', { class: 'btn primary', href: `${url}?download=1`, download: '' }, 'Download');
-  return h('section', { class: 'card dl' },
+    : h('a', { class: 'btn primary', href: `${url}/files/${name}?download=1`, download: '' }, 'Download');
+  return h('section', { class: 'card dl', 'data-file': name },
     h('div', { class: 'grow' },
       h('h2', { style: 'margin-bottom:2px' }, title),
       h('p', { class: 'small muted' }, lockedReason || description)),
-    h('span', { class: 'small muted mono' }, size),
+    h('span', { class: 'small muted mono' }, lockedReason ? '' : size),
     action);
+}
+
+// Says exactly how much a person looked at, from the released file itself. Most of a dataset is unreviewed AI output.
+function reviewedLine(fp, counts) {
+  if (!counts) return null;
+  const pool = fp.n_audit_pool === null || fp.n_audit_pool === undefined ? '' : ` drawn at random from ${fp.n_audit_pool} labels the AI accepted`;
+  return h('section', { class: 'card stack', id: 'dl-reviewed' },
+    h('h2', { style: 'margin:0' }, 'What was reviewed'),
+    h('p', { class: 'small' },
+      `A person reviewed ${fp.total} labels: ${fp.n_amber} the AI was unsure about, and ${fp.n_audit} audit samples${pool}. `
+      + `They overruled ${fp.audit_disagreements} of the audit samples.`),
+    h('p', { class: 'small' },
+      `Of ${counts.n_annotations} annotations in this dataset, ${counts.n_human_reviewed} were individually reviewed by a person. `
+      + `The other ${counts.n_annotations - counts.n_human_reviewed}, including ${counts.n_propagated} propagated by optical flow, are AI output that nobody looked at.`));
 }
 
 export async function renderDownload(root, { id }) {
@@ -24,14 +38,17 @@ export async function renderDownload(root, { id }) {
   const out = job.outputs || {};
   const fp = job.final_pass || {};
   const locked = fp.released ? null
-    : `Locked until the final pass is complete and a person releases it (${fp.pending} of ${fp.total} items left).`;
+    : `Locked until a person completes the final pass and releases this job (${fp.pending} of ${fp.total} items left). Until then this is an unreviewed AI draft: you can view it on the Watch tab.`;
   root.append(h('div', { class: 'stack' },
-    fileCard('Annotated video', 'The source video with the AI\'s boxes, masks, phase and narration burned in. AI output, not yet human-checked unless released.',
-      `${url}/files/annotated.mp4`, out['annotated.mp4']),
-    fileCard('COCO dataset', 'Polygons, boxes and provenance attributes, with the human final pass applied.',
-      `${url}/files/released_coco.json`, out['released_coco.json'], locked),
+    reviewedLine(fp, job.released_counts),
+    fileCard('Annotated video', 'The source video with the boxes, masks, phase and AI-draft narration drawn in.',
+      url, 'annotated.mp4', out['annotated.mp4'], locked),
+    fileCard('COCO dataset', 'Polygons, boxes and provenance attributes, with the final-pass decisions applied. Each annotation says whether a person reviewed it.',
+      url, 'released_coco.json', out['released_coco.json'], locked),
     fileCard('Provenance', 'One row per annotation: model, prompt hash and how it was decided.',
-      `${url}/files/provenance.jsonl`, out['provenance.jsonl']),
+      url, 'provenance.jsonl', out['provenance.jsonl'], locked),
+    fileCard('Final-pass record', 'Every review click, with who made it and when.',
+      url, 'final_pass.jsonl', out['final_pass.jsonl'], locked),
     locked ? h('div', {}, h('a', { class: 'btn', href: `#/jobs/${encodeURIComponent(id)}/final-pass` }, 'Go to final pass')) : null));
   return null;
 }

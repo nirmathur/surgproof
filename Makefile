@@ -2,21 +2,29 @@ PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo 
 PORT ?= 8600
 SRC ?= gt_corrupted
 
-.PHONY: all setup serve setup-full demo run gt corrupted eval recheck render test clean-tracker
+.PHONY: all setup setup-dev lock serve setup-full demo run gt corrupted eval recheck render test clean-tracker
 
 all: gt corrupted eval recheck render
 
-# End-to-end app: a private .venv with what the upload-to-dataset pipeline needs. No API key: it uses `claude`.
+# End-to-end app: a private .venv with exactly the locked, hash-checked runtime dependencies.
 setup:
 	@command -v ffmpeg >/dev/null || { echo "ffmpeg is required (macOS: brew install ffmpeg)"; exit 1; }
 	@command -v ffprobe >/dev/null || { echo "ffprobe is required (macOS: brew install ffmpeg)"; exit 1; }
 	@command -v claude >/dev/null || echo "warning: the claude CLI was not found; the pipeline needs it to call the model"
 	@[ -x .venv/bin/python ] || python3 -m venv .venv
-	.venv/bin/python -m pip install --quiet --upgrade pip
-	.venv/bin/python -m pip install --quiet -r requirements-e2e.txt
+	.venv/bin/python -m pip install --quiet --require-hashes -r requirements-e2e.lock
 	@echo "Ready. Now: make serve"
 
-# Start the app at http://localhost:$(PORT). HOST=0.0.0.0 exposes it to the network, and it has no login.
+# Adds pytest and the test client. Not needed to run the app.
+setup-dev: setup
+	.venv/bin/python -m pip install --quiet --require-hashes -r requirements-e2e-dev.lock
+
+# Regenerate the lock files after changing requirements-e2e.txt or requirements-e2e-dev.txt.
+lock:
+	uv pip compile --universal --generate-hashes --quiet requirements-e2e.txt -o requirements-e2e.lock
+	uv pip compile --universal --generate-hashes --quiet requirements-e2e.txt requirements-e2e-dev.txt -o requirements-e2e-dev.lock
+
+# Start the app at http://localhost:$(PORT). It binds to this machine only.
 serve:
 	PORT=$(PORT) $(PY) -m surgproof.server
 

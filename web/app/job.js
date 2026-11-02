@@ -1,4 +1,4 @@
-import { h, api, postJson, jobHeader, labelColour, labelName, tracePolygon, drawChip, displayScale, AMBER } from '/lib.js';
+import { h, api, postJson, jobHeader, deleteButton, labelColour, labelName, tracePolygon, drawChip, displayScale, AMBER } from '/lib.js';
 
 function stageRow(stage, job) {
   const active = stage.state === 'active';
@@ -35,6 +35,8 @@ export async function renderJob(root, { id }) {
   const message = h('p', { class: 'small muted', id: 'message' });
   const alerts = h('div');
   const stats = h('p', { class: 'small muted mono' });
+  const manage = h('div', { class: 'stack' });
+  let deleteShown = false;
   const img = h('img', { alt: 'Latest keyframe processed by the pipeline' });
   const canvas = h('canvas', { class: 'over' });
   const caption = h('p', { class: 'small muted' });
@@ -42,7 +44,7 @@ export async function renderJob(root, { id }) {
 
   root.append(header, h('div', { class: 'stack' }, alerts, h('div', { class: 'jobgrid' },
     h('section', { class: 'card stack' },
-      h('div', { class: 'bar' }, fill), message, stageList, stats),
+      h('div', { class: 'bar' }, fill), message, stageList, stats, manage),
     h('section', { class: 'stack' }, frame, caption))));
 
   let lastKf = null;
@@ -71,19 +73,31 @@ export async function renderJob(root, { id }) {
     const fraction = job.state === 'done' ? 1 : Math.min(1, job.progress || 0);
     fill.style.width = `${fraction * 100}%`;
     message.textContent = job.state === 'done'
-      ? 'Finished. Nothing is released until a person completes the final pass.'
+      ? 'Finished: this is an AI draft. Nothing can be exported until a person completes the final pass.'
       : (job.message || '');
     const costed = typeof job.cost_usd === 'number' ? ` · model cost $${job.cost_usd.toFixed(2)}` : '';
     stats.textContent = `Last output ${job.last_activity ? new Date(job.last_activity).toLocaleTimeString() : 'none yet'}${costed}`;
+
+    if (!deleteShown) {
+      deleteShown = true;
+      manage.append(deleteButton(job, () => { location.hash = '#/'; }));
+    }
+    if (job.expires) {
+      const line = document.getElementById('job-expires') || h('p', { class: 'small muted', id: 'job-expires' });
+      line.textContent = `Deleted automatically on ${new Date(job.expires).toLocaleDateString()}.`;
+      if (!line.isConnected) manage.prepend(line);
+    }
 
     alerts.replaceChildren();
     if (job.state === 'failed') {
       alerts.append(h('div', { class: 'notice error stack', role: 'alert' },
         h('p', {}, job.error),
-        h('div', {}, h('button', { class: 'btn', onclick: () => retry() }, 'Retry'))));
+        job.released ? null : h('div', {}, h('button', { class: 'btn', onclick: () => retry() }, 'Retry'))));
     } else if (job.state === 'stalled') {
       alerts.append(h('div', { class: 'notice stack', role: 'alert' },
-        h('p', {}, 'No new output for over 15 minutes. The worker may have died.'),
+        h('p', {}, job.state_detail === 'gone'
+          ? 'The worker for this job is gone, so it is not making progress.'
+          : 'No new output for over 15 minutes. The worker looks hung.'),
         h('div', {}, h('button', { class: 'btn', onclick: () => retry() }, 'Retry'))));
     } else if (job.state === 'done' && job.final_pass) {
       const fp = job.final_pass;

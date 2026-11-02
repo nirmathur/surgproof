@@ -127,6 +127,35 @@ def finished_job(jobs_dir: Path, job_id: str = "job-done") -> Path:
     return job
 
 
+# ---- a real client: same sign-in and attestation route a browser uses ----
+
+TEST_USER = "Test Reviewer"
+TEST_PASSWORD = "test-password-1"
+
+
+def local_client(app):
+    """base_url matters: the server refuses any Host other than this machine's."""
+    from fastapi.testclient import TestClient
+
+    return TestClient(app, base_url="http://localhost")
+
+
+def sign_in(client, jobs: Path, name: str = TEST_USER, password: str = TEST_PASSWORD) -> None:
+    """Create the account with the setup code on first use, as a person would, otherwise log in."""
+    if client.get("/api/auth/state").json()["setup_required"]:
+        code = (Path(jobs) / ".setup_code").read_text(encoding="utf-8")
+        res = client.post("/api/auth/setup", json={"name": name, "password": password, "setup_code": code})
+    else:
+        res = client.post("/api/auth/login", json={"password": password})
+    assert res.status_code == 200, res.text
+
+
+def attestation(**overrides) -> dict:
+    from surgproof.server import NOTICE_SHA256
+
+    return {"rights_attested": "yes", "footage_source": "public", "notice_sha256": NOTICE_SHA256, **overrides}
+
+
 # ---- stand-ins for surgproof.pipeline.run, imported by name in the server's worker process ----
 
 
@@ -141,3 +170,22 @@ def pipeline_ok(video: str, out: str, **options) -> None:
 
 def pipeline_boom(video: str, out: str, **options) -> None:
     raise RuntimeError("synthetic failure in the pipeline")
+
+
+def pipeline_done_with_nothing(video: str, out: str, **options) -> None:
+    """Exits cleanly having written no terminal status: must never read as running."""
+
+
+def pipeline_hang(video: str, out: str, **options) -> None:
+    """A stuck job with a child process, like a pipeline waiting on claude or ffmpeg."""
+    child = subprocess.Popen(["sleep", "600"])
+    (Path(out) / "child.pid").write_text(str(child.pid), encoding="utf-8")
+    (Path(out) / "status.json").write_text(json.dumps({"stage": "detect", "progress": 0.1, "error": None}), encoding="utf-8")
+    time.sleep(600)
+
+
+def pipeline_die_hard(video: str, out: str, **options) -> None:
+    import os
+    import signal
+
+    os.kill(os.getpid(), signal.SIGKILL)

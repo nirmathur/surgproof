@@ -39,7 +39,8 @@ def site(tmp_path_factory):
     jobs = tmp_path_factory.mktemp("browser") / "jobs"
     fx.finished_job(jobs)
     port = free_port()
-    config = uvicorn.Config(server.create_app(jobs, pipeline_target="tests.web_fixture:pipeline_boom"),
+    app = server.create_app(jobs, pipeline_target="tests.web_fixture:pipeline_boom")
+    config = uvicorn.Config(app,
                             host="127.0.0.1", port=port, log_level="warning")
     instance = uvicorn.Server(config)
     thread = threading.Thread(target=instance.run, daemon=True)
@@ -69,6 +70,7 @@ def page(browser):
     context = browser.new_context(viewport={"width": 1280, "height": 900}, accept_downloads=True)
     page = context.new_page()
     page.errors = []
+    page.signed_in_context = context
     page.on("pageerror", lambda err: page.errors.append(str(err)))
     yield page
     context.close()
@@ -95,6 +97,18 @@ class HeldRequests:
             route.continue_()
 
 
+def sign_in_browser(context, site):
+    """Puts a real session cookie into this browser context."""
+    base, jobs = site
+    state = context.request.get(f"{base}/api/auth/state").json()
+    if state["setup_required"]:
+        code = (jobs / ".setup_code").read_text(encoding="utf-8")
+        res = context.request.post(f"{base}/api/auth/setup", data={"name": fx.TEST_USER, "password": fx.TEST_PASSWORD, "setup_code": code})
+    else:
+        res = context.request.post(f"{base}/api/auth/login", data={"password": fx.TEST_PASSWORD})
+    assert res.ok, res.text()
+
+
 def wait_for_annotated_frame(page, frame: int):
     page.wait_for_function(
         """(n) => { const t = document.querySelector('#watch-frame').textContent;
@@ -110,8 +124,17 @@ def canvas_has_pixels(page, selector: str) -> bool:
 
 def test_upload_page_rejects_with_a_message_then_opens_the_job(site, page, tmp_path):
     base, _ = site
+    sign_in_browser(page.signed_in_context, site)
     page.goto(base)
     page.wait_for_selector("#drop")
+    # Blocking: until the notice is answered, nothing can be chosen or dropped.
+    assert "third-party" in page.locator("#notice-text").inner_text()
+    assert page.locator("#file-input").is_disabled()
+    assert "blocked" in page.locator("#drop").get_attribute("class")
+    page.check("#attest-rights")
+    assert page.locator("#file-input").is_disabled(), "needs a footage source as well"
+    page.check("#source-simulator")
+    assert page.locator("#file-input").is_enabled()
     bad = tmp_path / "notes.txt"
     bad.write_text("x")
     page.set_input_files("#file-input", str(bad))
@@ -127,7 +150,8 @@ def test_upload_page_rejects_with_a_message_then_opens_the_job(site, page, tmp_p
     page.wait_for_url("**/#/jobs/*")
     page.wait_for_selector("#stages li")
     assert page.locator("#stages li").count() == 9
-    assert page.locator("h1").inner_text() == "my clip.mp4"
+    assert page.locator("h1").inner_text().startswith("Job ")
+    assert "my clip" not in page.content()
     # This site's pipeline stand-in always fails, so the failure path must be visible and offer a retry.
     page.wait_for_selector("[role=alert] button", timeout=180000)
     assert "synthetic failure" in page.locator("[role=alert]").inner_text()
@@ -135,6 +159,7 @@ def test_upload_page_rejects_with_a_message_then_opens_the_job(site, page, tmp_p
 
 def test_job_page_links_every_output(site, page):
     base, _ = site
+    sign_in_browser(page.signed_in_context, site)
     page.goto(f"{base}/#/jobs/job-done")
     page.wait_for_selector("#stages li")
     assert page.locator("#stages .dot.done").count() == 9
@@ -144,6 +169,7 @@ def test_job_page_links_every_output(site, page):
 
 def test_watch_plays_with_overlays_phase_and_subtitles(site, page):
     base, _ = site
+    sign_in_browser(page.signed_in_context, site)
     page.goto(f"{base}/#/jobs/job-done/watch")
     page.wait_for_selector("#watch-video")
     page.wait_for_function("document.querySelector('#watch-video').readyState >= 2", timeout=60000)
@@ -176,12 +202,14 @@ def test_watch_plays_with_overlays_phase_and_subtitles(site, page):
 
 def test_final_pass_then_release_then_download(site, page):
     base, jobs = site
+    sign_in_browser(page.signed_in_context, site)
     page.goto(f"{base}/#/jobs/job-done/download")
     page.wait_for_selector(".dl")
     assert page.locator(".dl").nth(1).locator("button").inner_text() == "Locked"
 
     page.goto(f"{base}/#/jobs/job-done/final-pass")
     page.wait_for_selector("#fp-queue .fpitem")
+    assert fx.TEST_USER in page.locator("#fp-reviewer").inner_text()
     assert page.locator("#fp-release-btn").is_disabled()
     assert page.locator("#fp-queue .fpitem .pill.AMBER").count() == 1
     page.wait_for_function(f"document.querySelector('#fp-canvas').width === {fx.W}")
@@ -208,8 +236,6 @@ def test_final_pass_then_release_then_download(site, page):
     page.wait_for_function("(n) => document.querySelector('#fp-progress').textContent.startsWith(`${n} of`)", arg=total)
     assert "1 corrected by you" in page.locator("#fp-release").inner_text()
 
-    assert page.locator("#fp-release-btn").is_disabled(), "release needs a named reviewer"
-    page.fill("#fp-reviewer", "Test Reviewer")
     assert page.locator("#fp-release-btn").is_enabled()
     page.click("#fp-release-btn")
     page.wait_for_function("document.querySelector('#fp-release-btn').textContent === 'Released'")
@@ -218,10 +244,31 @@ def test_final_pass_then_release_then_download(site, page):
 
     page.goto(f"{base}/#/jobs/job-done/download")
     page.wait_for_selector(".dl a.btn.primary")
-    assert page.locator(".dl a.btn.primary").count() == 3
+    assert page.locator(".dl a.btn.primary").count() == 4
     with page.expect_download() as download_info:
         page.locator(".dl").nth(1).locator("a").click()
     assert download_info.value.suggested_filename == "job-done_released_coco.json"
+
+    # The wording must match the file: how many annotations a person actually reviewed.
+    released = server.json.loads((jobs / "job-done" / "released_coco.json").read_text())
+    n_all = len(released["annotations"])
+    n_seen = sum(1 for a in released["annotations"] if a["attributes"].get("human_reviewed") and not a["attributes"].get("propagated"))
+    text = page.locator("#dl-reviewed").inner_text()
+    assert f"Of {n_all} annotations" in text and f"{n_seen} were individually reviewed" in text
+    assert f"other {n_all - n_seen}" in text and "nobody looked at" in text
+    assert "erified" not in page.locator("main").inner_text()
+
+    # Every player style is reachable, and a person's decision shows as theirs.
+    page.goto(f"{base}/#/jobs/job-done/watch")
+    page.wait_for_selector("#watch-video")
+    wait_for_annotated_frame(page, 0)
+    origins = page.evaluate("[...document.querySelectorAll('#watch-objects li')].map(l => [l.dataset.origin, l.textContent])")
+    assert any(o == "human" and "reviewed" in text for o, text in origins), origins
+    page.evaluate("document.querySelector('#watch-video').currentTime = 0.5")
+    wait_for_annotated_frame(page, 5)
+    origins = page.evaluate("[...document.querySelectorAll('#watch-objects li')].map(l => l.dataset.origin)")
+    assert set(origins) == {"propagated"}, origins
+    assert "Tracked between keyframes" in page.locator("#watch-key").inner_text()
 
 
 def test_no_verdict_before_the_frame_is_on_screen(site, browser):
@@ -229,6 +276,7 @@ def test_no_verdict_before_the_frame_is_on_screen(site, browser):
     job = jobs / "job-slow"
     fx.finished_job(jobs, "job-slow")
     context = browser.new_context(viewport={"width": 1280, "height": 900})
+    sign_in_browser(context, site)
     page = context.new_page()
     held = HeldRequests(page, "**/files/frames/**")
     page.goto(f"{base}/#/jobs/job-slow/final-pass")
@@ -260,6 +308,7 @@ def test_no_verdict_before_the_frame_is_on_screen(site, browser):
 
 def test_mock_model_jobs_are_labelled_as_placeholders(site, page):
     base, jobs = site
+    sign_in_browser(page.signed_in_context, site)
     fx.finished_job(jobs, "job-mock")
     meta = jobs / "job-mock" / "meta.json"
     meta.write_text(server.json.dumps({**server.json.loads(meta.read_text()), "vlm_provider": "mock"}), encoding="utf-8")
@@ -271,8 +320,58 @@ def test_mock_model_jobs_are_labelled_as_placeholders(site, page):
     assert page.locator("#mock-warning").count() == 0
 
 
+def test_overlay_failure_is_visible_not_silent(site, page):
+    base, _ = site
+    sign_in_browser(page.signed_in_context, site)
+    page.route("**/overlay?*", lambda route: route.fulfill(status=500, body="{}"))
+    page.goto(f"{base}/#/jobs/job-done/watch")
+    page.wait_for_selector("#watch-error", timeout=60000)
+    assert "plain video" in page.locator("#watch-error").inner_text()
+    page.wait_for_function("document.querySelector('#watch-frame').textContent.includes('failed to load')", timeout=60000)
+    assert not canvas_has_pixels(page, "#watch-canvas")
+    # It recovers by itself when the annotations come back, and the warning goes.
+    page.unroute("**/overlay?*")
+    page.wait_for_function("!document.querySelector('#watch-error')", timeout=30000)
+    wait_for_annotated_frame(page, 0)
+    assert canvas_has_pixels(page, "#watch-canvas")
+
+
+def test_sign_in_is_required_and_session_can_end(site, page):
+    base, _ = site
+    sign_in_browser(page.signed_in_context, site)  # the account exists from here on
+    page.signed_in_context.clear_cookies()
+    page.goto(f"{base}/#/jobs/job-done")
+    page.wait_for_selector("#auth-form")
+    assert page.locator("#stages").count() == 0
+    page.fill("#auth-password", "not the password")
+    page.click("#auth-submit")
+    page.wait_for_selector("[role=alert]")
+    assert "wrong password" in page.locator("[role=alert]").inner_text()
+    page.fill("#auth-password", fx.TEST_PASSWORD)
+    page.click("#auth-submit")
+    page.wait_for_selector("#stages li")
+    assert page.locator("#session-user").inner_text() == fx.TEST_USER
+    page.click("#sign-out")
+    page.wait_for_selector("#auth-form")
+
+
+def test_delete_needs_two_clicks_then_the_job_is_gone(site, page):
+    base, jobs = site
+    sign_in_browser(page.signed_in_context, site)
+    fx.finished_job(jobs, "job-delete-me")
+    page.goto(f"{base}/#/jobs/job-delete-me")
+    page.wait_for_selector("#job-delete")
+    assert "Deleted automatically" in page.locator("#job-expires").inner_text()
+    page.click("#job-delete")
+    assert (jobs / "job-delete-me").exists(), "one click must not delete"
+    page.click("#job-delete")
+    page.wait_for_selector("#drop")
+    assert not (jobs / "job-delete-me").exists()
+
+
 def test_no_stale_boxes_while_a_frames_annotations_are_loading(site, page):
     base, _ = site
+    sign_in_browser(page.signed_in_context, site)
     held = HeldRequests(page, "**/overlay?start=20*")  # the chunk holding frames 20-39 stays in flight
     page.goto(f"{base}/#/jobs/job-done/watch")
     page.wait_for_selector("#watch-frame")
@@ -289,22 +388,24 @@ def test_no_stale_boxes_while_a_frames_annotations_are_loading(site, page):
     assert canvas_has_pixels(page, "#watch-canvas")
 
 
-def test_filename_with_markup_is_not_injected(site, page):
+def test_model_or_pipeline_text_with_markup_is_not_injected(site, page):
     base, jobs = site
+    sign_in_browser(page.signed_in_context, site)
     job = jobs / "job-html"
     job.mkdir()
-    payload = '<img src=x onerror="window.pwned=1">.mp4'
-    (job / "job.json").write_text(server.json.dumps({"id": "job-html", "filename": payload}), encoding="utf-8")
-    (job / "status.json").write_text(server.json.dumps({"stage": "detect", "error": None}), encoding="utf-8")
+    payload = '<img src=x onerror="window.pwned=1">'
+    (job / "status.json").write_text(server.json.dumps({"stage": "detect", "message": payload, "error": None}), encoding="utf-8")
     page.goto(f"{base}/#/jobs/job-html")
-    page.wait_for_selector("h1")
-    assert page.locator("h1").inner_text() == payload
+    page.wait_for_selector("#message")
+    page.wait_for_function("document.querySelector('#message').textContent.length > 0")
+    assert page.locator("#message").inner_text() == payload
     assert page.evaluate("window.pwned") is None
 
 
 def test_phone_width_has_no_sideways_scroll(site, browser):
     base, _ = site
     context = browser.new_context(viewport={"width": 390, "height": 800})
+    sign_in_browser(context, site)
     page = context.new_page()
     for route in ("", "#/jobs/job-done", "#/jobs/job-done/watch", "#/jobs/job-done/final-pass", "#/jobs/job-done/download"):
         page.goto(f"{base}/{route}")

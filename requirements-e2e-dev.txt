@@ -1,0 +1,3 @@
+# Test-only dependencies. Locked with hashes in requirements-e2e-dev.lock (make lock).
+pytest
+httpx

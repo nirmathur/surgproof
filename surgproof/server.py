@@ -1,6 +1,7 @@
 """SurgProof web server: upload a video, watch the pipeline run, review it, release it.
 
-Run with `make serve` or `python -m surgproof.server` (http://localhost:8600).
+Run with `make serve` or `python -m surgproof.server` (http://localhost:8600). A single-user research tool for
+laparoscopic cholecystectomy, on public or simulator footage only. It binds to this machine alone.
 
 This module only reads pipeline artifacts from jobs/<id>/ (see docs/E2E_SPEC.md) and records human
 clicks. It holds no boxes, verdicts or scores of its own, and it never reads ground truth. Everything
@@ -8,41 +9,81 @@ the UI shows is computed from those files on each request.
 """
 from __future__ import annotations
 
+import asyncio
 import concurrent.futures as cf
 import contextlib
+import errno
+import fcntl
+import hashlib
+import http.cookies
 import importlib
 import json
+import logging
 import os
 import re
 import shutil
+import signal
+import socket
+import sqlite3
 import subprocess
 import sys
 import threading
+import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from python_multipart.exceptions import FormParserError
+from python_multipart.multipart import MultipartParser, parse_options_header
+from starlette.datastructures import Headers
+from starlette.requests import ClientDisconnect
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+from surgproof.webauth import COOKIE_NAME, SESSION_SECONDS, AuthError, LocalAuth
+
+log = logging.getLogger("surgproof.server")
 
 REPO = Path(__file__).resolve().parent.parent
 APP_DIR = REPO / "web" / "app"
 PIPELINE_TARGET = "surgproof.pipeline:run"
 
+BIND_HOST = "127.0.0.1"  # fixed: there is no setting that exposes this server to the network
+ALLOWED_HOSTS = ("localhost", "127.0.0.1")
 MAX_SECONDS = 300
-MAX_BYTES = 8 * 1024**3
+MAX_BYTES = 4 * 1024**3
+MAX_JSON_BYTES = 1024**2
+MAX_FIELD_BYTES = 4096
+MAX_KF_FPS = 5.0
 ALLOWED_SUFFIXES = {".mp4", ".mov"}
+FOOTAGE_SOURCES = ("public", "simulator")
+SPACE_FACTOR = 3  # frames, masks and tracks can take several times the size of the upload
 STALL_SECONDS = 15 * 60
 AUDIT_FRACTION = 0.10
+RETENTION_SWEEP_SECONDS = 3600
+STOP_GRACE_SECONDS = 5
 JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$")
+PUBLIC_API = {"/api/health", "/api/auth/state", "/api/auth/setup", "/api/auth/login", "/api/auth/logout"}
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+WORKER_LOCK = ".worker.lock"
+
+UPLOAD_NOTICE = (
+    "Frames from this video are sent to a third-party AI model provider to be labelled. "
+    "This build is for public or simulator laparoscopic cholecystectomy footage only. "
+    "Do not upload real patient video. "
+    "By continuing you confirm that you have the right to use this footage and to send it to that provider."
+)
+NOTICE_SHA256 = hashlib.sha256(UPLOAD_NOTICE.encode("utf-8")).hexdigest()
 
 STAGES = [
     ("ingest", "Ingest"),
     ("detect", "Detect"),
-    ("verify", "Verify"),
+    ("verify", "Second pass"),
     ("amber", "Amber loop"),
     ("masks", "Masks"),
     ("propagate", "Propagate"),
@@ -54,9 +95,12 @@ STAGE_KEYS = [key for key, _ in STAGES]
 TERMINAL_STAGES = {"done"}
 # A job is only "done" if these exist. A status line saying so is not enough.
 REQUIRED_OUTPUTS = ["decisions.jsonl", "annotated.mp4", "dataset_coco.json", "provenance.jsonl"]
-# The draft dataset is not exported over HTTP until a human has released it (VISION.md, FINAL PASS).
-RELEASE_GATED_FILES = {"dataset_coco.json"}
+# Served over HTTP only by exact name. Nothing else in a job folder is reachable: not masks, logs, raw model rows.
+FRAME_FILE_RE = re.compile(r"^frames/kf_\d+\.jpg$")
+# Nothing is exported until a person has released it (VISION.md, FINAL PASS). Watch shows the AI draft in the app.
+RELEASE_GATED_FILES = {"dataset_coco.json", "released_coco.json", "annotated.mp4", "provenance.jsonl", "final_pass.jsonl"}
 DOWNLOADABLE = ["annotated.mp4", "released_coco.json", "provenance.jsonl", "final_pass.jsonl"]
+RAW_REF_FILES = ("detect.jsonl", "verify.jsonl", "decisions.jsonl", "phase.jsonl", "narration.json", "provenance.jsonl")
 
 HELD_STATUS = "AMBER"
 ACTION_APPROVE, ACTION_REJECT, ACTION_CORRECT = "approve", "reject", "correct"
@@ -127,6 +171,8 @@ def probe_video(path: Path) -> dict:
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     except FileNotFoundError as exc:
         raise ValueError("ffprobe is not installed on this machine") from exc
+    except OSError as exc:
+        raise ValueError(f"ffprobe could not be run: {exc}") from exc
     except subprocess.TimeoutExpired as exc:
         raise ValueError("ffprobe timed out on this file") from exc
     if out.returncode != 0:
@@ -156,21 +202,79 @@ def probe_video(path: Path) -> dict:
 
 
 def _run_pipeline(target: str, video: str, out_dir: str, options: dict) -> None:
-    """Runs in the job's child process. Importing here keeps the server up if the pipeline fails to import."""
+    """Runs in the job's child process. The kernel drops the lock when this process dies, however it dies."""
+    lock_path = Path(out_dir) / WORKER_LOCK
+    lock_file = lock_path.open("a+", encoding="utf-8")
+    for attempt in range(30):  # the server's liveness probe holds this lock for an instant
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except OSError:
+            if attempt == 29:
+                raise SystemExit(f"another worker already holds {lock_path}") from None
+            time.sleep(0.1)
+    lock_file.seek(0)
+    lock_file.truncate()
+    lock_file.write(str(os.getpid()))
+    lock_file.flush()
     module_name, _, func_name = target.partition(":")
     func = getattr(importlib.import_module(module_name), func_name)
     func(video, out_dir, **options)
 
 
+_probe_guard = threading.Lock()  # two probes at once would each read the other's lock as a live worker
+
+
+def worker_pid(job_dir: Path) -> Optional[int]:
+    """The pid of a live worker for this job, or None. Being able to take the lock proves there is none."""
+    path = job_dir / WORKER_LOCK
+    with _probe_guard:
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                try:
+                    fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except OSError:
+                    text = fh.read().strip()
+                    return int(text) if text.isdigit() else -1  # held, but its pid is not written yet
+                fcntl.flock(fh, fcntl.LOCK_UN)
+        except OSError:
+            pass
+    return None
+
+
+def kill_worker_group(job_dir: Path) -> bool:
+    """SIGTERM, then SIGKILL, to the worker's whole process group: it takes claude and ffmpeg children with it."""
+    pid = worker_pid(job_dir)
+    if pid is None or pid <= 0:
+        return pid is None
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(pid, signal.SIGTERM)
+    deadline = time.time() + STOP_GRACE_SECONDS
+    while time.time() < deadline and worker_pid(job_dir) is not None:
+        time.sleep(0.1)
+    if worker_pid(job_dir) is not None:
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(pid, signal.SIGKILL)
+        deadline = time.time() + STOP_GRACE_SECONDS
+        while time.time() < deadline and worker_pid(job_dir) is not None:
+            time.sleep(0.1)
+    # The group is signalled even after the leader exits: a child that outlived it must go too.
+    with contextlib.suppress(ProcessLookupError, PermissionError):
+        os.killpg(pid, signal.SIGKILL)
+    return worker_pid(job_dir) is None
+
+
 class Runner:
-    """Up to max_jobs pipelines at once, each in its own process, so a native crash cannot take the server down."""
+    """Up to max_jobs pipelines at once, each in its own process group, so a crash cannot take the server down."""
 
     def __init__(self, target: str, max_jobs: int):
         self.target = target
         self.active: set[str] = set()
-        self._procs: dict[str, subprocess.Popen] = {}
+        self.failures: dict[str, str] = {}  # for when the disk is too full to record a failure in status.json
         self._lock = threading.Lock()
         self._stopping = False
+        self._stopped_jobs: set[str] = set()
+        self._dirs: dict[str, Path] = {}
         self._pool = cf.ThreadPoolExecutor(max_workers=max_jobs, thread_name_prefix="job")
 
     def submit(self, job_id: str, video: Path, job_dir: Path, options: dict) -> None:
@@ -178,43 +282,81 @@ class Runner:
             if job_id in self.active:
                 raise RuntimeError(f"job {job_id} is already active")
             self.active.add(job_id)
+            self.failures.pop(job_id, None)
+            self._stopped_jobs.discard(job_id)
+            self._dirs[job_id] = job_dir
         future = self._pool.submit(self._run, job_id, video, job_dir, options)
         future.add_done_callback(lambda _: self._release(job_id))
 
     def _release(self, job_id: str) -> None:
         with self._lock:
             self.active.discard(job_id)
-            self._procs.pop(job_id, None)
+            self._dirs.pop(job_id, None)
+
+    def _fail(self, job_id: str, job_dir: Path, reason: str) -> None:
+        log.error("job %s failed: %s", job_id, reason)
+        try:
+            write_status(job_dir, error=reason)
+        except OSError as exc:
+            log.error("job %s: could not record the failure: %s", job_id, exc)
+            with self._lock:
+                self.failures[job_id] = reason
 
     def _run(self, job_id: str, video: Path, job_dir: Path, options: dict) -> None:
+        # Everything is caught here: a job that dies must never be left reading as "running".
+        try:
+            self._run_worker(job_id, video, job_dir, options)
+        except BaseException as exc:  # noqa: BLE001
+            log.exception("job %s: the runner failed", job_id)
+            self._fail(job_id, job_dir, f"the job runner failed: {type(exc).__name__}: {exc}")
+
+    def _run_worker(self, job_id: str, video: Path, job_dir: Path, options: dict) -> None:
         cmd = [sys.executable, "-m", "surgproof.server", "--run-job", self.target, str(video), str(job_dir),
                json.dumps(options)]
         log_path = job_dir / "worker.log"
-        with log_path.open("ab") as log:
+        with log_path.open("ab") as out:
             with self._lock:
-                if self._stopping:
+                if self._stopping or job_id in self._stopped_jobs:
                     return
-                proc = subprocess.Popen(cmd, cwd=REPO, stdout=log, stderr=subprocess.STDOUT)
-                self._procs[job_id] = proc
+            proc = subprocess.Popen(cmd, cwd=REPO, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
             code = proc.wait()
-        if code == 0:
-            return
-        # The pipeline records its own errors. This covers everything it cannot: import errors, native crashes.
         status = read_json(job_dir / "status.json", {}) or {}
-        if not status.get("error"):
-            if self._stopping:
-                reason = "the server stopped while this job was running"
-            else:
-                reason = f"the worker exited with code {code}: {_log_tail(log_path)}"
-            write_status(job_dir, error=reason)
+        finished = normalise_stage(status.get("stage")) in TERMINAL_STAGES
+        with self._lock:
+            stopped = job_id in self._stopped_jobs
+        if code == 0 and finished:
+            return
+        if status.get("error"):
+            return  # the pipeline recorded its own failure
+        if stopped:
+            return
+        if self._stopping:
+            self._fail(job_id, job_dir, "the server stopped while this job was running")
+        elif code == 0:
+            self._fail(job_id, job_dir, "the worker exited without finishing the job")
+        else:
+            self._fail(job_id, job_dir, f"the worker exited with code {code}: {_log_tail(log_path)}")
+
+    def stop(self, job_id: str, job_dir: Path, timeout: float = 20.0) -> None:
+        """Kill this job's worker and wait until the runner has let go of it."""
+        with self._lock:
+            self._stopped_jobs.add(job_id)
+        kill_worker_group(job_dir)
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            with self._lock:
+                if job_id not in self.active:
+                    return
+            kill_worker_group(job_dir)  # it may only just have started
+            time.sleep(0.1)
+        raise RuntimeError(f"could not stop the worker for job {job_id}")
 
     def shutdown(self) -> None:
         with self._lock:
             self._stopping = True
-            procs = list(self._procs.values())
-        for proc in procs:
-            with contextlib.suppress(OSError):
-                proc.terminate()
+            dirs = list(self._dirs.values())
+        for job_dir in dirs:
+            kill_worker_group(job_dir)
         self._pool.shutdown(wait=True, cancel_futures=True)
 
 
@@ -271,14 +413,14 @@ class Store:
         if not JOB_ID_RE.match(job_id) or job_id.startswith("."):
             raise HTTPException(404, "no such job")
         path = self.jobs_dir / job_id
-        if not path.is_dir():
+        if path.is_symlink() or not path.is_dir():
             raise HTTPException(404, "no such job")
         return path
 
     def list_ids(self) -> list[str]:
         ids = []
         for entry in os.scandir(self.jobs_dir):
-            if entry.is_dir() and JOB_ID_RE.match(entry.name) and not entry.name.startswith("."):
+            if entry.is_dir(follow_symlinks=False) and JOB_ID_RE.match(entry.name) and not entry.name.startswith("."):
                 if (Path(entry.path) / "status.json").exists() or (Path(entry.path) / "job.json").exists():
                     ids.append(entry.name)
         return ids
@@ -319,15 +461,6 @@ def playable_video(job_dir: Path) -> Optional[Path]:
     return path if path.is_relative_to(resolved_job) and path.is_file() else None
 
 
-def is_release_gated(job_dir: Path, target: Path) -> bool:
-    """Compare by file identity: on a case-insensitive disk DATASET_COCO.json is the same file."""
-    for name in RELEASE_GATED_FILES:
-        gated = job_dir / name
-        if gated.exists() and os.path.samefile(gated, target):
-            return True
-    return False
-
-
 def last_activity(job_dir: Path, status: dict) -> Optional[datetime]:
     """Newest write in the job folder: liveness comes from artifact freshness, not from a process handle."""
     newest = 0.0
@@ -342,25 +475,33 @@ def last_activity(job_dir: Path, status: dict) -> Optional[datetime]:
     return max(candidates) if candidates else None
 
 
-def job_state(job_dir: Path, status: dict, active: set[str]) -> dict:
+def job_state(job_dir: Path, status: dict, runner: Runner) -> dict:
     """One of queued | running | stalled | failed | done, each justified by what is on disk."""
     stage = normalise_stage(status.get("stage"))
     missing = [name for name in REQUIRED_OUTPUTS if not (job_dir / name).exists()]
-    if status.get("error"):
-        return {"state": "failed", "error": str(status["error"])}
+    remembered = runner.failures.get(job_dir.name)
+    if status.get("error") or remembered:
+        return {"state": "failed", "error": str(status.get("error") or remembered)}
     finished = stage in TERMINAL_STAGES
     if finished and not missing:
         return {"state": "done", "error": None}
-    if job_dir.name in active:
-        running = stage not in ("", "queued")
-        return {"state": "running" if running else "queued", "error": None}
+    in_runner = job_dir.name in runner.active
+    if in_runner or worker_pid(job_dir) is not None:
+        if stage in ("", "queued"):
+            return {"state": "queued", "error": None}
+        activity = last_activity(job_dir, status)
+        if activity and (datetime.now(timezone.utc) - activity).total_seconds() > STALL_SECONDS:
+            return {"state": "stalled", "error": None, "detail": "hung"}
+        return {"state": "running", "error": None}
     if finished:
         return {"state": "failed", "error": "pipeline reported finished, but missing: " + ", ".join(missing)}
-    if stage in ("", "queued"):
-        return {"state": "queued", "error": None}
+    if stage in ("", "queued") or (job_dir / WORKER_LOCK).exists():
+        # This server started it (or was meant to) and nothing holds it now: no need to wait for it to go stale.
+        return {"state": "stalled", "error": None, "detail": "gone"}
+    # Started outside this server, by the CLI: only the age of its output can tell.
     activity = last_activity(job_dir, status)
     if activity and (datetime.now(timezone.utc) - activity).total_seconds() > STALL_SECONDS:
-        return {"state": "stalled", "error": None}
+        return {"state": "stalled", "error": None, "detail": "gone"}
     return {"state": "running", "error": None}
 
 
@@ -425,17 +566,40 @@ def stage_list(status: dict, state: str, evidence: dict[str, str]) -> list[dict]
     return out
 
 
-def job_summary(store: Store, job_dir: Path, active: set[str]) -> dict:
+def retention_days() -> float:
+    return float(os.environ.get("SURGPROOF_RETENTION_DAYS", "30"))
+
+
+def job_created(job_dir: Path) -> Optional[datetime]:
+    record = read_json(job_dir / "job.json", {}) or {}
+    created = _parse_iso(record.get("created")) if record.get("created") else None
+    if created:
+        return created
+    with contextlib.suppress(OSError):
+        return datetime.fromtimestamp((job_dir / "status.json").stat().st_mtime, timezone.utc)
+    return None
+
+
+def display_name(job_id: str) -> str:
+    """A name that says nothing about the source: upload filenames are not stored or listed anywhere."""
+    return f"Job {job_id[-6:]}"
+
+
+def job_summary(store: Store, job_dir: Path, runner: Runner) -> dict:
     status = read_json(job_dir / "status.json", {}) or {}
     record = read_json(job_dir / "job.json", {}) or {}
-    verdict = job_state(job_dir, status, active)
+    verdict = job_state(job_dir, status, runner)
     activity = last_activity(job_dir, status)
+    created = job_created(job_dir)
+    days = retention_days()
     return {
         "id": job_dir.name,
-        "filename": record.get("filename") or job_dir.name,
+        "name": display_name(job_dir.name),
         "created": record.get("created") or status.get("started"),
+        "expires": (created + timedelta(days=days)).isoformat(timespec="seconds") if created and days > 0 else None,
         "duration": (record.get("probe") or {}).get("duration"),
         "state": verdict["state"],
+        "state_detail": verdict.get("detail"),
         "error": verdict["error"],
         "stage": status.get("stage"),
         "progress": status.get("progress"),
@@ -447,6 +611,176 @@ def job_summary(store: Store, job_dir: Path, active: set[str]) -> dict:
         "last_activity": activity.isoformat(timespec="seconds") if activity else None,
         "released": (job_dir / "released_coco.json").exists(),
     }
+
+
+# ---------------------------------------------------------------- disk, cache, deletion
+
+
+def disk_report(folder: Path) -> dict:
+    usage = shutil.disk_usage(folder)
+    minimum = min_free_bytes()
+    return {"free_bytes": usage.free, "total_bytes": usage.total, "min_free_bytes": minimum, "ok": usage.free >= minimum}
+
+
+def min_free_bytes() -> int:
+    return int(float(os.environ.get("SURGPROOF_MIN_FREE_MB", "500")) * 1024**2)
+
+
+def check_disk_for_upload(folder: Path, size: Optional[int]) -> None:
+    free = shutil.disk_usage(folder).free
+    needed = min_free_bytes() + (size or 0) * SPACE_FACTOR
+    if free < needed:
+        raise HTTPException(507, f"not enough disk space: {free / 1e6:.0f} MB free, this upload needs "
+                                 f"about {needed / 1e6:.0f} MB. Delete old jobs, or free some space.")
+
+
+def cache_path(store: Store) -> Path:
+    override = os.environ.get("SURGPROOF_CACHE")
+    return Path(override) if override else store.jobs_dir / "cache.sqlite"
+
+
+def job_raw_refs(job_dir: Path) -> set[str]:
+    """Every model response this job's rows point at, wherever in a row the reference sits."""
+    refs: set[str] = set()
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, inner in value.items():
+                if key == "raw_ref" and isinstance(inner, str):
+                    refs.add(inner)
+                else:
+                    walk(inner)
+        elif isinstance(value, list):
+            for inner in value:
+                walk(inner)
+
+    for name in RAW_REF_FILES:
+        path = job_dir / name
+        if name.endswith(".jsonl"):
+            for row in read_jsonl(path):
+                walk(row)
+        else:
+            walk(read_json(path))
+    return refs
+
+
+def purge_cache(store: Store, job_dir: Path) -> int:
+    """Remove this job's model responses, keeping any another job still cites.
+
+    When every other job has finished, responses nobody cites go too. They can only come from this job's
+    aborted attempts, and their rows do not say so. While another job could still resume, they stay.
+    """
+    path = cache_path(store)
+    if not path.exists():
+        return 0
+    others = [store.jobs_dir / name for name in store.list_ids() if name != job_dir.name]
+    keep: set[str] = set()
+    all_finished = True
+    for other in others:
+        keep |= job_raw_refs(other)
+        status = read_json(other / "status.json", {}) or {}
+        if normalise_stage(status.get("stage")) not in TERMINAL_STAGES:
+            all_finished = False
+    mine = job_raw_refs(job_dir) - keep
+    con = sqlite3.connect(path, timeout=30.0)
+    try:
+        con.execute("PRAGMA secure_delete=ON")  # overwrite the deleted text rather than just unlinking the pages
+        has_table = con.execute("select 1 from sqlite_master where type='table' and name='vlm_cache'").fetchone()
+        if not has_table:
+            return 0
+        if all_finished:
+            stale = [row[0] for row in con.execute("select key from vlm_cache") if row[0] not in keep]
+        else:
+            stale = sorted(mine)
+        with con:
+            con.executemany("delete from vlm_cache where key = ?", [(key,) for key in stale])
+        con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        return len(stale)
+    finally:
+        con.close()
+
+
+def delete_job_files(store: Store, job_dir: Path) -> int:
+    """Cache first, so a failure part-way leaves the job listed and the delete can be repeated."""
+    removed = purge_cache(store, job_dir)
+    doomed = store.jobs_dir / f".deleting-{job_dir.name}-{uuid.uuid4().hex[:6]}"
+    os.replace(job_dir, doomed)
+    shutil.rmtree(doomed, ignore_errors=True)
+    return removed
+
+
+def sweep_leftovers(jobs_dir: Path) -> int:
+    """Staging folders and half-deleted jobs from a previous run. Called once, before any request is served."""
+    count = 0
+    for pattern in (".upload-*", ".deleting-*"):
+        for path in jobs_dir.glob(pattern):
+            if not path.is_symlink():
+                shutil.rmtree(path, ignore_errors=True)
+                count += 1
+    return count
+
+
+def sweep_expired(store: Store, runner: Runner) -> list[str]:
+    days = retention_days()
+    if days <= 0:
+        return []
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    deleted = []
+    for job_id in store.list_ids():
+        job_dir = store.jobs_dir / job_id
+        created = job_created(job_dir)
+        if created is None or created >= cutoff:
+            continue
+        with store.lock(job_id):
+            if job_id in runner.active or worker_pid(job_dir) is not None:
+                continue
+            delete_job_files(store, job_dir)
+        log.info("job %s passed the %g-day retention and was deleted", job_id, days)
+        deleted.append(job_id)
+    return deleted
+
+
+# ---------------------------------------------------------------- model backend status
+
+
+class ModelStatus:
+    """Whether the model backend looks usable, without spending a model call. Cached: this runs subprocesses."""
+
+    TTL_SECONDS = 60
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._value: Optional[dict] = None
+        self._at = 0.0
+
+    def get(self) -> dict:
+        with self._lock:
+            if self._value is not None and time.time() - self._at < self.TTL_SECONDS:
+                return self._value
+        value = self._check()
+        with self._lock:
+            self._value, self._at = value, time.time()
+        return value
+
+    @staticmethod
+    def _check() -> dict:
+        provider = os.environ.get("SURGPROOF_VLM", "claude_cli")
+        if provider == "mock":
+            return {"provider": provider, "ok": True, "detail": "mock model: output is placeholders, not AI labels"}
+        if provider == "gemini":
+            has_key = bool(os.environ.get("GEMINI_API_KEY"))
+            return {"provider": provider, "ok": has_key, "detail": "API key present, not tested" if has_key else "GEMINI_API_KEY is not set"}
+        binary = os.environ.get("SURGPROOF_CLAUDE_BIN", "claude")
+        if not shutil.which(binary):
+            return {"provider": provider, "ok": False, "detail": f"{binary} is not installed"}
+        try:
+            out = subprocess.run([binary, "auth", "status"], capture_output=True, text=True, timeout=15)
+            logged_in = bool(json.loads(out.stdout).get("loggedIn"))  # only this field: the rest is account detail
+        except (OSError, ValueError, AttributeError, subprocess.SubprocessError):
+            return {"provider": provider, "ok": False, "detail": "could not read the login status of the claude CLI"}
+        if not logged_in:
+            return {"provider": provider, "ok": False, "detail": "the claude CLI is not logged in"}
+        return {"provider": provider, "ok": True, "detail": "claude CLI logged in. Usage limits are not checked."}
 
 
 # ---------------------------------------------------------------- mask outlines
@@ -617,147 +951,442 @@ class FinalPassBody(BaseModel):
     kf: Optional[str] = None
     label: Optional[str] = None
     polygon: Optional[list[list[float]]] = None
-    reviewer: Optional[str] = None
     note: Optional[str] = None
 
 
 # ---------------------------------------------------------------- app
 
 
+class UploadRejected(Exception):
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
+class UploadStream:
+    """Parses a multipart body as it arrives and writes the video straight to staging.
+
+    Nothing is spooled first, so the size limit stops an oversized upload at the limit, not after it has landed.
+    """
+
+    DISK_CHECK_BYTES = 64 * 1024**2
+
+    def __init__(self, boundary: bytes, staging: Path, jobs_dir: Path):
+        self.staging = staging
+        self.jobs_dir = jobs_dir
+        self.fields: dict[str, str] = {}
+        self.dest: Optional[Path] = None
+        self.written = 0
+        self._out = None
+        self._next_disk_check = self.DISK_CHECK_BYTES
+        self._reset_part()
+        self.parser = MultipartParser(boundary, {
+            "on_part_begin": self._reset_part,
+            "on_header_field": self._header_field,
+            "on_header_value": self._header_value,
+            "on_header_end": self._header_end,
+            "on_headers_finished": self._headers_finished,
+            "on_part_data": self._part_data,
+            "on_part_end": self._part_end,
+        })
+
+    def _reset_part(self) -> None:
+        self._field_name, self._header_name, self._header_buf = None, b"", b""
+        self._disposition = b""
+        self._buffer = b""
+        self._in_file = False
+
+    def _header_field(self, data: bytes, start: int, end: int) -> None:
+        self._header_name += data[start:end]
+
+    def _header_value(self, data: bytes, start: int, end: int) -> None:
+        self._header_buf += data[start:end]
+
+    def _header_end(self) -> None:
+        if self._header_name.lower() == b"content-disposition":
+            self._disposition = self._header_buf
+        self._header_name, self._header_buf = b"", b""
+
+    def _headers_finished(self) -> None:
+        _, params = parse_options_header(self._disposition)
+        name = params.get(b"name", b"").decode("utf-8", "replace")
+        filename = params.get(b"filename")
+        if name in ("file", "video") and filename is not None:
+            if self.dest is not None:
+                raise UploadRejected(422, "send one video at a time")
+            suffix = Path(filename.decode("utf-8", "replace")).suffix.lower()
+            if suffix not in ALLOWED_SUFFIXES:
+                raise UploadRejected(422, f"only mp4 and mov are supported, got '{suffix or 'no extension'}'")
+            self.dest = self.staging / f"upload{suffix}"
+            self._out = self.dest.open("wb")
+            self._in_file = True
+        else:
+            self._field_name = name
+
+    def _part_data(self, data: bytes, start: int, end: int) -> None:
+        if self._in_file:
+            self.written += end - start
+            if self.written > MAX_BYTES:
+                raise UploadRejected(413, f"the file is larger than the {MAX_BYTES // 1024**3} GB limit")
+            if self.written >= self._next_disk_check:
+                self._next_disk_check += self.DISK_CHECK_BYTES
+                if shutil.disk_usage(self.jobs_dir).free < min_free_bytes():
+                    raise UploadRejected(507, "the disk filled up during this upload")
+            self._out.write(data[start:end])
+        else:
+            self._buffer += data[start:end]
+            if len(self._buffer) > MAX_FIELD_BYTES:
+                raise UploadRejected(413, "a form field is too large")
+
+    def _part_end(self) -> None:
+        if self._in_file:
+            self._out.close()
+            self._out = None
+        elif self._field_name:
+            self.fields[self._field_name] = self._buffer.decode("utf-8", "replace")
+
+    def write(self, chunk: bytes) -> None:
+        self.parser.write(chunk)
+
+    def close(self) -> None:
+        if self._out is not None:
+            self._out.close()
+            self._out = None
+
+
+class Guard:
+    """Refuses anything that did not come from a signed-in page on this machine, before a route sees it."""
+
+    def __init__(self, app: Any, auth: LocalAuth):
+        self.app = app
+        self.auth = auth
+
+    async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = Headers(scope=scope)
+        method, path = scope["method"], scope["path"]
+        if method not in SAFE_METHODS:
+            origin = headers.get("origin")
+            if origin and origin.split("://", 1)[-1] != headers.get("host"):
+                await JSONResponse({"detail": "cross-origin request refused"}, status_code=403)(scope, receive, send)
+                return
+            if headers.get("sec-fetch-site") in ("cross-site", "same-site"):
+                await JSONResponse({"detail": "cross-site request refused"}, status_code=403)(scope, receive, send)
+                return
+        cookies: http.cookies.SimpleCookie = http.cookies.SimpleCookie()
+        with contextlib.suppress(http.cookies.CookieError):
+            cookies.load(headers.get("cookie", ""))
+        token = cookies[COOKIE_NAME].value if COOKIE_NAME in cookies else None
+        user = self.auth.user_for(token)
+        state = scope.setdefault("state", {})
+        state["user"], state["token"] = user, token
+        if path.startswith("/api/") and path not in PUBLIC_API and user is None:
+            await JSONResponse({"detail": "sign in first"}, status_code=401)(scope, receive, send)
+            return
+        is_upload = method == "POST" and path == "/api/jobs"
+        if method not in SAFE_METHODS and not is_upload:
+            limited = await self._limit_body(headers, scope, receive, send)
+            if limited is None:
+                return
+            receive = limited
+        await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _limit_body(headers: Headers, scope: dict, receive: Callable, send: Callable) -> Optional[Callable]:
+        length = headers.get("content-length")
+        if length and length.isdigit() and int(length) > MAX_JSON_BYTES:
+            await JSONResponse({"detail": "request body too large"}, status_code=413)(scope, receive, send)
+            return None
+        seen = 0
+
+        async def counted() -> dict:
+            nonlocal seen
+            message = await receive()
+            seen += len(message.get("body", b""))
+            if seen > MAX_JSON_BYTES:  # no honest Content-Length: drop it rather than buffer it
+                return {"type": "http.disconnect"}
+            return message
+
+        return counted
+
+
+class AuthBody(BaseModel):
+    password: str
+    name: str = ""
+    setup_code: str = ""
+
+
+def _session_response(payload: dict, token: str) -> JSONResponse:
+    response = JSONResponse(payload)
+    response.set_cookie(COOKIE_NAME, token, max_age=SESSION_SECONDS, httponly=True, samesite="strict", path="/")
+    return response
+
+
+def released_counts(store: Store, job_dir: Path) -> Optional[dict]:
+    """How much of the released dataset a person actually looked at, counted from the file itself."""
+    path = job_dir / "released_coco.json"
+
+    def build() -> dict:
+        coco = read_json(path, {}) or {}
+        attributes = [a.get("attributes") or {} for a in coco.get("annotations", [])]
+        return {
+            "n_annotations": len(attributes),
+            # A propagated annotation is never one a person saw, whatever flag it carries.
+            "n_human_reviewed": sum(1 for a in attributes if a.get("human_reviewed") and not a.get("propagated")),
+            "n_propagated": sum(1 for a in attributes if a.get("propagated")),
+        }
+
+    return store.cache.get("released_counts", path, build, None)
+
+
 def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_TARGET,
                max_jobs: Optional[int] = None) -> FastAPI:
     store = Store(Path(jobs_dir or os.environ.get("SURGPROOF_JOBS") or REPO / "jobs"))
+    auth = LocalAuth(store.jobs_dir)
     runner = Runner(pipeline_target, max_jobs or int(os.environ.get("SURGPROOF_MAX_JOBS", "1")))
     outline_pool = cf.ThreadPoolExecutor(max_workers=4, thread_name_prefix="outline")
+    model_status = ModelStatus()
+    auth.setup_code()
+
     @contextlib.asynccontextmanager
     async def lifespan(_app: FastAPI):
+        sweep_leftovers(store.jobs_dir)
         # Jobs that were queued when the server last stopped have no worker: give them one.
         for job_id in store.list_ids():
             job_dir = store.jobs_dir / job_id
             status = read_json(job_dir / "status.json", {}) or {}
             video = upload_path(job_dir)
-            if normalise_stage(status.get("stage")) == "queued" and not status.get("error") and video:
+            if (normalise_stage(status.get("stage")) == "queued" and not status.get("error") and video
+                    and worker_pid(job_dir) is None):
                 options = (read_json(job_dir / "job.json", {}) or {}).get("options") or {}
                 runner.submit(job_id, video, job_dir, options)
+
+        stop_sweeping = threading.Event()
+
+        def retention_loop() -> None:
+            while True:
+                try:
+                    sweep_expired(store, runner)
+                except Exception:  # noqa: BLE001
+                    log.exception("the retention sweep failed")
+                if stop_sweeping.wait(RETENTION_SWEEP_SECONDS):
+                    return
+
+        threading.Thread(target=retention_loop, daemon=True, name="retention").start()
         yield
-        runner.shutdown()
+        stop_sweeping.set()
+        await asyncio.to_thread(runner.shutdown)
         outline_pool.shutdown(wait=False, cancel_futures=True)
 
-    app = FastAPI(title="SurgProof", lifespan=lifespan)
+    app = FastAPI(title="SurgProof", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store = store
     app.state.runner = runner
+    app.state.auth = auth
+    app.add_middleware(Guard, auth=auth)
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(ALLOWED_HOSTS))
 
-    @app.middleware("http")
-    async def same_origin_writes(request: Request, call_next):
-        # This server has no login, so stop other sites in the browser from posting to it.
-        if request.method not in ("GET", "HEAD", "OPTIONS"):
-            origin = request.headers.get("origin")
-            if origin and origin.split("://", 1)[-1] != request.headers.get("host"):
-                return JSONResponse({"detail": "cross-origin request refused"}, status_code=403)
-        return await call_next(request)
+    # ------------------------------------------------------------ session
+
+    @app.get("/api/auth/state")
+    def auth_state(request: Request) -> dict:
+        return {"setup_required": auth.account() is None, "user": request.state.user}
+
+    @app.post("/api/auth/setup")
+    def auth_setup(body: AuthBody) -> Response:
+        try:
+            token = auth.setup(body.name, body.password, body.setup_code)
+        except AuthError as exc:
+            return JSONResponse({"detail": exc.message}, status_code=exc.status)
+        return _session_response({"user": auth.user_for(token)}, token)
+
+    @app.post("/api/auth/login")
+    def auth_login(body: AuthBody) -> Response:
+        try:
+            token = auth.login(body.password)
+        except AuthError as exc:
+            return JSONResponse({"detail": exc.message}, status_code=exc.status)
+        return _session_response({"user": auth.user_for(token)}, token)
+
+    @app.post("/api/auth/logout")
+    def auth_logout(request: Request) -> Response:
+        auth.logout(request.state.token)
+        response = JSONResponse({"user": None})
+        response.delete_cookie(COOKIE_NAME, path="/")
+        return response
 
     # ------------------------------------------------------------ jobs
 
     @app.get("/api/health")
     def health() -> dict:
+        disk = disk_report(store.jobs_dir)
+        tools = {name: bool(shutil.which(name)) for name in ("ffmpeg", "ffprobe")}
+        model = model_status.get()
         return {
-            "ok": True,
-            "ffmpeg": bool(shutil.which("ffmpeg")),
-            "ffprobe": bool(shutil.which("ffprobe")),
-            "claude": bool(shutil.which("claude")),
+            "ok": disk["ok"] and all(tools.values()) and model["ok"],
+            "disk": disk,
+            "tools": tools,
+            "model": model,
             "max_seconds": MAX_SECONDS,
+            "max_bytes": MAX_BYTES,
         }
 
-    @app.post("/api/jobs", status_code=201)
-    def create_job(file: Optional[UploadFile] = File(None), video: Optional[UploadFile] = File(None),
-                   kf_fps: Optional[float] = Form(None)) -> dict:
-        upload = file or video
-        if upload is None or not upload.filename:
-            raise HTTPException(422, "send the video as a multipart field named 'file'")
-        suffix = Path(upload.filename).suffix.lower()
-        if suffix not in ALLOWED_SUFFIXES:
-            raise HTTPException(422, f"only mp4 and mov are supported, got '{suffix or upload.filename}'")
-        if kf_fps is not None and not 0 < kf_fps <= 30:
-            raise HTTPException(422, "kf_fps must be between 0 and 30")
+    @app.get("/api/notice")
+    def notice() -> dict:
+        return {"text": UPLOAD_NOTICE, "sha256": NOTICE_SHA256, "footage_sources": list(FOOTAGE_SOURCES)}
 
-        job_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:6]
+    def finish_upload(sink: UploadStream, job_id: str, staging: Path, user: str) -> dict:
+        fields = sink.fields
+        if fields.get("notice_sha256") != NOTICE_SHA256 or fields.get("rights_attested") not in ("yes", "true", "on"):
+            raise UploadRejected(422, "confirm the upload notice first: rights_attested and the notice_sha256 "
+                                      "from /api/notice are required")
+        if fields.get("footage_source") not in FOOTAGE_SOURCES:
+            raise UploadRejected(422, "this build takes public or simulator footage only: "
+                                      f"footage_source must be one of {', '.join(FOOTAGE_SOURCES)}")
+        options: dict = {}
+        if fields.get("kf_fps"):
+            try:
+                options["kf_fps"] = float(fields["kf_fps"])
+            except ValueError:
+                raise UploadRejected(422, "kf_fps must be a number") from None
+            if not 0 < options["kf_fps"] <= MAX_KF_FPS:
+                raise UploadRejected(422, f"kf_fps must be above 0 and at most {MAX_KF_FPS:g}")
+        if sink.dest is None:
+            raise UploadRejected(422, "send the video as a multipart field named 'file'")
+        if sink.written == 0:
+            raise UploadRejected(422, "the uploaded file is empty")
+        try:
+            probe = probe_video(sink.dest)
+        except ValueError as exc:
+            raise UploadRejected(422, str(exc)) from exc
+        if probe["duration"] > MAX_SECONDS + 0.5:
+            raise UploadRejected(422, f"video is {probe['duration'] / 60:.1f} minutes, the limit is "
+                                      f"{MAX_SECONDS // 60} minutes")
+        record = {
+            "id": job_id,
+            "created": now_iso(),
+            "upload": sink.dest.name,
+            "bytes": sink.written,
+            "probe": probe,
+            "options": options,
+            "attestation": {
+                "by": user,
+                "at": now_iso(),
+                "footage_source": fields["footage_source"],
+                "notice": UPLOAD_NOTICE,
+                "notice_sha256": NOTICE_SHA256,
+            },
+        }
+        write_json_atomic(staging / "job.json", record)
+        write_status(staging, stage="queued", progress=0.0, message="Waiting for a worker", started=None, error=None)
+        job_dir = store.jobs_dir / job_id
+        os.replace(staging, job_dir)
+        runner.submit(job_id, job_dir / sink.dest.name, job_dir, options)
+        return job_summary(store, job_dir, runner)
+
+    @app.post("/api/jobs", status_code=201)
+    async def create_job(request: Request) -> dict:
+        content_type, params = parse_options_header(request.headers.get("content-type", ""))
+        boundary = params.get(b"boundary")
+        if content_type != b"multipart/form-data" or not boundary:
+            raise HTTPException(422, "send the video as a multipart field named 'file'")
+        length = request.headers.get("content-length")
+        size = int(length) if length and length.isdigit() else None
+        if size is not None and size > MAX_BYTES + MAX_JSON_BYTES:
+            raise HTTPException(413, f"the file is larger than the {MAX_BYTES // 1024**3} GB limit")
+        await run_in_threadpool(check_disk_for_upload, store.jobs_dir, size)
+
+        job_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-") + uuid.uuid4().hex[:8]
         staging = store.jobs_dir / f".upload-{job_id}"
         staging.mkdir()
+        sink = UploadStream(boundary, staging, store.jobs_dir)
         try:
-            dest = staging / f"upload{suffix}"
-            written = 0
-            with dest.open("wb") as out:
-                while chunk := upload.file.read(1024 * 1024):
-                    written += len(chunk)
-                    if written > MAX_BYTES:
-                        raise HTTPException(413, f"file is larger than {MAX_BYTES // 1024**3} GB")
-                    out.write(chunk)
-            if written == 0:
-                raise HTTPException(422, "the uploaded file is empty")
-            try:
-                probe = probe_video(dest)
-            except ValueError as exc:
-                raise HTTPException(422, str(exc)) from exc
-            if probe["duration"] > MAX_SECONDS + 0.5:
-                raise HTTPException(422, f"video is {probe['duration'] / 60:.1f} minutes, the limit is "
-                                         f"{MAX_SECONDS // 60} minutes")
-            options = {"kf_fps": kf_fps} if kf_fps is not None else {}
-            record = {
-                "id": job_id,
-                "filename": Path(upload.filename).name,
-                "created": now_iso(),
-                "upload": dest.name,
-                "bytes": written,
-                "probe": probe,
-                "options": options,
-            }
-            write_json_atomic(staging / "job.json", record)
-            write_status(staging, stage="queued", progress=0.0, message="Waiting for a worker",
-                         started=None, error=None)
-            job_dir = store.jobs_dir / job_id
-            os.replace(staging, job_dir)
-        except BaseException:
-            shutil.rmtree(staging, ignore_errors=True)
+            async for chunk in request.stream():
+                if chunk:
+                    await run_in_threadpool(sink.write, chunk)
+            sink.close()
+            return await run_in_threadpool(finish_upload, sink, job_id, staging, request.state.user)
+        except UploadRejected as exc:
+            raise HTTPException(exc.status, exc.message) from exc
+        except FormParserError as exc:
+            raise HTTPException(422, "this upload could not be read as a multipart form") from exc
+        except ClientDisconnect as exc:
+            raise HTTPException(400, "the upload was interrupted") from exc
+        except OSError as exc:
+            if exc.errno == errno.ENOSPC:
+                raise HTTPException(507, "the disk filled up during this upload") from exc
             raise
-        runner.submit(job_id, job_dir / dest.name, job_dir, options)
-        return job_summary(store, job_dir, runner.active)
+        finally:
+            sink.close()
+            if staging.exists():
+                await run_in_threadpool(shutil.rmtree, staging, True)
 
     @app.get("/api/jobs")
     def list_jobs() -> dict:
-        jobs = [job_summary(store, store.jobs_dir / job_id, runner.active) for job_id in store.list_ids()]
+        jobs = [job_summary(store, store.jobs_dir / job_id, runner) for job_id in store.list_ids()]
         jobs.sort(key=lambda j: j.get("created") or "", reverse=True)
         return {"jobs": jobs}
 
     @app.get("/api/jobs/{job_id}")
     def get_job(job_id: str) -> dict:
         job_dir = store.job_dir(job_id)
-        summary = job_summary(store, job_dir, runner.active)
+        summary = job_summary(store, job_dir, runner)
         status = read_json(job_dir / "status.json", {}) or {}
         evidence = stage_evidence(store, job_dir)
         summary["stages"] = stage_list(status, summary["state"], evidence)
         summary["decisions"] = decision_tally(store, job_dir)
-        summary["meta"] = store.meta(job_dir)
+        summary["meta"] = {k: v for k, v in store.meta(job_dir).items() if k != "original_name"}
         if summary["state"] == "done":
             with store.lock(job_id):
                 view = final_pass_view(store, job_dir, include_items=False)
-            summary["final_pass"] = {k: view[k] for k in ("total", "reviewed", "pending", "released")}
+            summary["final_pass"] = {k: view[k] for k in (
+                "total", "reviewed", "pending", "released", "n_amber", "n_audit", "n_audit_pool", "audit_disagreements")}
             summary["outputs"] = {name: {"bytes": (job_dir / name).stat().st_size}
                                   for name in DOWNLOADABLE if (job_dir / name).exists()}
+            summary["released_counts"] = released_counts(store, job_dir) if view["released"] else None
         return summary
 
     @app.post("/api/jobs/{job_id}/retry")
     def retry_job(job_id: str) -> dict:
         job_dir = store.job_dir(job_id)
-        summary = job_summary(store, job_dir, runner.active)
-        if summary["state"] not in ("failed", "stalled"):
-            raise HTTPException(409, f"job is {summary['state']}, only failed or stalled jobs can be retried")
-        video = upload_path(job_dir)
-        if video is None:
-            raise HTTPException(409, "the uploaded video for this job is not available to retry")
-        options = (read_json(job_dir / "job.json", {}) or {}).get("options") or {}
-        write_status(job_dir, stage="queued", progress=0.0, message="Waiting for a worker", error=None)
-        runner.submit(job_id, video, job_dir, options)
-        return job_summary(store, job_dir, runner.active)
+        with store.lock(job_id):
+            summary = job_summary(store, job_dir, runner)
+            if summary["released"]:
+                raise HTTPException(409, "this job has been released: a rerun would overwrite what was signed off")
+            if read_jsonl(job_dir / "final_pass.jsonl"):
+                raise HTTPException(409, "a person has already reviewed this job: a rerun would discard that review")
+            if summary["state"] not in ("failed", "stalled"):
+                raise HTTPException(409, f"job is {summary['state']}, only failed or stalled jobs can be retried")
+            video = upload_path(job_dir)
+            if video is None:
+                raise HTTPException(409, "the uploaded video for this job is not available to retry")
+            try:
+                if job_id in runner.active:
+                    runner.stop(job_id, job_dir)
+                elif not kill_worker_group(job_dir):
+                    raise RuntimeError("the old worker would not stop")
+            except RuntimeError as exc:
+                raise HTTPException(409, str(exc)) from exc
+            options = (read_json(job_dir / "job.json", {}) or {}).get("options") or {}
+            write_status(job_dir, stage="queued", progress=0.0, message="Waiting for a worker", error=None)
+            runner.submit(job_id, video, job_dir, options)
+            return job_summary(store, job_dir, runner)
+
+    @app.delete("/api/jobs/{job_id}")
+    def delete_job(job_id: str) -> dict:
+        job_dir = store.job_dir(job_id)
+        with store.lock(job_id):
+            try:
+                if job_id in runner.active:
+                    runner.stop(job_id, job_dir)
+                elif not kill_worker_group(job_dir):
+                    raise RuntimeError("the worker would not stop")
+            except RuntimeError as exc:
+                raise HTTPException(409, str(exc)) from exc
+            removed = delete_job_files(store, job_dir)
+        return {"deleted": job_id, "cache_entries_removed": removed}
 
     @app.get("/api/jobs/{job_id}/preview")
     def job_preview(job_id: str) -> dict:
@@ -786,12 +1415,16 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
 
     @app.get("/api/jobs/{job_id}/files/{path:path}")
     def job_file(job_id: str, path: str, download: bool = False) -> Response:
+        """An allowlist of exact names, so a new file in a job folder is private until someone decides otherwise."""
         job_dir = store.job_dir(job_id).resolve()
-        target = (job_dir / path).resolve()
-        if not target.is_relative_to(job_dir) or not target.is_file():
+        gated = path in RELEASE_GATED_FILES
+        if not gated and not FRAME_FILE_RE.match(path):
             raise HTTPException(404, "no such file")
-        if is_release_gated(job_dir, target) and not (job_dir / "released_coco.json").exists():
-            raise HTTPException(403, "the dataset is locked until a human completes the final pass and releases it")
+        if gated and not (job_dir / "released_coco.json").is_file():
+            raise HTTPException(403, "locked until a person completes the final pass and releases this dataset")
+        target = job_dir / path
+        if target.is_symlink() or not target.is_file() or not target.resolve().is_relative_to(job_dir):
+            raise HTTPException(404, "no such file")
         name = f"{job_id}_{target.name}" if download else None
         return FileResponse(target, filename=name, content_disposition_type="attachment" if download else "inline")
 
@@ -806,7 +1439,7 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
     # ------------------------------------------------------------ watch
 
     def require_done(job_dir: Path) -> None:
-        summary = job_summary(store, job_dir, runner.active)
+        summary = job_summary(store, job_dir, runner)
         if summary["state"] != "done":
             raise HTTPException(409, f"job is {summary['state']}, not finished")
 
@@ -833,7 +1466,7 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
 
     @app.get("/api/jobs/{job_id}/overlay")
     def overlay(job_id: str, start: int = 0, end: int = 0) -> dict:
-        """Boxes and mask outlines for frames in [start, end). Only what the pipeline wrote."""
+        """Boxes and mask outlines for frames in [start, end). Only what the pipeline wrote, and whose it is."""
         job_dir = store.job_dir(job_id)
         if end <= start or end - start > 600:
             raise HTTPException(422, "ask for between 1 and 600 frames")
@@ -861,12 +1494,17 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                     polygons = [drawn["polygon"]]
                     xs, ys = zip(*drawn["polygon"])
                     box = [min(xs), min(ys), max(xs), max(ys)]
+                # A person saw this exact keyframe label, or the AI drew it, or optical flow carried it here.
+                seen_by_human = bool(keyframe) and (keyframe, label) in verdicts
+                origin = "human" if seen_by_human else ("ai_keyframe" if keyframe else "propagated")
                 entry = {
                     "label": label,
                     "box": box,
                     "propagated": bool(row.get("propagated")),
                     "status": row.get("status"),
-                    "human": bool(rulings),
+                    "origin": origin,
+                    "derived_from_reviewed": origin == "propagated" and bool(rulings),
+                    "unsure": row.get("status") == HELD_STATUS and not rulings,
                     "polygons": polygons or [],
                 }
                 if polygons is None:
@@ -896,17 +1534,15 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
             return final_pass_view(store, job_dir)
 
     @app.post("/api/jobs/{job_id}/final-pass")
-    def post_final_pass(job_id: str, body: FinalPassBody) -> dict:
+    def post_final_pass(job_id: str, body: FinalPassBody, request: Request) -> dict:
         job_dir = store.job_dir(job_id)
         require_done(job_dir)
         export = _export()
-        reviewer = (body.reviewer or "").strip()[:80]
+        reviewer = request.state.user  # from the session: any name in the request body is ignored
         with store.lock(job_id):
             if (job_dir / "released_coco.json").exists():
                 raise HTTPException(409, "this dataset has already been released")
             if body.action == "release":
-                if not reviewer:
-                    raise HTTPException(422, "a release is a sign-off: give the reviewer's name")
                 try:
                     export.release(job_dir, reviewer=reviewer)
                 except export.ReleaseLocked as exc:
@@ -916,7 +1552,7 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                     raise HTTPException(422, "there is no AI mask to approve here: mark it not present, "
                                              "or draw a correction")
                 row = {"kf": body.kf, "label": body.label, "action": body.action,
-                       "reviewer": reviewer or None, "ts": now_iso()}
+                       "reviewer": reviewer, "ts": now_iso()}
                 if body.polygon is not None:
                     check_correction(body.polygon, store.meta(job_dir))
                     row["polygon"] = body.polygon
@@ -948,9 +1584,20 @@ def main() -> None:
         return
     import uvicorn
 
-    host = os.environ.get("HOST", "127.0.0.1")
+    logging.basicConfig(level=logging.INFO)
     port = int(os.environ.get("PORT", "8600"))
-    uvicorn.run(create_app(), host=host, port=port)
+    # Before anything touches the jobs folder: a second server must not sweep the first one's uploads.
+    with socket.socket() as probe:
+        try:
+            probe.bind((BIND_HOST, port))
+        except OSError as exc:
+            raise SystemExit(f"cannot use {BIND_HOST}:{port}: {exc}. Is SurgProof already running?") from None
+    app = create_app()
+    code = app.state.auth.setup_code()
+    if code:
+        print(f"\nFirst run. Open http://localhost:{port} and create your account with this setup code: {code}\n",
+              flush=True)
+    uvicorn.run(app, host=BIND_HOST, port=port, server_header=False)
 
 
 if __name__ == "__main__":

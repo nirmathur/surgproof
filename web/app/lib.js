@@ -80,11 +80,34 @@ export function tabs(job, active) {
     item('download', 'Download', `${base}/download`, done));
 }
 
+// Two clicks, no browser dialog: deleting a job also removes its model responses, and cannot be undone.
+export function deleteButton(job, onDeleted) {
+  const button = h('button', { class: 'btn', id: 'job-delete' }, 'Delete job');
+  let armed = false;
+  button.addEventListener('click', async () => {
+    if (!armed) {
+      armed = true;
+      button.textContent = 'Delete for good: frames, labels, model responses';
+      button.classList.add('bad');
+      return;
+    }
+    button.disabled = true;
+    try {
+      await api(`/api/jobs/${encodeURIComponent(job.id)}`, { method: 'DELETE' });
+      onDeleted();
+    } catch (err) {
+      button.disabled = false;
+      button.textContent = `Could not delete: ${err.message}`;
+    }
+  });
+  return button;
+}
+
 export function jobHeader(job, active) {
   const provider = job.meta && job.meta.vlm_provider;
   return h('div', {},
     h('div', { class: 'row spread' },
-      h('h1', { class: 'jobname' }, job.filename),
+      h('h1', { class: 'jobname' }, job.name),
       h('span', { class: `pill ${job.state}` }, job.state)),
     provider === 'mock'
       ? h('div', { class: 'notice', id: 'mock-warning', style: 'margin-top:12px' },

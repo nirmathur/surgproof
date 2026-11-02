@@ -1,4 +1,5 @@
-import { h, ApiError } from '/lib.js';
+import { h, ApiError, postJson } from '/lib.js';
+import { renderAuth, authState } from '/auth.js';
 import { renderUpload } from '/upload.js';
 import { renderJob } from '/job.js';
 import { renderWatch } from '/watch.js';
@@ -6,6 +7,7 @@ import { renderFinalPass } from '/finalpass.js';
 import { renderDownload } from '/download.js';
 
 const view = document.getElementById('view');
+const session = document.getElementById('session');
 let cleanup = null;
 let token = 0;
 
@@ -19,18 +21,37 @@ function route() {
   return { page: renderUpload, params: {} };
 }
 
+function showSession(user) {
+  session.replaceChildren(...(user ? [
+    h('span', { class: 'small muted', id: 'session-user' }, user),
+    h('button', {
+      class: 'btn small-btn',
+      id: 'sign-out',
+      onclick: async () => { await postJson('/api/auth/logout', {}); navigate(); },
+    }, 'Sign out'),
+  ] : []));
+}
+
 async function navigate() {
   const mine = ++token;
   if (cleanup) { cleanup(); cleanup = null; }
-  const { page, params } = route();
   const root = h('div', { class: 'enter' });
   view.replaceChildren(root);
   try {
-    const dispose = await page(root, params);
+    const state = await authState();
+    if (mine !== token) return;
+    showSession(state.user);
+    if (!state.user) {
+      renderAuth(root, state, navigate);
+      return;
+    }
+    const { page, params } = route();
+    const dispose = await page(root, { ...params, user: state.user });
     if (mine === token) cleanup = dispose || null;
     else if (dispose) dispose();
   } catch (err) {
     if (mine !== token) return;
+    if (err instanceof ApiError && err.status === 401) { navigate(); return; }
     const message = err instanceof ApiError && err.status === 404 ? 'This job does not exist.' : err.message;
     root.replaceChildren(h('div', { class: 'notice error' }, message));
   }

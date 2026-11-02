@@ -2,7 +2,18 @@ import { h, api, jobHeader, fmtTime, labelColour, labelName, titleCase, tracePol
 
 const CHUNK_SECONDS = 2;
 const MAX_CHUNKS = 90;
+const RETRY_MS = 5000;
 const PHASE_SHADES = ['#27406b', '#2f5f8f', '#3f7fb0', '#4f9a9f', '#5f8f7f', '#7a7f6a', '#8a6f5f'];
+
+const REVIEWED = '#10b981';
+
+// One look per origin, so nobody can mistake an AI draft or a tracked frame for something a person checked.
+function objectStyle(object) {
+  if (object.unsure) return { word: 'AI unsure', width: 2, dash: [8, 6], fill: '26' };
+  if (object.origin === 'human') return { word: 'reviewed', width: 3, dash: [], fill: '4d' };
+  if (object.origin === 'ai_keyframe') return { word: 'AI', width: 2, dash: [], fill: '3d' };
+  return { word: object.derived_from_reviewed ? 'tracked from reviewed' : 'tracked', width: 1.5, dash: [4, 4], fill: '26' };
+}
 
 // Split a segment's text into sentences and share its time by length, so long commentary stays readable.
 function subtitleCues(segments) {
@@ -52,6 +63,12 @@ export async function renderWatch(root, { id }) {
   const timeline = h('div', { class: 'timeline', id: 'watch-timeline', role: 'slider', 'aria-label': 'Surgical phases over time' });
   const status = h('p', { class: 'small muted mono', id: 'watch-frame' });
   const legend = h('div', { class: 'row small muted' });
+  const banner = h('div', { id: 'watch-banner' });
+  const objectsList = h('ul', { class: 'objects', id: 'watch-objects', 'aria-label': 'Annotations on this frame' });
+  const key = (cls, text) => h('span', { class: 'legend-key' }, h('i', { class: cls }), text);
+  const originKey = h('div', { class: 'row small muted', id: 'watch-key' },
+    key('human', 'Reviewed by a person'), key('ai', 'AI keyframe, not reviewed'),
+    key('tracked', 'Tracked between keyframes by optical flow'), key('unsure', 'AI unsure'));
   const seglist = h('div', { class: 'seglist' });
 
   const toggles = { masks: true, boxes: true, subtitles: true };
@@ -61,9 +78,12 @@ export async function renderWatch(root, { id }) {
 
   root.append(h('div', { class: 'watchgrid' },
     h('section', { class: 'stack' },
+      banner,
       h('div', { class: 'frame' }, video, canvas, phaseChip, subs),
       timeline,
       h('div', { class: 'row spread' }, status, toggleRow),
+      objectsList,
+      originKey,
       legend),
     h('section', { class: 'card' }, h('h2', {}, 'Narration'), seglist)));
 
@@ -101,39 +121,52 @@ export async function renderWatch(root, { id }) {
   let stopped = false;
   let currentFrame = -1;
 
+  const showFailure = (text) => {
+    banner.replaceChildren(h('div', { class: 'notice error', role: 'alert', id: 'watch-error' }, text));
+  };
+
   function chunk(index) {
     if (index < 0 || (data.n_frames && index * chunkFrames >= data.n_frames)) return null;
-    if (!chunks.has(index)) {
-      const entry = { frames: null };
+    const known = chunks.get(index);
+    if (!known || (known.failedAt && Date.now() - known.failedAt > RETRY_MS)) {
+      const entry = { frames: null, failedAt: 0 };
       chunks.set(index, entry);
       api(`${url}/overlay?start=${index * chunkFrames}&end=${(index + 1) * chunkFrames}`).then((res) => {
         entry.frames = res.frames;
+        if (!stopped && !chunksFailing()) banner.replaceChildren();
         if (!stopped && Math.floor(currentFrame / chunkFrames) === index) redraw();
-      }).catch(() => { chunks.delete(index); });
+      }).catch((err) => {
+        entry.failedAt = Date.now();
+        if (!stopped) {
+          showFailure(`Annotations could not be loaded (${err.message}). This is the plain video, with no AI overlay. Retrying.`);
+          redraw();
+        }
+      });
       if (chunks.size > MAX_CHUNKS) chunks.delete(chunks.keys().next().value);
     }
     return chunks.get(index);
   }
+  const chunksFailing = () => [...chunks.values()].some((entry) => entry.failedAt && !entry.frames);
 
   const ctx = canvas.getContext('2d');
 
   function drawObjects(objects) {
     const scale = displayScale(canvas);
     for (const object of objects) {
-      const held = object.status === 'AMBER' && !object.human;
-      const colour = held ? AMBER : labelColour(object.label);
+      const style = objectStyle(object);
+      const colour = object.unsure ? AMBER : (object.origin === 'human' ? REVIEWED : labelColour(object.label));
       if (toggles.masks && object.polygons.length) {
-        ctx.fillStyle = `${colour}3d`;
+        ctx.fillStyle = `${colour}${style.fill}`;
         for (const polygon of object.polygons) { tracePolygon(ctx, polygon); ctx.fill(); }
       }
       if (toggles.boxes && object.box) {
         const [x0, y0, x1, y1] = object.box;
-        ctx.setLineDash(held ? [8 * scale, 6 * scale] : []);
+        ctx.setLineDash(style.dash.map((v) => v * scale));
         ctx.strokeStyle = colour;
-        ctx.lineWidth = 2 * scale;
+        ctx.lineWidth = style.width * scale;
         ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
         ctx.setLineDash([]);
-        drawChip(ctx, held ? `${labelName(object.label)} · unsure` : labelName(object.label), x0, y0, colour, scale);
+        drawChip(ctx, `${labelName(object.label)} · ${style.word}`, x0, y0, colour, scale);
       }
     }
   }
@@ -144,10 +177,16 @@ export async function renderWatch(root, { id }) {
     // Never leave one frame's boxes over another frame while its annotations are on their way.
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (!entry || !entry.frames) {
-      status.textContent = `${fmtTime(lastTime)} · frame ${currentFrame} of ${data.n_frames} · loading annotations`;
+      const state = entry && entry.failedAt ? 'annotations failed to load' : 'loading annotations';
+      status.textContent = `${fmtTime(lastTime)} · frame ${currentFrame} of ${data.n_frames} · ${state}`;
+      objectsList.replaceChildren();
     } else {
       const objects = entry.frames[String(currentFrame)] || [];
       drawObjects(objects);
+      objectsList.replaceChildren(...objects.map((object) => h('li', {
+        class: `pill${object.unsure ? ' AMBER' : (object.origin === 'human' ? ' done' : '')}`,
+        'data-origin': object.origin,
+      }, `${labelName(object.label)}: ${objectStyle(object).word}`)));
       const propagated = objects.some((o) => o.propagated);
       const source = objects.length ? (propagated ? 'propagated by optical flow' : 'AI keyframe') : 'nothing annotated';
       status.textContent = `${fmtTime(lastTime)} · frame ${currentFrame} of ${data.n_frames} · ${source}`;
@@ -197,6 +236,9 @@ export async function renderWatch(root, { id }) {
     };
     requestAnimationFrame(step);
   }
+  video.addEventListener('error', () => {
+    if (!stopped && video.getAttribute('src')) showFailure('The video could not be played. The overlay needs it, so nothing can be shown.');
+  });
   video.addEventListener('seeked', () => onFrame(video.currentTime));
   video.addEventListener('loadeddata', () => onFrame(video.currentTime));
 

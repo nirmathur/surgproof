@@ -17,6 +17,22 @@ p { margin: 0; }
 .brand { font-weight: 600; text-decoration: none; }
 .toplink { color: var(--muted); text-decoration: none; font-size: 14px; }
 .toplink:hover { color: var(--text); }
+.session { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.small-btn { padding: 4px 10px; font-size: 13px; }
+.authcard { max-width: 420px; margin: 48px auto; }
+.field { gap: 4px; }
+.attest { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; }
+.attest input { margin-top: 4px; }
+.drop.blocked { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+fieldset.source { border: 0; margin: 0; padding: 0; display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
+fieldset.source legend { padding: 0; margin-bottom: 4px; }
+.legend-key { display: inline-flex; align-items: center; gap: 6px; }
+.legend-key i { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--body); }
+.legend-key i.human { border-top: 3px solid var(--ok); }
+.legend-key i.ai { border-top: 2px solid var(--body); }
+.legend-key i.tracked { border-top: 2px dashed var(--muted); }
+.legend-key i.unsure { border-top: 2px dashed var(--warn); }
+.objects { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 main { max-width: 1280px; margin: 0 auto; padding: 32px; }
 .enter { animation: enter 0.4s cubic-bezier(0.33, 1, 0.68, 1); }
 @keyframes enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }

@@ -16,8 +16,6 @@ pytest.importorskip("cv2")
 if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
     pytest.skip("ffmpeg is required", allow_module_level=True)
 
-from fastapi.testclient import TestClient  # noqa: E402
-
 from surgproof import server  # noqa: E402
 from tests import web_fixture as fx  # noqa: E402
 
@@ -30,12 +28,13 @@ def jobs(tmp_path):
 
 
 def client_for(jobs, target="tests.web_fixture:pipeline_ok"):
-    return TestClient(server.create_app(jobs, pipeline_target=target))
+    return fx.local_client(server.create_app(jobs, pipeline_target=target))
 
 
 @pytest.fixture
 def client(jobs):
     with client_for(jobs) as c:
+        fx.sign_in(c, jobs)
         yield c
 
 
@@ -51,7 +50,7 @@ def wait_for(predicate, seconds=180):
 
 def upload(client, path: Path, name=None):
     with path.open("rb") as fh:
-        return client.post("/api/jobs", files={"file": (name or path.name, fh, "video/mp4")})
+        return client.post("/api/jobs", files={"file": (name or path.name, fh, "video/mp4")}, data=fx.attestation())
 
 
 # ---- upload ----
@@ -62,7 +61,7 @@ def test_upload_starts_the_pipeline_with_the_stored_file(client, jobs, tmp_path)
     assert res.status_code == 201, res.text
     body = res.json()
     job = jobs / body["id"]
-    assert body["filename"] == "clip.mp4"
+    assert body["name"].startswith("Job ")
     assert (job / "upload.mp4").read_bytes() == video.read_bytes()
     called = wait_for(lambda: server.read_json(job / "pipeline_called.json"))
     assert Path(called["video"]).resolve() == (job / "upload.mp4").resolve()
@@ -72,7 +71,7 @@ def test_upload_starts_the_pipeline_with_the_stored_file(client, jobs, tmp_path)
 def test_upload_forwards_kf_fps(client, jobs, tmp_path):
     video = fx.make_video(tmp_path / "clip.mp4")
     with video.open("rb") as fh:
-        res = client.post("/api/jobs", files={"file": ("clip.mp4", fh)}, data={"kf_fps": "2"})
+        res = client.post("/api/jobs", files={"file": ("clip.mp4", fh)}, data=fx.attestation(kf_fps="2"))
     assert res.status_code == 201
     called = wait_for(lambda: server.read_json(jobs / res.json()["id"] / "pipeline_called.json"))
     assert called["options"] == {"kf_fps": 2.0}
@@ -114,8 +113,8 @@ def test_uploaded_filename_cannot_escape_the_job_folder(client, jobs, tmp_path):
     video = fx.make_video(tmp_path / "clip.mp4")
     res = upload(client, video, "../../evil.mp4")
     assert res.status_code == 201
-    assert res.json()["filename"] == "evil.mp4"
     assert not (jobs.parent / "evil.mp4").exists()
+    assert (jobs / res.json()["id"] / "upload.mp4").is_file()
 
 
 def test_cross_origin_post_is_refused(client, tmp_path):
@@ -144,6 +143,7 @@ def test_done_status_without_outputs_is_reported_as_failed(client, jobs):
 def test_pipeline_exception_shows_as_failed_and_retry_works(jobs, tmp_path):
     video = fx.make_video(tmp_path / "clip.mp4")
     with client_for(jobs, "tests.web_fixture:pipeline_boom") as client:
+        fx.sign_in(client, jobs)
         job_id = upload(client, video).json()["id"]
         body = wait_for(lambda: (lambda b: b if b["state"] == "failed" else None)(client.get(f"/api/jobs/{job_id}").json()))
         assert "synthetic failure" in body["error"]
@@ -306,7 +306,7 @@ def test_queue_is_stable_between_requests(client, done):
 
 def test_draft_dataset_and_release_are_locked_until_the_human_finishes(client, done):
     assert client.get("/api/jobs/job-done/files/dataset_coco.json").status_code == 403
-    assert client.get("/api/jobs/job-done/files/released_coco.json").status_code == 404
+    assert client.get("/api/jobs/job-done/files/released_coco.json").status_code == 403
     res = post(client, action="release", reviewer="R")
     assert res.status_code == 409
     assert "locked" in res.json()["detail"]
@@ -323,7 +323,7 @@ def test_draft_dataset_and_release_are_locked_until_the_human_finishes(client, d
     state = post(client, action="release", reviewer="R. Reviewer").json()
     assert state["released"] is True
     released = client.get("/api/jobs/job-done/files/released_coco.json").json()
-    assert released["info"]["released"] is True and released["info"]["reviewer"] == "R. Reviewer"
+    assert released["info"]["released"] is True and released["info"]["reviewer"] == fx.TEST_USER
     assert client.get("/api/jobs/job-done/files/dataset_coco.json").status_code == 200
 
 
@@ -332,9 +332,9 @@ def test_release_gate_holds_for_other_spellings_of_the_path(client, done, path):
     assert client.get(f"/api/jobs/job-done/files/{path}").status_code != 200
 
 
-def test_symlink_to_the_draft_is_gated_too(client, done):
+def test_symlink_to_the_draft_is_not_served(client, done):
     os.symlink(done / "dataset_coco.json", done / "copy.json")
-    assert client.get("/api/jobs/job-done/files/copy.json").status_code == 403
+    assert client.get("/api/jobs/job-done/files/copy.json").status_code == 404
 
 
 def test_no_changes_after_release(client, done):
@@ -343,14 +343,6 @@ def test_no_changes_after_release(client, done):
     item = items(client)[0]
     assert post(client, action="reject", kf=item["kf"], label=item["label"]).status_code == 409
     assert post(client, action="release", reviewer="R").status_code == 409
-
-
-@pytest.mark.parametrize("reviewer", [None, "", "   "])
-def test_release_needs_a_named_reviewer(client, done, reviewer):
-    clear_queue(client)
-    res = post(client, action="release", reviewer=reviewer)
-    assert res.status_code == 422
-    assert not (done / "released_coco.json").exists()
 
 
 def test_ambers_are_absent_from_the_draft_and_join_only_when_approved(client, done):
@@ -379,7 +371,7 @@ def test_human_correction_is_recorded_and_used(client, done):
     res = post(client, action="correct", kf="kf_00001", label="gallbladder", polygon=polygon, reviewer="R")
     assert res.status_code == 200
     rows = [json.loads(line) for line in (done / "final_pass.jsonl").read_text().splitlines()]
-    assert rows[-1]["polygon"] == polygon and rows[-1]["action"] == "correct" and rows[-1]["reviewer"] == "R"
+    assert rows[-1]["polygon"] == polygon and rows[-1]["action"] == "correct" and rows[-1]["reviewer"] == fx.TEST_USER
     drawn = {o["label"]: o for o in client.get("/api/jobs/job-done/overlay", params={"start": 10, "end": 11}).json()["frames"]["10"]}
     assert drawn["gallbladder"]["box"] == [10, 10, 60, 60]
     assert drawn["gallbladder"]["polygons"] == [polygon]
@@ -441,6 +433,8 @@ def test_job_detail_reports_outputs_and_final_pass(client, done):
 
 
 def test_download_flag_sets_attachment(client, done):
+    clear_queue(client)
+    assert post(client, action="release").status_code == 200
     res = client.get("/api/jobs/job-done/files/provenance.jsonl", params={"download": 1})
     assert res.status_code == 200
     assert res.headers["content-disposition"].startswith("attachment")
@@ -450,7 +444,7 @@ def test_download_flag_sets_attachment(client, done):
 
 def test_app_pages_are_served(client):
     assert "SurgProof" in client.get("/").text
-    for name in ("app.js", "lib.js", "upload.js", "job.js", "watch.js", "finalpass.js", "download.js", "style.css"):
+    for name in ("app.js", "auth.js", "lib.js", "upload.js", "job.js", "watch.js", "finalpass.js", "download.js", "style.css"):
         assert client.get(f"/{name}").status_code == 200, name
 
 

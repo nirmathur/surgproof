@@ -1,14 +1,5 @@
 import { h, api, postJson, jobHeader, labelColour, labelName, tracePolygon, drawChip, displayScale, AMBER } from '/lib.js';
 
-const REVIEWER_KEY = 'surgproof.reviewer';
-
-function readReviewer() {
-  try { return localStorage.getItem(REVIEWER_KEY) || ''; } catch (_) { return ''; }
-}
-function saveReviewer(name) {
-  try { localStorage.setItem(REVIEWER_KEY, name); } catch (_) { /* a per-browser convenience only */ }
-}
-
 function boundsOf(item, width, height) {
   const points = item.outline.flat();
   if (item.verify_box) points.push([item.verify_box[0], item.verify_box[1]], [item.verify_box[2], item.verify_box[3]]);
@@ -24,7 +15,7 @@ function boundsOf(item, width, height) {
   };
 }
 
-export async function renderFinalPass(root, { id }) {
+export async function renderFinalPass(root, { id, user }) {
   const url = `/api/jobs/${encodeURIComponent(id)}`;
   const job = await api(url);
   root.append(jobHeader(job, 'final'));
@@ -55,7 +46,7 @@ export async function renderFinalPass(root, { id }) {
   const barFill = h('div', { style: 'width:0' });
   const errors = h('div');
   const releaseBox = h('section', { class: 'card stack', id: 'fp-release' });
-  const reviewer = h('input', { class: 'input', id: 'fp-reviewer', placeholder: 'Your name (needed to release)', 'aria-label': 'Reviewer name', value: readReviewer(), oninput: () => { saveReviewer(reviewer.value); renderRelease(); } });
+  const reviewer = h('p', { class: 'small muted', id: 'fp-reviewer' }, `Signing as ${user}`);
 
   root.append(h('div', { class: 'stack' }, errors, h('div', { class: 'fpgrid' },
     h('section', { class: 'stack' }, heading, frameBox, actions, hint),
@@ -175,7 +166,7 @@ export async function renderFinalPass(root, { id }) {
     const button = h('button', {
       class: `btn ${pending === 0 && !state.released ? 'good' : ''}`,
       id: 'fp-release-btn',
-      disabled: pending > 0 || state.released || !reviewer.value.trim(),
+      disabled: pending > 0 || state.released,
       onclick: () => release(),
     }, state.released ? 'Released' : 'Release dataset');
     const auditLine = `Audit: ${state.audit_reviewed} of ${state.n_audit} checked, ${state.audit_disagreements} corrected by you (random sample of ${state.n_audit_pool} auto-accepted labels).`;
@@ -184,7 +175,7 @@ export async function renderFinalPass(root, { id }) {
       h('p', { class: 'small muted' }, auditLine),
       state.released
         ? h('p', { class: 'small' }, 'This dataset is released. ', h('a', { href: `#/jobs/${encodeURIComponent(id)}/download` }, 'Download it'))
-        : h('p', { class: 'small muted' }, pending > 0 ? `Locked: ${pending} of ${state.total} items still need your decision.` : (reviewer.value.trim() ? 'Every item is reviewed. Releasing writes the final dataset and locks this page.' : 'Every item is reviewed. Enter your name above to sign off.')),
+        : h('p', { class: 'small muted' }, pending > 0 ? `Locked: ${pending} of ${state.total} items still need your decision.` : `Every item is reviewed. Releasing signs the dataset as ${user} and locks this page.`),
       button);
   }
 
@@ -246,7 +237,7 @@ export async function renderFinalPass(root, { id }) {
   async function review(action, polygon) {
     const item = current();
     if (!item || state.released) return;
-    const ok = await reload({ action, kf: item.kf, label: item.label, polygon, reviewer: reviewer.value });
+    const ok = await reload({ action, kf: item.kf, label: item.label, polygon });
     if (!ok) return;
     drawing = null;
     const next = nextPending();
@@ -258,7 +249,7 @@ export async function renderFinalPass(root, { id }) {
   }
 
   async function release() {
-    if (await reload({ action: 'release', reviewer: reviewer.value })) render();
+    if (await reload({ action: 'release' })) render();
   }
 
   canvas.addEventListener('click', (e) => {
