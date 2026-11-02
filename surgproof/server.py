@@ -71,6 +71,8 @@ JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$")
 PUBLIC_API = {"/api/health", "/api/auth/state", "/api/auth/setup", "/api/auth/login", "/api/auth/logout"}
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 WORKER_LOCK = ".worker.lock"
+RELEASE_STATUS = "release_status.json"
+RELEASE_WAIT_POLL_SECONDS = 0.2
 UPLOAD_CHECK_SECONDS = 0.5
 
 UPLOAD_NOTICE = (
@@ -205,7 +207,16 @@ def probe_video(path: Path) -> dict:
 
 def _run_pipeline(target: str, video: str, out_dir: str, options: dict) -> None:
     """Runs in the job's child process. The kernel drops the lock when this process dies, however it dies."""
-    lock_path = Path(out_dir) / WORKER_LOCK
+    lock_file = _take_worker_lock(Path(out_dir))  # held for as long as this name is in scope
+    module_name, _, func_name = target.partition(":")
+    func = getattr(importlib.import_module(module_name), func_name)
+    func(video, out_dir, **options)
+    lock_file.close()
+
+
+def _take_worker_lock(job_dir: Path):
+    """One worker per job, pipeline or release. The kernel drops the lock when the process dies, however it dies."""
+    lock_path = job_dir / WORKER_LOCK
     lock_file = lock_path.open("a+", encoding="utf-8")
     for attempt in range(30):  # the server's liveness probe holds this lock for an instant
         try:
@@ -219,9 +230,39 @@ def _run_pipeline(target: str, video: str, out_dir: str, options: dict) -> None:
     lock_file.truncate()
     lock_file.write(str(os.getpid()))
     lock_file.flush()
-    module_name, _, func_name = target.partition(":")
-    func = getattr(importlib.import_module(module_name), func_name)
-    func(video, out_dir, **options)
+    return lock_file
+
+
+def _write_release_status(job_dir: Path, **fields: Any) -> None:
+    status = read_json(job_dir / RELEASE_STATUS, {}) or {}
+    status.update(fields)
+    status["updated"] = now_iso()
+    write_json_atomic(job_dir / RELEASE_STATUS, status)
+
+
+def _run_release(job_dir_text: str, reviewer: str) -> None:
+    """Runs in the release's child process: rendering takes minutes, and must not hold up the server or the job lock."""
+    job_dir = Path(job_dir_text)
+    lock_file = _take_worker_lock(job_dir)
+    from surgproof import export
+
+    def progress(fraction: Any = None, message: Any = "") -> None:
+        fields: dict = {"message": str(message or "Rendering the reviewed video")}
+        if isinstance(fraction, (int, float)):
+            fields["progress"] = max(0.0, min(1.0, float(fraction)))
+        _write_release_status(job_dir, **fields)
+
+    try:
+        export.release(job_dir, reviewer=reviewer, on_progress=progress)
+    except export.ReleaseLocked as exc:
+        _write_release_status(job_dir, state="failed", locked=True, error=str(exc), finished=now_iso())
+        lock_file.close()
+        return
+    except BaseException as exc:
+        _write_release_status(job_dir, state="failed", locked=False, error=f"{type(exc).__name__}: {exc}", finished=now_iso())
+        raise
+    _write_release_status(job_dir, state="done", progress=1.0, message="Released", finished=now_iso())
+    lock_file.close()
 
 
 _probe_guard = threading.Lock()  # two probes at once would each read the other's lock as a live worker
@@ -279,6 +320,7 @@ class Runner:
         self._dirs: dict[str, Path] = {}
         self._procs: dict[str, subprocess.Popen] = {}
         self._futures: dict[str, cf.Future] = {}
+        self._threads: list[threading.Thread] = []
         self._pool = cf.ThreadPoolExecutor(max_workers=max_jobs, thread_name_prefix="job")
 
     def submit(self, job_id: str, video: Path, job_dir: Path, options: dict) -> None:
@@ -379,6 +421,45 @@ class Runner:
             time.sleep(0.1)
         raise RuntimeError(f"could not stop the worker for job {job_id}")
 
+    def start_release(self, job_id: str, job_dir: Path, reviewer: str) -> None:
+        """Not through the job pool: a person who finished reviewing should not queue behind someone else's upload."""
+        with self._lock:
+            if job_id in self.active or self._stopping:
+                raise RuntimeError("this job already has a worker")
+            self.active.add(job_id)
+            self._dirs[job_id] = job_dir
+        _write_release_status(job_dir, state="running", progress=0.0, message="Starting the release",
+                              reviewer=reviewer, started=now_iso(), error=None, locked=False)
+        thread = threading.Thread(target=self._release_thread, args=(job_id, job_dir, reviewer), name=f"release-{job_id}")
+        with self._lock:
+            self._threads.append(thread)
+        thread.start()
+
+    def _release_thread(self, job_id: str, job_dir: Path, reviewer: str) -> None:
+        try:
+            log_path = job_dir / "release.log"
+            with log_path.open("ab") as out:
+                with self._lock:
+                    if self._stopping:
+                        raise RuntimeError("the server is stopping")
+                    proc = subprocess.Popen([sys.executable, "-m", "surgproof.server", "--run-release", str(job_dir), reviewer],
+                                            cwd=REPO, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
+                    self._procs[job_id] = proc
+                code = proc.wait()
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(proc.pid, signal.SIGKILL)  # a render it started must not outlive it
+            status = read_json(job_dir / RELEASE_STATUS, {}) or {}
+            if status.get("state") == "running":
+                reason = ("the server stopped during the release" if self._stopping
+                          else f"the release worker exited with code {code}: {_log_tail(log_path)}")
+                _write_release_status(job_dir, state="failed", locked=False, error=reason, finished=now_iso())
+        except BaseException as exc:  # noqa: BLE001
+            log.exception("job %s: the release failed", job_id)
+            with contextlib.suppress(OSError):
+                _write_release_status(job_dir, state="failed", locked=False, error=f"{type(exc).__name__}: {exc}", finished=now_iso())
+        finally:
+            self._release(job_id)
+
     def _signal_group(self, job_id: str, sig: int) -> None:
         """By the process we started, not the lock file: this works even before the worker has taken its lock."""
         with self._lock:
@@ -401,6 +482,8 @@ class Runner:
 
         threading.Thread(target=finish_killing, daemon=True).start()
         self._pool.shutdown(wait=True, cancel_futures=True)
+        for thread in self._threads:
+            thread.join(timeout=STOP_GRACE_SECONDS * 3)
 
 
 def _log_tail(path: Path, n_chars: int = 600) -> str:
@@ -540,6 +623,23 @@ def last_activity(job_dir: Path, status: dict) -> Optional[datetime]:
     if updated:
         candidates.append(updated)
     return max(candidates) if candidates else None
+
+
+def release_job(job_dir: Path, runner: Runner) -> Optional[dict]:
+    """The release's progress. What is on disk says, unless nothing is running it any more."""
+    status = read_json(job_dir / RELEASE_STATUS)
+    if not status:
+        return None
+    if status.get("state") == "running":
+        if (job_dir / "released_coco.json").exists():
+            status.update(state="done", progress=1.0)  # committed, and the worker has not written its last line yet
+        elif job_dir.name not in runner.active and worker_pid(job_dir) is None:
+            status.update(state="failed", locked=False, error="the release was interrupted before it finished: nothing was released")
+    return status
+
+
+def release_running(job_dir: Path, runner: Runner) -> bool:
+    return (release_job(job_dir, runner) or {}).get("state") == "running"
 
 
 def job_state(job_dir: Path, status: dict, runner: Runner) -> dict:
@@ -929,7 +1029,7 @@ def latest_verdicts(job_dir: Path) -> dict[tuple[str, str], dict]:
     """final_pass.jsonl is append-only: the newest row for a label wins, earlier clicks stay on record."""
     verdicts: dict[tuple[str, str], dict] = {}
     for row in read_jsonl(job_dir / "final_pass.jsonl"):
-        if row.get("kf") is not None:
+        if isinstance(row, dict) and row.get("kf") is not None:
             verdicts[(row["kf"], row.get("label"))] = row
     return verdicts
 
@@ -962,6 +1062,12 @@ def final_pass_view(store: Store, job_dir: Path, include_items: bool = True) -> 
 
     audit_verdicts = [verdicts[(e["kf"], e["label"])] for e in queue
                       if e["kind"] == "audit" and (e["kf"], e["label"]) in verdicts]
+    pools = read_json(job_dir / "final_pass_queue.json", {}) or {}
+    audit_by_stratum: dict[str, int] = {}
+    for entry in queue:
+        if entry["kind"] == "audit":
+            key = entry.get("stratum") or "accepted"
+            audit_by_stratum[key] = audit_by_stratum.get(key, 0) + 1
     view = {
         "total": lock["n_required"],
         "reviewed": lock["n_done"],
@@ -969,10 +1075,12 @@ def final_pass_view(store: Store, job_dir: Path, include_items: bool = True) -> 
         "locked": lock["locked"],
         "n_amber": lock["n_amber"],
         "n_audit": lock["n_audit"],
-        "n_audit_pool": (read_json(job_dir / "final_pass_queue.json", {}) or {}).get("n_accepted_pool"),
+        "n_audit_pool": pools.get("n_accepted_pool"),
+        "audit_by_stratum": audit_by_stratum,
         "audit_reviewed": len(audit_verdicts),
         "audit_disagreements": lock.get("n_audit_failed", sum(1 for v in audit_verdicts if v.get("action") != ACTION_APPROVE)),
         "n_escalation": lock.get("n_escalation", 0),
+        "escalated": lock.get("escalated", False),
         "escalation_reason": lock.get("escalation_reason"),
         "released": lock["released"],
         "width": meta.get("width"),
@@ -1033,6 +1141,7 @@ class FinalPassBody(BaseModel):
     label: Optional[str] = None
     polygon: Optional[list[list[float]]] = None
     note: Optional[str] = None
+    wait: bool = False  # release only: answer when it has finished, for scripts. The page polls instead.
 
 
 # ---------------------------------------------------------------- app
@@ -1271,6 +1380,12 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
     app.add_middleware(Guard, auth=auth)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(ALLOWED_HOSTS))
 
+    @app.exception_handler(ValueError)
+    async def corrupt_job_file(_request: Request, exc: ValueError) -> JSONResponse:
+        # Mostly a damaged JSON file in a job folder. Say so, rather than a bare 500 that reads as a server bug.
+        log.error("refused a request: %s", exc)
+        return JSONResponse({"detail": f"a file in this job is damaged or invalid, so this was refused: {exc}"}, status_code=500)
+
     # ------------------------------------------------------------ session
 
     @app.get("/api/auth/state")
@@ -1424,18 +1539,31 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
         if summary["state"] == "done":
             with store.lock(job_id):
                 view = final_pass_view(store, job_dir, include_items=False)
+            view["release_job"] = release_job(job_dir, runner)
             summary["final_pass"] = {k: view[k] for k in (
-                "total", "reviewed", "pending", "released", "n_amber", "n_audit", "n_audit_pool", "audit_disagreements")}
+                "total", "reviewed", "pending", "released", "n_amber", "n_audit", "n_audit_pool", "n_escalation",
+                "audit_by_stratum", "audit_disagreements", "release_job")}
             summary["outputs"] = {name: {"bytes": (job_dir / name).stat().st_size}
                                   for name in DOWNLOADABLE if (job_dir / name).exists()}
             summary["released_counts"] = released_counts(store, job_dir) if view["released"] else None
         return summary
+
+    @app.get("/api/jobs/{job_id}/release-check")
+    def release_check(job_id: str) -> dict:
+        """Re-hash the released files against the signed manifest, so an edit after release shows."""
+        job_dir = store.job_dir(job_id)
+        if not (job_dir / "released_coco.json").exists():
+            raise HTTPException(409, "this job has not been released")
+        result = _export().verify_release(job_dir)
+        return {"ok": bool(result.get("ok")), "problems": result.get("problems") or []}
 
     @app.post("/api/jobs/{job_id}/retry")
     def retry_job(job_id: str) -> dict:
         job_dir = store.job_dir(job_id)
         with store.lock(job_id):
             summary = job_summary(store, job_dir, runner)
+            if release_running(job_dir, runner):
+                raise HTTPException(409, "this job is being released")
             if summary["released"]:
                 raise HTTPException(409, "this job has been released: a rerun would overwrite what was signed off")
             if read_jsonl(job_dir / "final_pass.jsonl"):
@@ -1461,6 +1589,8 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
     def delete_job(job_id: str) -> dict:
         job_dir = store.job_dir(job_id)
         with store.lock(job_id):
+            if release_running(job_dir, runner):
+                raise HTTPException(409, "this job is being released: delete it when that has finished")
             try:
                 if job_id in runner.active:
                     runner.stop(job_id, job_dir)
@@ -1620,10 +1750,28 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
         job_dir = store.job_dir(job_id)
         require_done(job_dir)
         with store.lock(job_id):
-            return final_pass_view(store, job_dir)
+            view = final_pass_view(store, job_dir)
+        view["release_job"] = release_job(job_dir, runner)
+        return view
+
+    def begin_release(job_id: str, job_dir: Path, reviewer: str) -> None:
+        """Everything that can be refused at once is refused here. The slow part then runs on its own."""
+        export = _export()
+        state = export.final_pass_state(job_dir)
+        if state.get("empty"):
+            raise HTTPException(409, "release is locked: nothing to review, and an empty final pass never releases")
+        if state["locked"]:
+            remaining = len(state.get("remaining") or [])
+            raise HTTPException(409, f"release is locked: {remaining} of {state['n_required']} final-pass items are unresolved")
+        playable = playable_video(job_dir)
+        check_disk_for_upload(store.jobs_dir, playable.stat().st_size if playable else None)
+        try:
+            runner.start_release(job_id, job_dir, reviewer)
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     @app.post("/api/jobs/{job_id}/final-pass")
-    def post_final_pass(job_id: str, body: FinalPassBody, request: Request) -> dict:
+    def post_final_pass(job_id: str, body: FinalPassBody, request: Request, response: Response) -> dict:
         job_dir = store.job_dir(job_id)
         require_done(job_dir)
         export = _export()
@@ -1631,11 +1779,15 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
         with store.lock(job_id):
             if (job_dir / "released_coco.json").exists():
                 raise HTTPException(409, "this dataset has already been released")
+            if release_running(job_dir, runner):
+                raise HTTPException(409, "this job is being released, so nothing can change")
             if body.action == "release":
-                try:
-                    export.release(job_dir, reviewer=reviewer)
-                except export.ReleaseLocked as exc:
-                    raise HTTPException(409, f"release is locked: {exc}") from exc
+                begin_release(job_id, job_dir, reviewer)
+                if not body.wait:
+                    response.status_code = 202
+                    view = final_pass_view(store, job_dir, include_items=False)
+                    view["release_job"] = release_job(job_dir, runner)
+                    return view
             elif body.action in (ACTION_APPROVE, ACTION_REJECT, ACTION_CORRECT):
                 kf, label = body.kf or "", body.label or ""
                 decision = store.decisions(job_dir).get((kf, label), {})
@@ -1656,7 +1808,21 @@ def create_app(jobs_dir: Optional[Path] = None, pipeline_target: str = PIPELINE_
                     raise HTTPException(422, str(exc)) from exc
             else:
                 raise HTTPException(422, f"unknown action '{body.action}'")
-            return final_pass_view(store, job_dir, include_items=False)
+            if body.action != "release":
+                view = final_pass_view(store, job_dir, include_items=False)
+                view["release_job"] = release_job(job_dir, runner)
+                return view
+        # wait=true: outside the job lock, so progress and everything else stay readable meanwhile.
+        while release_running(job_dir, runner):
+            time.sleep(RELEASE_WAIT_POLL_SECONDS)
+        outcome = release_job(job_dir, runner) or {}
+        if outcome.get("state") != "done":
+            status = 409 if outcome.get("locked") else 500
+            raise HTTPException(status, f"release failed: {outcome.get('error')}")
+        with store.lock(job_id):
+            view = final_pass_view(store, job_dir, include_items=False)
+        view["release_job"] = outcome
+        return view
 
     app.mount("/", StaticFiles(directory=APP_DIR, html=True), name="app")
     return app
@@ -1673,6 +1839,9 @@ def _group_tracks(rows: list[dict]) -> dict[int, list[dict]]:
 def main() -> None:
     if len(sys.argv) == 6 and sys.argv[1] == "--run-job":
         _run_pipeline(sys.argv[2], sys.argv[3], sys.argv[4], json.loads(sys.argv[5]))
+        return
+    if len(sys.argv) == 4 and sys.argv[1] == "--run-release":
+        _run_release(sys.argv[2], sys.argv[3])
         return
     import uvicorn
 

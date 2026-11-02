@@ -1,11 +1,19 @@
 import { h, api, postJson, jobHeader, labelColour, labelName, tracePolygon, drawChip, displayScale, AMBER } from '/lib.js';
 
+const STRATUM_WORDS = {
+  accepted: 'accepted by both passes',
+  amber_accepted: 'accepted by the amber loop',
+  ai_absent: 'called absent by the AI',
+  propagated: 'tracked frames',
+};
+
 function whyHere(item) {
   if (item.kind === 'amber') return item.reason || 'The amber loop did not settle this label';
   if (item.kind === 'escalation') return 'The audit found too many errors, so every label now needs a person';
-  if (item.stratum === 'propagated') return 'Random audit of a frame tracked between keyframes';
-  if (item.ai_present === false) return 'Random audit of a label the AI said was absent';
-  return 'Random audit of a label the AI accepted on its own';
+  if (item.stratum === 'propagated') return 'Audit of a frame tracked between keyframes: nobody has seen this one';
+  if (item.stratum === 'amber_accepted') return 'Audit: the amber loop accepted this with no second opinion agreeing, and tracked frames depend on it';
+  if (item.stratum === 'ai_absent') return 'Audit of a label the AI said was absent. Not present agrees with it; only a drawn correction disagrees.';
+  return 'Audit of a label both AI passes accepted';
 }
 
 function boundsOf(item, width, height) {
@@ -36,6 +44,7 @@ export async function renderFinalPass(root, { id, user }) {
   let currentId = null;
   let drawing = null;
   let stopped = false;
+  let releaseTimer = null;
   // A verdict needs the frame on screen, and a drawn point needs the canvas in video pixels.
   let frameReady = false;
 
@@ -152,7 +161,7 @@ export async function renderFinalPass(root, { id, user }) {
   }
 
   function renderActions(item) {
-    const locked = state.released || !frameReady;
+    const locked = state.released || !frameReady || releasing();
     actions.replaceChildren();
     if (drawing) {
       actions.append(
@@ -169,15 +178,29 @@ export async function renderFinalPass(root, { id, user }) {
     }
   }
 
+  const releasing = () => Boolean(state.release_job && state.release_job.state === 'running');
+
+  function releaseProgress() {
+    const job = state.release_job;
+    if (!job || job.state === 'done') return null;
+    if (job.state === 'failed') {
+      return h('div', { class: 'notice error', role: 'alert', id: 'fp-release-error' }, `The release did not complete, and nothing was released: ${job.error}`);
+    }
+    return h('div', { class: 'stack', id: 'fp-release-progress' },
+      h('div', { class: 'bar' }, h('div', { style: `width:${(job.progress || 0) * 100}%` })),
+      h('p', { class: 'small muted' }, `${job.message || 'Working'}. This renders the video and can take minutes. You can leave this page.`));
+  }
+
   function renderRelease() {
     const pending = state.pending;
     const button = h('button', {
       class: `btn ${pending === 0 && !state.released ? 'good' : ''}`,
       id: 'fp-release-btn',
-      disabled: state.locked || state.released,
+      disabled: state.locked || state.released || releasing(),
       onclick: () => release(),
-    }, state.released ? 'Released' : 'Release dataset');
-    const auditLine = `Audit: ${state.audit_reviewed} of ${state.n_audit} checked, ${state.audit_disagreements} corrected by you (random sample of the AI's own decisions).`;
+    }, state.released ? 'Released' : (releasing() ? 'Releasing' : 'Release dataset'));
+    const strata = Object.entries(state.audit_by_stratum || {}).map(([key, n]) => `${n} ${STRATUM_WORDS[key] || key}`).join(', ');
+    const auditLine = `Audit: ${state.audit_reviewed} of ${state.n_audit} checked, ${state.audit_disagreements} where you overruled the AI. Sampled from: ${strata || 'nothing'}.`;
     releaseBox.replaceChildren(
       h('h2', { style: 'margin:0' }, 'Release'),
       h('p', { class: 'small muted' }, auditLine),
@@ -185,11 +208,25 @@ export async function renderFinalPass(root, { id, user }) {
       state.released
         ? h('p', { class: 'small' }, 'This dataset is released. ', h('a', { href: `#/jobs/${encodeURIComponent(id)}/download` }, 'Download it'))
         : h('p', { class: 'small muted' }, pending > 0 ? `Locked: ${pending} of ${state.total} items still need your decision.` : `Every item is reviewed. Releasing signs the dataset as ${user} and locks this page.`),
+      releaseProgress(),
       button);
   }
 
+  async function pollRelease() {
+    if (stopped || !releasing()) return;
+    state = await api(`${url}/final-pass`).catch(() => state);
+    if (stopped) return;
+    if (releasing()) {
+      renderRelease();
+      releaseTimer = setTimeout(pollRelease, 1000);
+    } else {
+      render();
+    }
+  }
+
   function render() {
-    progress.textContent = `${state.reviewed} of ${state.total} reviewed · ${state.n_amber} amber, ${state.n_audit} audit`;
+    const escalated = state.n_escalation ? `, ${state.n_escalation} added by the stop rule` : '';
+    progress.textContent = `${state.reviewed} of ${state.total} reviewed · ${state.n_amber} amber, ${state.n_audit} audit${escalated}`;
     barFill.style.width = `${state.total ? (state.reviewed / state.total) * 100 : 100}%`;
     frameBox.classList.toggle('drawing', Boolean(drawing));
     queueList.replaceChildren(...state.items.map((item) => h('button', {
@@ -245,7 +282,7 @@ export async function renderFinalPass(root, { id, user }) {
 
   async function review(action, polygon) {
     const item = current();
-    if (!item || state.released) return;
+    if (!item || state.released || releasing()) return;
     const ok = await reload({ action, kf: item.kf, label: item.label, polygon });
     if (!ok) return;
     drawing = null;
@@ -258,7 +295,10 @@ export async function renderFinalPass(root, { id, user }) {
   }
 
   async function release() {
-    if (await reload({ action: 'release' })) render();
+    if (await reload({ action: 'release' })) {
+      render();
+      pollRelease();
+    }
   }
 
   canvas.addEventListener('click', (e) => {
@@ -272,7 +312,7 @@ export async function renderFinalPass(root, { id, user }) {
     if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const item = current();
-    if (!item || state.released || !frameReady) return;
+    if (!item || state.released || !frameReady || releasing()) return;
     const key = e.key.toLowerCase();
     if (drawing) {
       if (key === 'enter') saveDrawing();
@@ -286,5 +326,6 @@ export async function renderFinalPass(root, { id, user }) {
 
   const first = nextPending() || state.items[0];
   if (first) select(first.id); else render();
-  return () => { stopped = true; window.removeEventListener('keydown', onKey); };
+  pollRelease();  // a release started earlier is still running: come back to its progress
+  return () => { stopped = true; clearTimeout(releaseTimer); window.removeEventListener('keydown', onKey); };
 }

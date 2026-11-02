@@ -236,6 +236,11 @@ def post(client, **payload):
     return client.post("/api/jobs/job-done/final-pass", json=payload)
 
 
+def release(client, **extra):
+    """Answers when the release has finished. The page polls for the same thing."""
+    return post(client, action="release", wait=True, **extra)
+
+
 def clear_queue(client):
     for item in items(client):
         assert post(client, action="approve", kf=item["kf"], label=item["label"]).status_code == 200
@@ -325,7 +330,7 @@ def test_draft_dataset_and_release_are_locked_until_the_human_finishes(client, d
     last = queue[-1]
     state = post(client, action="approve", kf=last["kf"], label=last["label"]).json()
     assert state["pending"] == 0 and state["locked"] is False
-    state = post(client, action="release", reviewer="R. Reviewer").json()
+    state = release(client, reviewer="R. Reviewer").json()
     assert state["released"] is True
     released = client.get("/api/jobs/job-done/files/released_coco.json").json()
     assert released["info"]["released"] is True and released["info"]["reviewer"] == fx.TEST_USER
@@ -344,7 +349,7 @@ def test_symlink_to_the_draft_is_not_served(client, done):
 
 def test_no_changes_after_release(client, done):
     clear_queue(client)
-    assert post(client, action="release", reviewer="R").status_code == 200
+    assert release(client).status_code == 200
     item = items(client)[0]
     assert post(client, action="reject", kf=item["kf"], label=item["label"]).status_code == 409
     assert post(client, action="release", reviewer="R").status_code == 409
@@ -357,7 +362,7 @@ def test_ambers_are_absent_from_the_draft_and_join_only_when_approved(client, do
     in_draft = [a for a in draft["annotations"] if a["image_id"] == image["id"] and a["category_id"] == gallbladder]
     assert in_draft == []
     clear_queue(client)
-    post(client, action="release", reviewer="R")
+    release(client)
     released = client.get("/api/jobs/job-done/files/released_coco.json").json()
     joined = [a for a in released["annotations"] if a["image_id"] == image["id"] and a["category_id"] == gallbladder]
     assert len(joined) == 1 and joined[0]["attributes"]["human_reviewed"] is True
@@ -383,7 +388,7 @@ def test_human_correction_is_recorded_and_used(client, done):
     clear = [i for i in items(client) if not i["verdict"]]
     for item in clear:
         post(client, action="approve", kf=item["kf"], label=item["label"])
-    post(client, action="release", reviewer="R")
+    release(client)
     released = client.get("/api/jobs/job-done/files/released_coco.json").json()
     corrected = [a for a in released["annotations"] if a["attributes"].get("source") == "human_correction"
                  or a["attributes"].get("human_corrected")]
@@ -439,7 +444,7 @@ def test_job_detail_reports_outputs_and_final_pass(client, done):
 
 def test_download_flag_sets_attachment(client, done):
     clear_queue(client)
-    assert post(client, action="release").status_code == 200
+    assert release(client).status_code == 200
     res = client.get("/api/jobs/job-done/files/provenance.jsonl", params={"download": 1})
     assert res.status_code == 200
     assert res.headers["content-disposition"].startswith("attachment")

@@ -32,6 +32,7 @@ fieldset.source legend { padding: 0; margin-bottom: 4px; }
 .legend-key i.ai { border-top: 2px solid var(--body); }
 .legend-key i.tracked { border-top: 2px dashed var(--muted); }
 .legend-key i.unsure { border-top: 2px dashed var(--warn); }
+.bad-text { color: var(--bad); }
 .objects { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 main { max-width: 1280px; margin: 0 auto; padding: 32px; }
 .enter { animation: enter 0.4s cubic-bezier(0.33, 1, 0.68, 1); }

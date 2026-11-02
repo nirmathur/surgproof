@@ -96,7 +96,7 @@ def clear_and_release(client):
     for item in client.get("/api/jobs/job-done/final-pass").json()["items"]:
         assert client.post("/api/jobs/job-done/final-pass",
                            json={"action": "approve", "kf": item["kf"], "label": item["label"]}).status_code == 200
-    assert client.post("/api/jobs/job-done/final-pass", json={"action": "release"}).status_code == 200
+    assert client.post("/api/jobs/job-done/final-pass", json={"action": "release", "wait": True}).status_code == 200
 
 
 # ---- 1. network exposure ----
@@ -266,7 +266,7 @@ def test_reviewer_identity_cannot_be_typed_in(client, done):
     for item in client.get("/api/jobs/job-done/final-pass").json()["items"]:
         if not item["verdict"]:
             client.post("/api/jobs/job-done/final-pass", json={"action": "approve", "kf": item["kf"], "label": item["label"]})
-    client.post("/api/jobs/job-done/final-pass", json={"action": "release", "reviewer": "Dr Somebody Else"})
+    client.post("/api/jobs/job-done/final-pass", json={"action": "release", "wait": True, "reviewer": "Dr Somebody Else"})
     info = json.loads((done / "released_coco.json").read_text())["info"]
     assert info["reviewer"] == fx.TEST_USER
     assert "Somebody" not in (done / "released_coco.json").read_text()
@@ -999,6 +999,158 @@ def test_retry_is_refused_after_a_person_started_reviewing(client, done):
     (done / "annotated.mp4").unlink()
     res = client.post("/api/jobs/job-done/retry")
     assert res.status_code == 409 and "reviewed" in res.json()["detail"]
+
+
+# ---- release runs in the background ----
+
+def post_fp(client, **payload):
+    return client.post("/api/jobs/job-done/final-pass", json=payload)
+
+
+def clear_queue_only(client):
+    for item in client.get("/api/jobs/job-done/final-pass").json()["items"]:
+        assert post_fp(client, action="approve", kf=item["kf"], label=item["label"]).status_code == 200
+
+
+def test_release_answers_at_once_and_reports_progress_to_done(client, done):
+    clear_queue_only(client)
+    res = post_fp(client, action="release")
+    assert res.status_code == 202, res.text
+    assert res.json()["release_job"]["state"] in ("running", "done")
+    assert res.json()["released"] is False or (done / "released_coco.json").exists()
+    seen = wait_for(lambda: (lambda j: j if j and j["state"] != "running" else None)(
+        client.get("/api/jobs/job-done/final-pass").json()["release_job"]))
+    assert seen["state"] == "done", seen
+    assert seen["reviewer"] == fx.TEST_USER and seen["finished"]
+    assert (done / "released_coco.json").exists()
+
+
+def hold_release_open(done: Path) -> subprocess.Popen:
+    """While this holds the job's worker lock with a running status, the server must treat the release as running."""
+    (done / server.RELEASE_STATUS).write_text(json.dumps({"state": "running", "progress": 0.4, "message": "Rendering"}))
+    return hold_worker_lock(done)
+
+
+def test_nothing_can_change_while_a_release_runs(client, done):
+    clear_queue_only(client)
+    holder = hold_release_open(done)
+    try:
+        item = client.get("/api/jobs/job-done/final-pass").json()["items"][0]
+        assert client.get("/api/jobs/job-done/final-pass").json()["release_job"]["progress"] == 0.4
+        assert post_fp(client, action="reject", kf=item["kf"], label=item["label"]).status_code == 409
+        assert post_fp(client, action="release").status_code == 409, "a second release must not start"
+        assert client.post("/api/jobs/job-done/retry").status_code == 409
+        assert client.delete("/api/jobs/job-done").status_code == 409
+        assert done.exists()
+    finally:
+        holder.kill()
+        holder.wait()
+
+
+def test_job_lock_is_not_held_during_a_release(client, done):
+    """It renders video for minutes: the job page and everything else must keep answering."""
+    clear_queue_only(client)
+    holder = hold_release_open(done)
+    try:
+        started = time.time()
+        assert client.get("/api/jobs/job-done").status_code == 200
+        assert client.get("/api/jobs/job-done/final-pass").status_code == 200
+        assert time.time() - started < 30
+    finally:
+        holder.kill()
+        holder.wait()
+
+
+def test_release_that_dies_is_reported_and_can_be_tried_again(client, done):
+    clear_queue_only(client)
+    holder = hold_release_open(done)
+    holder.kill()
+    holder.wait()
+    job = client.get("/api/jobs/job-done/final-pass").json()["release_job"]
+    assert job["state"] == "failed" and "nothing was released" in job["error"]
+    assert not (done / "released_coco.json").exists()
+    assert post_fp(client, action="release", wait=True).status_code == 200
+    assert (done / "released_coco.json").exists()
+
+
+def test_release_refused_at_once_while_items_remain_or_disk_is_short(client, done, monkeypatch):
+    res = post_fp(client, action="release")
+    assert res.status_code == 409 and "locked" in res.json()["detail"]
+    assert not (done / server.RELEASE_STATUS).exists()
+    clear_queue_only(client)
+    low_disk(monkeypatch, 1024)
+    assert post_fp(client, action="release").status_code == 507
+    assert not (done / server.RELEASE_STATUS).exists()
+
+
+def test_failed_release_in_the_worker_surfaces_with_its_reason(client, done):
+    """It fails after the 202, in the render: the page must get the reason, and nothing may be released."""
+    clear_queue_only(client)
+    (done / "source.mp4").unlink()
+    assert post_fp(client, action="release").status_code == 202
+    job = wait_for(lambda: (lambda j: j if j and j["state"] != "running" else None)(
+        client.get("/api/jobs/job-done/final-pass").json()["release_job"]))
+    assert job["state"] == "failed" and job["error"]
+    assert not (done / "released_coco.json").exists()
+    assert client.get("/api/jobs/job-done/files/annotated.mp4").status_code == 403
+
+
+def test_wait_reports_a_failed_release_as_an_error(client, done):
+    clear_queue_only(client)
+    (done / "source.mp4").unlink()
+    res = post_fp(client, action="release", wait=True)
+    assert res.status_code == 500 and "release failed" in res.json()["detail"]
+
+
+def test_damaged_queue_file_is_a_clear_refusal_not_a_traceback(client, done):
+    clear_queue_only(client)
+    (done / "final_pass_queue.json").write_text("not json at all")
+    res = post_fp(client, action="release")
+    assert res.status_code == 500 and "damaged" in res.json()["detail"]
+    assert not (done / "released_coco.json").exists()
+    assert client.get("/api/jobs").status_code == 200, "the rest of the app still works"
+
+
+def test_release_artifacts_are_downloadable_and_signature_is_checked(client, done):
+    assert client.get("/api/jobs/job-done/release-check").status_code == 409
+    clear_and_release(client)
+    body = client.get("/api/jobs/job-done").json()
+    assert "dataset_bundle.zip" in body["outputs"] and "release_manifest.json" in body["outputs"]
+    for name in ("dataset_bundle.zip", "release_manifest.json"):
+        assert client.get(f"/api/jobs/job-done/files/{name}").status_code == 200, name
+    assert client.get("/api/jobs/job-done/release-check").json() == {"ok": True, "problems": []}
+    # The attack: edit the released dataset afterwards.
+    path = done / "released_coco.json"
+    path.write_text(path.read_text().replace('"annotations"', '"annotations" ', 1))
+    check = client.get("/api/jobs/job-done/release-check").json()
+    assert check["ok"] is False and check["problems"]
+
+
+def test_torn_last_line_of_final_pass_does_not_break_the_page(client, done):
+    item = client.get("/api/jobs/job-done/final-pass").json()["items"][0]
+    post_fp(client, action="approve", kf=item["kf"], label=item["label"])
+    with (done / "final_pass.jsonl").open("a") as fh:
+        fh.write('{"kf": "kf_00002", "label": "gra')
+    res = client.get("/api/jobs/job-done/final-pass")
+    assert res.status_code == 200 and res.json()["reviewed"] == 1
+    assert client.get("/api/jobs/job-done/overlay", params={"start": 0, "end": 5}).status_code == 200
+
+
+# ---- test client Host setup ----
+
+def test_host_refusal_belongs_to_each_app_and_does_not_leak(jobs, tmp_path):
+    """Masks saw "Invalid host header" across files. It is per app: a bare TestClient is refused, nothing else changes."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    other = FastAPI()
+    other.get("/ping")(lambda: {"ok": True})
+    with TestClient(server.create_app(jobs)) as bare:
+        res = bare.get("/api/health")
+        assert res.status_code == 400 and "Invalid host header" in res.text
+    assert TestClient(other).get("/ping").status_code == 200, "another app in this process is unaffected"
+    with fx.local_client(server.create_app(tmp_path / "jobs2")) as good:
+        assert good.get("/api/health").status_code == 200
 
 
 # ---- 4. player data and health ----

@@ -8,6 +8,8 @@ from __future__ import annotations
 import os
 import shutil
 import socket
+import subprocess
+import sys
 import threading
 import time
 
@@ -243,7 +245,7 @@ def test_final_pass_then_release_then_download(site, page):
     page.wait_for_function(ready)
     page.keyboard.press("x")
     page.wait_for_function("(n) => document.querySelector('#fp-progress').textContent.startsWith(`${n} of`)", arg=total)
-    assert "1 corrected by you" in page.locator("#fp-release").inner_text()
+    assert "1 where you overruled the AI" in page.locator("#fp-release").inner_text()
 
     # One failed audit sample in so small a sample trips the stop rule: more to review, and release stays shut.
     state = page.signed_in_context.request.get(f"{base}/api/jobs/job-done/final-pass").json()
@@ -259,13 +261,18 @@ def test_final_pass_then_release_then_download(site, page):
 
     assert page.locator("#fp-release-btn").is_enabled()
     page.click("#fp-release-btn")
-    page.wait_for_function("document.querySelector('#fp-release-btn').textContent === 'Released'")
+    # Runs in the background: the page shows it and stays usable, and it comes back after a reload.
+    page.wait_for_function("document.querySelector('#fp-release-btn').disabled")
+    page.wait_for_function("document.querySelector('#fp-release-btn').textContent === 'Released'", timeout=180000)
+    assert page.locator("#fp-release-error").count() == 0
     assert (jobs / "job-done" / "released_coco.json").exists()
     assert page.locator("#fp-approve").is_disabled()
 
     page.goto(f"{base}/#/jobs/job-done/download")
     page.wait_for_selector(".dl a.btn.primary")
-    assert page.locator(".dl a.btn.primary").count() >= 4
+    assert page.locator(".dl a.btn.primary").count() == 6, "every release artifact, bundle and manifest included"
+    page.wait_for_function("document.querySelector('#dl-signature').textContent.includes('Signature check passed')", timeout=60000)
+    assert "released dataset included" in page.locator("#dl-retention").inner_text()
     with page.expect_download() as download_info:
         page.locator(".dl[data-file='released_coco.json'] a").click()
     assert download_info.value.suggested_filename == "job-done_released_coco.json"
@@ -337,6 +344,40 @@ def test_mock_model_jobs_are_labelled_as_placeholders(site, page):
     page.goto(f"{base}/#/jobs/job-done")
     page.wait_for_selector("#stages li")
     assert page.locator("#mock-warning").count() == 0
+
+
+def test_release_progress_is_visible_and_survives_a_reload(site, page):
+    base, jobs = site
+    sign_in_browser(page.signed_in_context, site)
+    fx.finished_job(jobs, "job-progress")
+    job = jobs / "job-progress"
+    request = page.signed_in_context.request
+    for item in request.get(f"{base}/api/jobs/job-progress/final-pass").json()["items"]:
+        request.post(f"{base}/api/jobs/job-progress/final-pass", data={"action": "approve", "kf": item["kf"], "label": item["label"]})
+    # A running release as a worker would report it, held open by a real lock, so the page has time to show it.
+    (job / server.RELEASE_STATUS).write_text(server.json.dumps({"state": "running", "progress": 0.4, "message": "Rendering the reviewed video"}))
+    code = (f"import fcntl,os,time\nf=open({str(job / server.WORKER_LOCK)!r},'a+');fcntl.flock(f,fcntl.LOCK_EX);"
+            "f.seek(0);f.truncate();f.write(str(os.getpid()));f.flush();print('ready',flush=True);time.sleep(600)")
+    holder = subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, text=True, start_new_session=True)
+    assert holder.stdout.readline().strip() == "ready"
+    try:
+        page.goto(f"{base}/#/jobs/job-progress/final-pass")
+        page.wait_for_selector("#fp-release-progress")
+        assert "Rendering the reviewed video" in page.locator("#fp-release-progress").inner_text()
+        assert page.locator("#fp-release-btn").inner_text() == "Releasing"
+        assert page.locator("#fp-release-btn").is_disabled()
+        page.goto(f"{base}/#/jobs/job-progress/download")
+        page.wait_for_selector(".dl")
+        assert "The release is running (40%)" in page.locator(".dl").first.inner_text()
+        page.goto(f"{base}/#/jobs/job-progress/final-pass")
+        page.wait_for_selector("#fp-release-progress")
+    finally:
+        holder.kill()
+        holder.wait()
+    # The worker died: the page must say so by itself, and offer the release again.
+    page.wait_for_selector("#fp-release-error", timeout=30000)
+    assert "nothing was released" in page.locator("#fp-release-error").inner_text()
+    assert page.locator("#fp-release-btn").is_enabled()
 
 
 def test_overlay_failure_is_visible_not_silent(site, page):
