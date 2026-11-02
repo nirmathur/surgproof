@@ -8,7 +8,8 @@ apart from writing its own jobs/<id>/eval_report.json.
 
 Finding the ground truth: tools/make_test_video.py registers each test video by the sha256 of the
 mp4. The scorer hashes the source video in the job dir and looks it up. A video that is not registered
-has no ground truth, and the scorer exits 2 rather than producing a number.
+has no ground truth, and the scorer exits 2 rather than producing a number. Outputs tagged as coming
+from the mock provider exit 4.
 
 Alignment is checked, not assumed: every keyframe jpg is compared with the dataset frame it claims
 to be, and with its neighbours. An off-by-N in the pipeline would otherwise score every mask against
@@ -62,6 +63,10 @@ class Misaligned(Exception):
     """exit code 3"""
 
 
+class MockRun(Exception):
+    """exit code 4: outputs came from a stand-in model, so any score would be meaningless"""
+
+
 def _read_jsonl(path: Path) -> list[dict]:
     if not path.exists():
         return []
@@ -76,25 +81,44 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def find_manifest(job: Path, registry: Path, explicit: Path | None = None) -> dict:
+def _match_by_content(job: Path, registry: Path, raw: Path) -> dict | None:
+    """The source was re-encoded, so its hash changed. Accept a registered video only if the job's
+    keyframes actually are that video's frames; the alignment check is what makes this safe."""
+    meta_path = job / "meta.json"
+    if not meta_path.exists() or not registry.is_dir():
+        return None
+    meta = json.loads(meta_path.read_text())
+    for f in sorted(registry.glob("*.json")):
+        m = json.loads(f.read_text())
+        if m.get("n_frames") != meta.get("n_frames"):
+            continue
+        if check_alignment(job, meta, GroundTruth(m, raw))["ok"]:
+            return m
+    return None
+
+
+def find_manifest(job: Path, registry: Path, explicit: Path | None = None, raw: Path = DEFAULT_RAW) -> dict:
     if explicit:
         return json.loads(Path(explicit).read_text())
     candidates = [p for p in job.rglob("*") if p.suffix.lower() in VIDEO_EXT and p.name not in NOT_SOURCE and p.is_file()]
     meta_path = job / "meta.json"
     if meta_path.exists():
-        declared = json.loads(meta_path.read_text()).get("source_video")
-        if declared:  # may be relative to the job dir, may point outside it (CLI runs on a path)
-            d = Path(declared) if Path(declared).is_absolute() else job / declared
-            if d.is_file():
-                candidates.insert(0, d)
+        meta = json.loads(meta_path.read_text())
+        for declared in (meta.get("source_video"), meta.get("source")):
+            if declared:  # may be relative to the job dir, may point outside it (CLI runs on a path)
+                d = Path(declared) if Path(declared).is_absolute() else job / declared
+                if d.is_file():
+                    candidates.insert(0, d)
     for p in candidates:
         m = registry / f"{_sha256(p)}.json"
         if m.exists():
             return json.loads(m.read_text())
+    by_content = _match_by_content(job, registry, raw)
+    if by_content:
+        return by_content
     raise NoGroundTruth(
         f"no registered test video in {job} (looked at {[p.name for p in candidates]}, registry {registry}). "
-        "Only videos built by tools/make_test_video.py have ground truth. If the pipeline re-encodes the "
-        "source, pass --manifest explicitly; the alignment check still applies."
+        "Only videos built by tools/make_test_video.py have ground truth."
     )
 
 
@@ -448,14 +472,28 @@ def score_coco(path: Path, gt: GroundTruth) -> dict | None:
 
 # ---------- entry ----------
 
+def models_used(job: Path) -> dict:
+    """Which model produced what, as recorded on the rows. Any non-default provider tag is visible here."""
+    counts: dict[str, int] = {}
+    for name in ("detect.jsonl", "verify.jsonl"):
+        for r in _read_jsonl(job / name):
+            m = str(r.get("model"))
+            counts[m] = counts.get(m, 0) + 1
+    return counts
+
+
 def score_job(job: Path, raw: Path = DEFAULT_RAW, registry: Path = DEFAULT_REGISTRY, manifest_path: Path | None = None,
-              allow_misaligned: bool = False) -> dict:
+              allow_misaligned: bool = False, allow_mock: bool = False) -> dict:
     job = Path(job)
     meta_path = job / "meta.json"
     if not meta_path.exists():
         raise NoGroundTruth(f"{meta_path} missing: not a job directory, or the job never ingested")
     meta = json.loads(meta_path.read_text())
-    manifest = find_manifest(job, Path(registry), manifest_path)
+    models = models_used(job)
+    mock = sorted(m for m in models if m.startswith("mock"))
+    if mock and not allow_mock:
+        raise MockRun(f"{job} was produced by a stand-in model ({mock}). Refusing to report a score for it.")
+    manifest = find_manifest(job, Path(registry), manifest_path, Path(raw))
     gt = GroundTruth(manifest, Path(raw))
     alignment = check_alignment(job, meta, gt)
     alignment["n_frames_job"] = meta.get("n_frames")
@@ -472,6 +510,8 @@ def score_job(job: Path, raw: Path = DEFAULT_RAW, registry: Path = DEFAULT_REGIS
         "clips": manifest.get("clips"),
         "n_clips": len(manifest.get("clips", [])),
         "n_keyframes": len(kf_index),
+        "models": models,
+        "mock_run": bool(mock),
         "alignment": alignment,
         "presence_detect_raw": score_presence(_read_jsonl(job / "detect.jsonl"), kf_index, gt, "present"),
         "presence_verify_raw": score_presence(_read_jsonl(job / "verify.jsonl"), kf_index, gt, "present"),
@@ -497,7 +537,8 @@ def summary_lines(r: dict) -> list[str]:
     p = r["presence_final"]
     m = r["masks_keyframe"]
     lines = [
-        f"clips: {r['clips']}  keyframes: {r['n_keyframes']}",
+        *(["MOCK RUN: NOT A REAL RESULT"] if r["mock_run"] else []),
+        f"clips: {r['clips']}  keyframes: {r['n_keyframes']}  models: {r['models']}",
         f"alignment: {'ok' if r['alignment']['ok'] else 'FAILED'} ({r['alignment']['n_bad']}/{r['alignment']['n_checked']} bad)",
         f"presence accuracy, final decisions: {_fmt(p)}, coverage {p.get('coverage')}, amber {p.get('n_amber')}, "
         f"always-majority baseline {p.get('majority_baseline')}",
@@ -530,17 +571,21 @@ def main(argv=None) -> int:
     ap.add_argument("job", type=Path)
     ap.add_argument("--raw", type=Path, default=DEFAULT_RAW)
     ap.add_argument("--registry", type=Path, default=DEFAULT_REGISTRY)
-    ap.add_argument("--manifest", type=Path, help="explicit frame map, if the job's source video was re-encoded")
+    ap.add_argument("--manifest", type=Path, help="explicit frame map (tests)")
+    ap.add_argument("--allow-mock", action="store_true", help="plumbing tests only; the report is stamped MOCK RUN")
     ap.add_argument("--allow-misaligned", action="store_true", help="score anyway; the report records the failure")
     a = ap.parse_args(argv)
     try:
-        report = score_job(a.job, a.raw, a.registry, a.manifest, a.allow_misaligned)
+        report = score_job(a.job, a.raw, a.registry, a.manifest, a.allow_misaligned, a.allow_mock)
     except NoGroundTruth as e:
         print(f"cannot score: {e}", file=sys.stderr)
         return 2
     except Misaligned as e:
         print(f"refusing to score: {e}", file=sys.stderr)
         return 3
+    except MockRun as e:
+        print(f"refusing to score: {e}", file=sys.stderr)
+        return 4
     (a.job / "eval_report.json").write_text(json.dumps(report, indent=1))
     print("\n".join(summary_lines(report)))
     print(f"full report: {a.job / 'eval_report.json'}")
