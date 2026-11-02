@@ -43,4 +43,4 @@ DECISIONS TO CHECK:
 
 BLOCKED:
 - orchestrator: jobs/ still needs a line in .gitignore, which I do not own. The server and core each write a stopgap .gitignore.
-- Nir: disk. Free space hit zero during an earlier test run, ranged from about 200 to 840 MB this round, and was 715 MB at last check. It blocks the 5-minute test.
+- Nir: disk. Free space hit zero during an earlier test run, ranged from about 400 to 840 MB this round (about 200 in the round before), and was 715 MB at my last check. It blocks the 5-minute test.
