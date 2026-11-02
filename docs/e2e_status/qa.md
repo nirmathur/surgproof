@@ -45,10 +45,10 @@ ITEM 3: README AND CLEAN CLONE
 - README: 96.6% badge and table removed, along with Critical View of Safety, operative-record, "verified", live claims, launch film and integrity badge. Scope, limits and "no real patient video" are at the top. tests/test_qa_readme.py ties each results-table number to qa_results.json and forbids the retired claims.
 - Clean clone, for real (tests/test_qa_clean_clone.py, SURGPROOF_CLEAN_CLONE=1): git clone, make setup, make serve, then real HTTP: bound to 127.0.0.1 even with HOST=0.0.0.0, forged Host 400, 401 before login, setup code, upload, mock job to done, dataset locked. Passed 2 of 2. It clones a local merge of the 4 branches, because main does not hold this code yet. Re-run after merging to main.
 
-TEST RESULTS on a local merge of core d861281, masks 2d52d80, web e521b2d, qa b30eb34
-hardening 119/119, HTTP red team 45/46, red team 65/65, e2e 18 passed and 1 skipped (the real run, listed below), inputs 11/11, scorer 49/49, README 45/45, test video tool 9/9, clean clone 2/2. Run one suite at a time because of disk.
-- The 1 failure is intermittent (3 of 13 runs on this merge): test_whole_web_flow_with_mock_model. Release right after a job says done can get 409 "this job already has a worker". Sent to web. Low impact, no retry added to hide it.
-Real runs:
+TEST RESULTS on a local merge of core d861281, masks 2d52d80, web c909a04, qa ab39658
+hardening 119/119, HTTP red team 46/46, red team 65/65, e2e 18 passed and 1 skipped (the real run, listed below), inputs 11/11, scorer 49/49, README 45/45, test video tool 9/9, clean clone 2/2. Run one suite at a time because of disk.
+- Found and fixed in this round: a release right after a job said done could get 409 "this job already has a worker" (3 of 13 runs on web e521b2d). Web fixed it at c909a04. test_whole_web_flow_with_mock_model then passed 25 of 25 on this merge, and no retry was added to the test.
+Real runs, on the previous merge (web e521b2d; web's only change since is the release fix above):
 - test_real_run_end_to_end passed for the first time ($0.51).
 - One real job through the real server (cached calls, real claude health check): login, upload, final pass, signed release, release-check ok, bundle served, decisions identical to the CLI run, upload name not stored.
 
