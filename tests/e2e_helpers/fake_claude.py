@@ -74,10 +74,13 @@ def apply_mode(mode, reply, prompt, images):
         for k in labels:
             if reply["objects"][k]["present"]:
                 reply["objects"][k]["polygon"] = [[10, 10], [10, 10]]
-    elif mode == "shifted_right" and is_detect:
+    elif mode == "shifted_right" and (is_detect or is_verify):  # both passes move together, so they still agree
         for k in labels:
-            if reply["objects"][k]["present"]:
-                reply["objects"][k]["polygon"] = [[x + 150, y] for x, y in reply["objects"][k]["polygon"]]
+            o = reply["objects"][k]
+            if o["present"] and is_detect:
+                o["polygon"] = [[x + 60, y] for x, y in o["polygon"]]
+            elif o["present"]:
+                o["box"] = [o["box"][0] + 60, o["box"][1], o["box"][2] + 60, o["box"][3]]
     return reply
 
 

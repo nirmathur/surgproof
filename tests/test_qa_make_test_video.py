@@ -42,6 +42,19 @@ def test_refuses_training_videos(tmp_path, video):
     assert not (tmp_path / "o.mp4").exists()
 
 
+def test_calib_split_is_separate_and_stamped(tmp_path):
+    index = ROOT / "data" / "index.csv"
+    if not index.exists():
+        pytest.skip("no data/index.csv on this machine")
+    calib = sorted(mtv.calib_videos(index))
+    assert calib and not set(calib) & set(mtv.HELD_OUT)
+    with pytest.raises(SystemExit, match="calib"):
+        mtv.check_split(["video12"], "calib", index)   # held-out video may not pose as tuning data
+    with pytest.raises(SystemExit, match="held-out"):
+        mtv.check_split([calib[0]], "test", index)     # tuning video may not pose as held-out
+    mtv.check_split([calib[0]], "calib", index)
+
+
 def test_held_out_list_matches_the_repo_split():
     index = ROOT / "data" / "index.csv"
     if not index.exists():

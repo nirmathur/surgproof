@@ -4,6 +4,10 @@
 Usage:
   python3 tools/make_test_video.py --video video12 --seconds 6 --out test_videos/video12_6s.mp4
   python3 tools/make_test_video.py --clips video28_00000 video28_00080 --out test_videos/v28.mp4
+  python3 tools/make_test_video.py --split calib --video video18 --seconds 6 --out test_videos/calib18.mp4
+
+Tuning a prompt or threshold? Use --split calib. Tuning against a held-out clip spends the held-out set, and
+every number on it afterwards is an upper bound. The scorer stamps which split a video came from.
 
 Clip choice is deterministic and metric-blind: without --clips it takes the longest run of
 contiguous clips in the video, earliest first. It never looks at any score.
@@ -42,7 +46,28 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def check_held_out(videos, index_csv: Path = ROOT / "data" / "index.csv", allow_any=False):
+def calib_videos(index_csv: Path = ROOT / "data" / "index.csv") -> set[str]:
+    if not index_csv.exists():
+        raise SystemExit(f"--split calib needs {index_csv} (built by prepare_data.py)")
+    import csv
+
+    with open(index_csv) as f:
+        return {r["video"] for r in csv.DictReader(f) if r.get("split") == "calib"}
+
+
+def check_split(videos, split: str, index_csv: Path = ROOT / "data" / "index.csv"):
+    """Each video must really belong to the split it is reported under."""
+    if split == "test":
+        return check_held_out(videos, index_csv)
+    if split != "calib":
+        raise SystemExit(f"unknown split {split}")
+    allowed = calib_videos(index_csv)
+    bad = sorted(set(videos) - allowed)
+    if bad:
+        raise SystemExit(f"{bad} not in the calib split {sorted(allowed)}")
+
+
+def check_held_out(videos, index_csv: Path = ROOT / "data" / "index.csv"):
     """Refuse non-held-out videos. Scoring on train or calib clips would flatter every number."""
     held = set(HELD_OUT)
     if index_csv.exists():
@@ -53,7 +78,7 @@ def check_held_out(videos, index_csv: Path = ROOT / "data" / "index.csv", allow_
         if from_index and from_index != held:
             raise SystemExit(f"held-out list disagrees with {index_csv}: {sorted(from_index)} vs {sorted(held)}")
     bad = sorted(set(videos) - held)
-    if bad and not allow_any:
+    if bad:
         raise SystemExit(f"{bad} not in the held-out split {sorted(held)}. Test videos must be held out.")
 
 
@@ -126,7 +151,7 @@ def count_frames(path: Path) -> int:
 
 
 def make(raw: Path, out: Path, registry: Path, clips: list[str] | None = None, video: str | None = None,
-         seconds: float | None = None, fps: int = SOURCE_FPS, allow_any: bool = False) -> dict:
+         seconds: float | None = None, fps: int = SOURCE_FPS, split: str = "test") -> dict:
     if clips:
         videos = {c.split("_")[0] for c in clips}
     elif video:
@@ -134,7 +159,7 @@ def make(raw: Path, out: Path, registry: Path, clips: list[str] | None = None, v
         clips = longest_run(list_clips(raw, video))
     else:
         raise SystemExit("give --clips or --video")
-    check_held_out(videos, allow_any=allow_any)
+    check_split(videos, split)
     max_frames = round(seconds * fps) if seconds else None
     frames = build_frame_map(raw, clips, max_frames)
     if max_frames is not None and len(frames) < max_frames:
@@ -144,7 +169,7 @@ def make(raw: Path, out: Path, registry: Path, clips: list[str] | None = None, v
     if actual != len(frames):
         raise SystemExit(f"encoded {actual} frames but mapped {len(frames)}; refusing to register a bad map")
     digest = sha256_file(out)
-    manifest = {"sha256": digest, "fps": fps, "n_frames": len(frames), "source": "CholecSeg8k",
+    manifest = {"sha256": digest, "fps": fps, "n_frames": len(frames), "source": "CholecSeg8k", "split": split,
                 "clips": sorted({r["clip"] for r in frames}), "frames": frames}
     registry.mkdir(parents=True, exist_ok=True)
     (registry / f"{digest}.json").write_text(json.dumps(manifest))
@@ -160,10 +185,11 @@ def main(argv=None):
     p.add_argument("--clips", nargs="+", help="explicit clip ids, in playback order")
     p.add_argument("--seconds", type=float, help="trim to this many seconds")
     p.add_argument("--fps", type=int, default=SOURCE_FPS)
+    p.add_argument("--split", choices=["test", "calib"], default="test", help="calib is the only split to tune on")
     a = p.parse_args(argv)
-    m = make(a.raw, a.out, a.registry, clips=a.clips, video=a.video, seconds=a.seconds, fps=a.fps)
+    m = make(a.raw, a.out, a.registry, clips=a.clips, video=a.video, seconds=a.seconds, fps=a.fps, split=a.split)
     print(json.dumps({"out": str(a.out), "sha256": m["sha256"], "n_frames": m["n_frames"], "fps": m["fps"],
-                      "clips": m["clips"]}))
+                      "split": m["split"], "clips": m["clips"]}))
 
 
 if __name__ == "__main__":

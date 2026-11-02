@@ -282,6 +282,14 @@ def test_reencoded_source_matched_by_content_only_if_frames_really_match(world):
         ev.score_job(world["job"], world["raw"], reg)
 
 
+def test_non_held_out_score_is_stamped(world):
+    m = json.loads(world["manifest"].read_text())
+    m["split"] = "calib"
+    world["manifest"].write_text(json.dumps(m))
+    r = score(world)
+    assert r["split"] == "calib" and "not a held-out result" in ev.summary_lines(r)[0]
+
+
 def test_mock_outputs_are_refused_and_stamped(world):
     write_jsonl(world["job"] / "detect.jsonl", [{"kf": "kf_00000", "label": "liver", "present": True, "conf": 1, "polygon": None, "model": "mock:claude-sonnet-5-5"}])
     with pytest.raises(ev.MockRun):

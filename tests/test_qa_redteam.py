@@ -228,8 +228,10 @@ def test_unsure_model_stays_amber_and_nothing_is_exported(scen):
     assert rows and all(r["status"] == "AMBER" for r in rows)
     assert all(r["final_present"] is None for r in rows), "an amber row claims an answer"
     assert all(len(r["rounds"]) == 2 for r in rows), "amber loop did not run its rounds"
-    assert coco_anns(s) == []
-    assert not list((s["job"] / "masks").glob("*.png"))
+    assert coco_anns(s) == [], "amber labels reached the dataset"
+    # Masks for ambers may exist so the reviewer can see the proposal, but they must be marked as such.
+    mask_rows = read_jsonl(s["job"] / "masks.jsonl")
+    assert all(r["status"] == "AMBER" for r in mask_rows), [r for r in mask_rows if r["status"] != "AMBER"][:2]
 
 
 @dynamic
@@ -301,7 +303,7 @@ def test_second_pass_is_independent_and_uses_the_other_model(scen):
 
 @dynamic
 def test_amber_prompts_do_not_reveal_earlier_answers(scen):
-    s = scen.run("agree_all")
+    s = scen.run("normal")  # the mock's verify pass disputes cystic_duct, which reaches the amber loop
     ambers = [c for c in s["calls"] if "magnified crop" in body_of(c)[:80]]
     assert ambers, "amber loop never ran"
     for c in ambers:

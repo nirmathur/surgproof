@@ -531,6 +531,7 @@ def score_job(job: Path, raw: Path = DEFAULT_RAW, registry: Path = DEFAULT_REGIS
     decisions = _read_jsonl(job / "decisions.jsonl")
     report = {
         "job": str(job),
+        "split": manifest.get("split", "unknown"),
         "clips": manifest.get("clips"),
         "n_clips": len(manifest.get("clips", [])),
         "n_keyframes": len(kf_index),
@@ -562,7 +563,8 @@ def summary_lines(r: dict) -> list[str]:
     m = r["masks_keyframe"]
     lines = [
         *(["MOCK RUN: NOT A REAL RESULT"] if r["mock_run"] else []),
-        f"clips: {r['clips']}  keyframes: {r['n_keyframes']}  models: {r['models']}",
+        *([f"SPLIT IS {r['split'].upper()}: tuning data, not a held-out result"] if r["split"] != "test" else []),
+        f"split: {r['split']}  clips: {r['clips']}  keyframes: {r['n_keyframes']}  models: {r['models']}",
         f"alignment: {'ok' if r['alignment']['ok'] else 'FAILED'} ({r['alignment']['n_bad']}/{r['alignment']['n_checked']} bad)",
         f"presence accuracy, final decisions: {_fmt(p)}, coverage {p.get('coverage')}, amber {p.get('n_amber')}, "
         f"always-majority baseline {p.get('majority_baseline')}",
