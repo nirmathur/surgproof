@@ -112,6 +112,14 @@ def test_ingest_makes_any_codec_browser_playable(tmp_path):
     assert codec == "h264,yuv420p" and meta["n_frames"] == 25
 
 
+def test_ingest_can_rerun_on_its_own_source_copy(tmp_path):
+    job = tmp_path / "j"
+    job.mkdir()
+    PL.ingest(make_video(tmp_path / "v.mp4", seconds=1), job, Quiet())
+    meta = PL.ingest(job / "source.mp4", job, Quiet())
+    assert meta["n_frames"] == 25 and not list(job.glob("partial_*"))
+
+
 def test_ingest_refuses_too_long_missing_or_not_a_video(tmp_path):
     job = tmp_path / "j"
     job.mkdir()
@@ -371,7 +379,7 @@ def test_narration_facts_are_only_decisions_and_bad_sentences_are_dropped(tmp_pa
     assert seen["images"] == []
     assert segments[0]["text"] == "The liver is in view." and segments[0]["evidence"] == ["kf_00000"]
     assert segments[0]["dropped_sentences"] == 1 and segments[0]["source"].endswith(vlm.SONNET)
-    assert segments[0]["t0"] == 0.0 and segments[0]["t1"] == meta["duration"]
+    assert segments[0]["t0"] == 0.0 and segments[0]["t1"] == meta["duration"] and len(segments[0]["raw_ref"]) == 64
     assert json.load(open(job / "narration.json"))["segments"][0]["text"] == "The liver is in view."
 
 
@@ -381,6 +389,18 @@ def test_narration_falls_back_to_decisions_when_nothing_survives(tmp_path, monke
     seg = PL.narrate(job, meta, phases, decisions, types.SimpleNamespace(update=lambda *a: None))[0]
     assert seg["source"] == "decisions" and "stapler" not in seg["text"]
     assert "Verified in this segment: liver." in seg["text"] and "Could not be confirmed: blood." in seg["text"]
+
+
+def test_narration_outage_keeps_the_job_and_records_the_error(tmp_path, monkeypatch):
+    job, meta, phases, decisions = narration_setup(tmp_path)
+
+    def down(*a, **k):
+        raise vlm.VlmError("model unavailable")
+
+    monkeypatch.setattr(PL.vlm, "ask", down)
+    seg = PL.narrate(job, meta, phases, decisions, types.SimpleNamespace(update=lambda *a: None))[0]
+    assert seg["source"] == "decisions" and seg["error"] == "model unavailable" and seg["raw_ref"] is None
+    assert seg["text"].startswith("Verified in this segment: liver.")
 
 
 def rows_of(names, conf=0.8):

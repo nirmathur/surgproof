@@ -251,10 +251,12 @@ def _make_playable(video, dest, stream, fmt, fps):
     variable = abs(_rate(stream.get("r_frame_rate")) - fps) > 0.01 * max(fps, 1)
     h264 = stream.get("codec_name") == "h264" and stream.get("pix_fmt") == "yuv420p"
     base = ["ffmpeg", "-y", "-v", "error", "-i", str(video), "-map", "0:v:0", "-map", "0:a:0?"]
-    tail = ["-movflags", "+faststart", str(dest)]
+    partial = dest.with_name(f"partial_{dest.name}")  # so the input can safely be dest itself
+    tail = ["-movflags", "+faststart", str(partial)]
     if h264 and not variable:
         copy = subprocess.run(base + ["-c", "copy"] + tail, capture_output=True, text=True)
         if copy.returncode == 0:
+            os.replace(partial, dest)
             return
     encode = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p",
               "-vf", f"fps={fps},pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:a", "aac"]
@@ -262,6 +264,7 @@ def _make_playable(video, dest, stream, fmt, fps):
         subprocess.run(base + encode + tail, capture_output=True, text=True, check=True)
     except subprocess.CalledProcessError as e:
         raise PipelineError(f"could not convert this video: {e.stderr.strip()[:300]}") from e
+    os.replace(partial, dest)
 
 
 def ingest(video, job, status, kf_fps=1.0, max_minutes=MAX_MINUTES):
@@ -671,8 +674,8 @@ def narrate(job, meta, phases, decisions, status):
         kept = [s for s in reply["sentences"] if sentence_supported(s, facts)]
         return facts, kept, len(reply["sentences"]) - len(kept), prompt
 
+    # No failure guard here: a segment whose call failed gets the decisions-based text, and its error is recorded.
     results = _fan_out(segments, worker, "narrate", status, "segment")
-    _guard_failures(results, "narrate")
     out = []
     for seg, result, error in results:
         facts = result[0] if result else segment_facts(seg, meta, phases, decisions)
@@ -688,6 +691,7 @@ def narrate(job, meta, phases, decisions, status):
             "source": vlm.model_tag(model) if generated else "decisions",
             "dropped_sentences": result[2] if result else 0,
             "prompt_hash": vlm.prompt_hash(result[3]) if result else None,
+            "raw_ref": vlm.cache_key([], result[3], model) if result else None,
             "error": error,
         })
     out.sort(key=lambda s: s["t0"])
