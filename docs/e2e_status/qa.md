@@ -2,14 +2,18 @@ STATUS: running
 DONE:
 - tools/make_test_video.py (--split test|calib), surgproof/eval.py, fake claude harness, tests/test_e2e.py, tests/test_qa_redteam.py, tests/test_qa_http_redteam.py, tests/test_qa_readme.py, README Run it
 - First real end-to-end run on merged working trees: it completes, 6/6 keyframes align with the ground truth, annotated.mp4 is written, $0.36 of model usage, 6m50s on a loaded machine.
-NEXT: two more held-out clips for a fairer read; HTTP red team results; merge check; clean-clone make setup
-RESULT, REAL RUN, 1 clip only (video12_19500-19580, 6 keyframes, held out). The pipeline's value is NOT demonstrated yet:
-- presence accuracy, final decisions: 0.613 (n=31, 5 amber). Always-majority baseline is also 0.613. Detect alone is 0.667 (n=36), verify alone 0.500 (n=36). The double-check and the amber loop did not improve on detect here.
-- all 12 errors are misses, 0 false positives. The verify pass said present only for liver. The amber loop resolved to absent in 11 of 12 resolutions, and overturned 2 correct L-hook detects.
-- mask IoU counting errors as 0: 0.172 (n=19). When both say present: 0.466 (n=7). COCO export agrees (0.456), so the export is not corrupting masks.
-- Likely cause to test: prompts require a visible hook tip or jaws and say "be skeptical", while ground truth labels shafts too.
+NEXT: odd input formats and a 5-minute video on the mock model; merge check; clean-clone make setup
+RESULT, REAL RUNS, 3 held-out clips picked metric-blind (video12_19500, video28_00000, video55_00508; 6 s each, 6 keyframes each). Three clips is a small sample, and labels on one clip are correlated:
+| clip | final acc (n) | baseline | detect only | verify only | amber | IoU counting errors as 0 (n) | IoU both present (n) | cost |
+| video12 | 0.613 (31) | 0.613 | 0.667 | 0.500 | 5 | 0.172 (19) | 0.466 (7) | $0.36 |
+| video28 | 0.972 (36) | 0.833 | 0.972 | 0.917 | 0 | 0.573 (7) | 0.668 (6) | $0.16 |
+| video55 | 0.938 (32) | 0.594 | 0.944 | 0.694 | 4 | 0.624 (19) | 0.697 (17) | $0.35 |
+Pooled: final 0.848 on 99 resolved labels (9 amber, coverage 0.917), detect alone 0.861 on 108, verify alone 0.704 on 108, baseline 0.556. Correction: my earlier note from video12 alone overstated the problem; video12 is a hard clip.
+What still stands: on these clips the double-check does not beat detect alone. Final recall is 0.682 vs detect 0.736, final precision 0.968 vs detect 0.975. The verify pass has 0 false positives but recall 0.396 (Haiku says absent too often), and the amber loop mostly resolves to absent. These numbers do not reproduce the README's 96.6% claim, which came from the earlier Gemini pipeline on presence labels with a different label mix. Do not reuse that claim for this pipeline.
+Errors multiply downstream: on video28, one false-positive gallbladder keyframe became 25 false-positive annotations in dataset_coco.json through propagation. The final-pass audit only samples accepted keyframes, so catching it depends on the draw.
+Working as designed: 18/18 keyframes align with ground truth; COCO IoU matches mask IoU on each clip, so the export does not corrupt masks; propagated IoU is close to keyframe IoU (0.667 vs 0.668, 0.620 vs 0.659, 0.404 vs 0.426, each when both say present).
 BLOCKED / FINDINGS:
-- core, HIGH, do not tune on held-out clips: test on `make_test_video.py --split calib`. I have looked at the video12 clip above, so it is spent as a clean test; final numbers should come from other held-out clips.
+- core, HIGH, do not tune on held-out clips: test on `make_test_video.py --split calib`. I have seen per-label results on the three clips above, so treat them as a baseline for the current prompts. If prompts change, final numbers should come from other held-out clips.
 - core, HIGH: pipeline.run into a used folder keeps released_coco.json, final_pass.jsonl and masks from the previous video, so a new video inherits an old human sign-off. Clear the outputs at the start of run(). Test: test_rerun_into_the_same_folder_leaves_no_stale_results
 - core, HIGH: sentence_supported lets unverified claims into subtitles: "The gallbladder has been perforated.", "The grasper has torn the liver.", "Haemostasis has been achieved and the patient is stable.", "The surgeon is working safely.", "There is no doubt that blood is pouring from the liver.", "The grasper is not far from active bleeding." UNSUPPORTED is a blacklist, and NEGATION matches any negation word in the sentence. It needs an allowlist of sentence shapes. Test: test_narration_check_rejects_unverified_claims
 - core, MEDIUM: clean_polygon clamps wildly out-of-image coordinates to the frame edge and the label gets accepted, e.g. [[-5000,-5000],[90000,-10],[90000,90000]] becomes [[0,0],[319,0],[319,179]] (wrong coordinate space gives a huge invented mask). Treat points far outside the image as no usable outline, which goes to amber. Test: test_absurd_coordinates_do_not_become_a_full_frame_mask
