@@ -245,6 +245,18 @@ def test_final_pass_then_release_then_download(site, page):
     page.wait_for_function("(n) => document.querySelector('#fp-progress').textContent.startsWith(`${n} of`)", arg=total)
     assert "1 corrected by you" in page.locator("#fp-release").inner_text()
 
+    # One failed audit sample in so small a sample trips the stop rule: more to review, and release stays shut.
+    state = page.signed_in_context.request.get(f"{base}/api/jobs/job-done/final-pass").json()
+    assert state["escalation_reason"], "this fixture's audit is small enough that one failure must escalate"
+    page.wait_for_selector("#fp-escalated")
+    assert page.locator("#fp-release-btn").is_disabled()
+    assert state["pending"] > 0
+    while state["pending"] > 0:
+        page.wait_for_function(ready)
+        page.keyboard.press("a")
+        page.wait_for_function("(n) => document.querySelector('#fp-progress').textContent.startsWith(`${n} of`)", arg=state["reviewed"] + 1)
+        state = page.signed_in_context.request.get(f"{base}/api/jobs/job-done/final-pass").json()
+
     assert page.locator("#fp-release-btn").is_enabled()
     page.click("#fp-release-btn")
     page.wait_for_function("document.querySelector('#fp-release-btn').textContent === 'Released'")
@@ -276,7 +288,7 @@ def test_final_pass_then_release_then_download(site, page):
     page.evaluate("document.querySelector('#watch-video').currentTime = 0.5")
     wait_for_annotated_frame(page, 5)
     origins = page.evaluate("[...document.querySelectorAll('#watch-objects li')].map(l => l.dataset.origin)")
-    assert set(origins) == {"propagated"}, origins
+    assert origins and set(origins) <= {"propagated", "human"}, origins  # human: this exact tracked frame was audited
     assert "Tracked between keyframes" in page.locator("#watch-key").inner_text()
 
 
