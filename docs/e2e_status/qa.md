@@ -15,19 +15,17 @@ NOT VERIFIED (because of the above):
 DONE:
 - tools/make_test_video.py (--split test|calib), surgproof/eval.py, tests/test_e2e.py, tests/test_qa_eval.py, tests/test_qa_make_test_video.py, tests/test_qa_redteam.py, tests/test_qa_http_redteam.py, tests/test_qa_inputs.py, tests/test_qa_readme.py, fake claude harness, README Run it.
 
-TEST RESULTS on core 69264c0 or 91cde25, masks 75107e6, web 09c0048 (overlay of committed heads; suites run one at a time because of disk):
-- HTTP red team 46/46, input formats 11/11 (both on 91cde25). test_qa_redteam on 91cde25: 51/53; the 2 failures were narration bypasses, which pass on 69264c0.
-- test_e2e 18 passed, 1 skipped (the real run), scorer 26/26, README 22/22 (all on core 7a2549c, masks a1798ac, web b18b26e, one commit or so behind). make_test_video 8/8.
-- Narration on 69264c0: 11 new attacks still FAIL, listed below. These are open findings, so these tests will fail once merged until core fixes them. I have not marked them xfail.
+TEST RESULTS on core acd86f8, masks 75107e6, web 09c0048 (overlay of committed heads, suites run one at a time because of disk):
+- test_qa_redteam 65/65, test_qa_http_redteam 46/46, test_e2e 18 passed and 1 skipped (the real run), test_qa_eval 26/26, test_qa_readme 23/23.
+- test_qa_inputs 11/11 and test_qa_make_test_video 8/8 were last run a commit or two earlier (core 91cde25), not repeated, to save disk.
+- All of this uses the mock or fake model. No real model sentence has been checked against core's narration grammar.
 
-OPEN FINDINGS:
-- core, HIGH: narration can claim more than it cites. "The grasper is visible in all frames." citing one keyframe passes when another keyframe says absent (5 variants). Test: test_narration_cannot_generalise_past_the_keyframes_it_cites
-- core, MEDIUM: statements about the phase are not checked. "The phase checks disagree." passes when they agree; "It is Calot Triangle Dissection." passes at conf 0.3 (6 variants). Test: test_statements_about_the_phase_are_checked_against_the_facts
+OPEN FINDINGS: none from the red team against the lanes' code. Still open for the orchestrator:
 - orchestrator: lanes/integrity.py does os.chdir(~/surgatlas) and globs web/*.js, so it scans NO file under surgproof/ or web/app/. "0 FAIL" in acceptance step 6 says nothing about the new code. tests/test_qa_redteam.py applies the same patterns to it. integrity.py is yours to change.
 - orchestrator: 2 legacy tests fail on main regardless of this work, and step 6 needs pytest to pass: tests/test_coach_fresh_clone.py::test_readme_sections_and_placeholders (asserts README strings removed by the README rewrite) and tests/test_web_ui.py::test_missing_files_are_null_not_invented (web/data bundle fills in the "missing" files). Editing or deleting tests is your call under AGENTS.md, so I have not touched them. 9 more legacy tests fail only inside the Claude Code sandbox (port binding, sqlite). The `make setup` venv lacks the legacy suite's dependencies (pandas, torch, streamlit), so plain `pytest` there fails at collection.
 - orchestrator: README top still says "agent: Gemini 4 Argon" and carries the 96.6% badge. Those numbers are from the earlier pipeline, and Run it now says so, but the header reads as if they describe this one. Only "Run it" is my remit.
 
-FIXED BY OTHER LANES AND RE-VERIFIED BY ME: rerun into a used folder keeps no old sign-off (core, masks); out-of-frame polygons no longer accepted (core); Read scoped to the call folder (core); release gate case bypass and nameless release (web); zero-area correction (masks, web); narration perforated, torn, negation tricks and comma tricks (core).
+FIXED BY OTHER LANES AND RE-VERIFIED BY ME: rerun into a used folder keeps no old sign-off (core, masks); out-of-frame polygons no longer accepted (core); Read scoped to the call folder (core); release gate case bypass and nameless release (web); zero-area correction (masks, web); narration perforated, torn, negation tricks, comma tricks, whole-segment claims and unchecked phase statements (core).
 
 RESULT, REAL RUNS, OLD PROMPTS ONLY (before core 7a2549c). 3 held-out clips picked metric-blind, 6 s and 6 keyframes each. A small sample; labels within a clip are correlated:
 | clip | final acc (n) | baseline | detect only | verify only | amber | IoU counting errors as 0 (n) | IoU both present (n) | cost |
