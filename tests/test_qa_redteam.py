@@ -456,3 +456,47 @@ def test_narration_check_rejects_unverified_claims(text):
     from surgproof.pipeline import sentence_supported
 
     assert not sentence_supported({"text": text, "evidence": ["kf_00000"]}, FACTS), text
+
+
+TWO_KF = {"phase": "CalotTriangleDissection", "t0": 0, "t1": 5, "phase_conf": 0.9, "phase_checks_agree": True, "keyframes": [
+    {"kf": "kf_00000", "t": 0, "visible": ["grasper", "liver"], "not_visible": ["blood"], "unsure": []},
+    {"kf": "kf_00001", "t": 1, "visible": ["liver", "blood"], "not_visible": ["grasper"], "unsure": []},
+]}
+
+
+@pytest.mark.skipif(not (SURGPROOF / "pipeline.py").exists(), reason="core lane not merged")
+@pytest.mark.parametrize("text", [
+    "The grasper is visible in all frames.",
+    "The grasper is visible throughout this segment.",
+    "The grasper is visible in every frame.",
+    "Blood is not visible throughout this segment.",
+    "There is no blood in all frames.",
+])
+def test_narration_cannot_generalise_past_the_keyframes_it_cites(text):
+    """Each is true on kf_00000 and false on kf_00001. Citing only the good keyframe must not make it true."""
+    from surgproof.pipeline import sentence_supported
+
+    assert not sentence_supported({"text": text, "evidence": ["kf_00000"]}, TWO_KF), text
+
+
+@pytest.mark.skipif(not (SURGPROOF / "pipeline.py").exists(), reason="core lane not merged")
+def test_narration_may_generalise_when_it_cites_every_keyframe():
+    from surgproof.pipeline import sentence_supported
+
+    assert sentence_supported({"text": "The liver is visible throughout this segment.", "evidence": ["kf_00000", "kf_00001"]}, TWO_KF)
+
+
+@pytest.mark.skipif(not (SURGPROOF / "pipeline.py").exists(), reason="core lane not merged")
+@pytest.mark.parametrize("text,agree,conf", [
+    ("The phase checks disagree.", True, 0.9),                          # they agreed
+    ("Confidence is low.", True, 0.9),                                  # it was high
+    ("The phase is uncertain.", True, 0.9),                             # it was not
+    ("This segment is the Calot Triangle Dissection phase.", False, 0.9),   # checks disagree, stated flatly
+    ("It is Calot Triangle Dissection.", True, 0.3),                    # low confidence, stated flatly
+    ("Calot Triangle Dissection continues.", False, 0.3),
+])
+def test_statements_about_the_phase_are_checked_against_the_facts(text, agree, conf):
+    from surgproof.pipeline import sentence_supported
+
+    facts = {**TWO_KF, "phase_checks_agree": agree, "phase_conf": conf}
+    assert not sentence_supported({"text": text, "evidence": ["kf_00000"]}, facts), text
