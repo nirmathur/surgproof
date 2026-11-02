@@ -1,4 +1,4 @@
-import { h, api, postJson, jobHeader, labelColour, labelName, tracePolygon, drawChip, AMBER } from '/lib.js';
+import { h, api, postJson, jobHeader, labelColour, labelName, tracePolygon, drawChip, displayScale, AMBER } from '/lib.js';
 
 function stageRow(stage, job) {
   const active = stage.state === 'active';
@@ -13,7 +13,7 @@ function stageRow(stage, job) {
 function drawPreview(canvas, preview) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const scale = canvas.width / 1280;
+  const scale = displayScale(canvas);
   for (const object of preview.objects || []) {
     const colour = object.status === 'AMBER' ? AMBER : labelColour(object.label);
     tracePolygon(ctx, object.polygon);

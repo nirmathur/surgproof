@@ -99,7 +99,7 @@ label.toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 1
 .fpgrid { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
 .fpframe canvas { cursor: default; }
 .fpframe.drawing canvas { cursor: crosshair; }
-.fpqueue { max-height: 360px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.fpqueue { max-height: 240px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
 .fpitem { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; font: inherit; font-size: 13px; color: var(--body); background: none; border: 1px solid transparent; border-radius: 6px; padding: 5px 8px; cursor: pointer; }
 .fpitem:hover { border-color: var(--hair); }
 .fpitem.on { border-color: var(--accent); background: var(--accent-fill); }

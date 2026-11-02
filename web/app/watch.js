@@ -1,4 +1,4 @@
-import { h, api, jobHeader, fmtTime, labelColour, labelName, titleCase, tracePolygon, drawChip, AMBER } from '/lib.js';
+import { h, api, jobHeader, fmtTime, labelColour, labelName, titleCase, tracePolygon, drawChip, displayScale, AMBER } from '/lib.js';
 
 const CHUNK_SECONDS = 2;
 const MAX_CHUNKS = 90;
@@ -116,9 +116,9 @@ export async function renderWatch(root, { id }) {
   }
 
   const ctx = canvas.getContext('2d');
-  const scale = data.width / 1280;
 
   function drawObjects(objects) {
+    const scale = displayScale(canvas);
     for (const object of objects) {
       const held = object.status === 'AMBER' && !object.human;
       const colour = held ? AMBER : labelColour(object.label);

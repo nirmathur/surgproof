@@ -435,7 +435,7 @@ def test_app_pages_are_served(client):
 
 
 def test_no_external_requests_from_the_app():
-    for path in (ROOT / "web" / "app").iterdir():
+    for path in (p for p in (ROOT / "web" / "app").iterdir() if p.is_file()):
         assert not re.search(r"https?://", path.read_text(encoding="utf-8")), path.name
 
 

@@ -158,7 +158,7 @@ def test_final_pass_then_release_then_download(site, page):
     page.wait_for_selector("#fp-queue .fpitem")
     assert page.locator("#fp-release-btn").is_disabled()
     assert page.locator("#fp-queue .fpitem .pill.AMBER").count() == 1
-    page.wait_for_function("document.querySelector('#fp-canvas').width > 0")
+    page.wait_for_function(f"document.querySelector('#fp-canvas').width === {fx.W}")
     page.fill("#fp-reviewer", "Test Reviewer")
 
     # First up is the amber. Correct it by drawing, which goes through real canvas clicks.
@@ -192,6 +192,44 @@ def test_final_pass_then_release_then_download(site, page):
     with page.expect_download() as download_info:
         page.locator(".dl").nth(1).locator("a").click()
     assert download_info.value.suggested_filename == "job-done_released_coco.json"
+
+
+def test_no_verdict_before_the_frame_is_on_screen(site, browser):
+    base, jobs = site
+    job = jobs / "job-slow"
+    fx.finished_job(jobs, "job-slow")
+    context = browser.new_context(viewport={"width": 1280, "height": 900})
+    page = context.new_page()
+    release_frame = threading.Event()
+
+    def hold(route):
+        release_frame.wait(30)
+        route.continue_()
+
+    page.route("**/files/frames/**", hold)
+    page.goto(f"{base}/#/jobs/job-slow/final-pass")
+    page.wait_for_selector("#fp-approve")
+    for selector in ("#fp-approve", "#fp-reject", "#fp-draw"):
+        assert page.locator(selector).is_disabled(), selector
+    for key in ("a", "x", "d"):
+        page.keyboard.press(key)
+    assert not (job / "final_pass.jsonl").exists()
+    release_frame.set()
+    page.wait_for_function("!document.querySelector('#fp-approve').disabled", timeout=30000)
+    assert page.evaluate("document.querySelector('#fp-canvas').width") == fx.W
+
+    # Points land in video pixels, wherever the canvas sits on screen.
+    page.click("#fp-draw")
+    box = page.locator("#fp-canvas").bounding_box()
+    for x, y in ((32, 18), (160, 18), (160, 90)):
+        page.mouse.click(box["x"] + box["width"] * x / fx.W, box["y"] + box["height"] * y / fx.H)
+    page.click("#fp-save-draw")
+    page.wait_for_function("document.querySelector('#fp-progress').textContent.startsWith('1 of')")
+    row = server.json.loads((job / "final_pass.jsonl").read_text().splitlines()[0])
+    assert row["action"] == "correct"
+    for (got_x, got_y), (x, y) in zip(row["polygon"], ((32, 18), (160, 18), (160, 90))):
+        assert abs(got_x - x) <= 1.5 and abs(got_y - y) <= 1.5
+    context.close()
 
 
 def test_filename_with_markup_is_not_injected(site, page):

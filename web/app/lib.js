@@ -84,6 +84,12 @@ export function jobHeader(job, active) {
     tabs(job, active));
 }
 
+// Canvas pixels per CSS pixel, so chips and line widths look the same whatever the video's resolution.
+export function displayScale(canvas) {
+  const shown = canvas.getBoundingClientRect().width;
+  return shown > 0 ? canvas.width / shown : 1;
+}
+
 // Draw polygons in video pixels. The canvas is sized in the same pixels and scaled by CSS.
 export function tracePolygon(ctx, polygon) {
   ctx.beginPath();

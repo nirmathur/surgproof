@@ -1,4 +1,4 @@
-import { h, api, postJson, jobHeader, labelColour, labelName, tracePolygon, drawChip, AMBER } from '/lib.js';
+import { h, api, postJson, jobHeader, labelColour, labelName, tracePolygon, drawChip, displayScale, AMBER } from '/lib.js';
 
 const REVIEWER_KEY = 'surgproof.reviewer';
 
@@ -37,6 +37,8 @@ export async function renderFinalPass(root, { id }) {
   let currentId = null;
   let drawing = null;
   let stopped = false;
+  // A verdict needs the frame on screen, and a drawn point needs the canvas in video pixels.
+  let frameReady = false;
 
   const image = new Image();
   const canvas = h('canvas', { id: 'fp-canvas' });
@@ -58,18 +60,18 @@ export async function renderFinalPass(root, { id }) {
     h('section', { class: 'stack' }, heading, frameBox, actions, h('p', { class: 'small muted', id: 'fp-hint' })),
     h('aside', { class: 'stack' },
       h('section', { class: 'card stack' }, progress, h('div', { class: 'bar' }, barFill), reviewer, queueList),
-      h('section', { class: 'card stack' }, h('h2', { style: 'margin:0' }, 'Evidence'), details, crop, rounds),
-      releaseBox))));
+      releaseBox,
+      h('section', { class: 'card stack' }, h('h2', { style: 'margin:0' }, 'Evidence'), details, crop, rounds)))));
 
   const current = () => state.items.find((item) => item.id === currentId);
   const nextPending = () => state.items.find((item) => !item.verdict);
 
   function draw() {
     const item = current();
-    if (!item || !image.complete || !image.naturalWidth) return;
+    if (!item || !frameReady) return;
     canvas.width = state.width || image.naturalWidth;
     canvas.height = state.height || image.naturalHeight;
-    const scale = canvas.width / 1280;
+    const scale = displayScale(canvas);
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
     const verdict = item.verdict;
@@ -115,13 +117,23 @@ export async function renderFinalPass(root, { id }) {
       const ch = bounds.y1 - bounds.y;
       crop.width = 600;
       crop.height = Math.max(1, Math.round((600 * ch) / w));
-      crop.getContext('2d').drawImage(image,
+      const cropCtx = crop.getContext('2d');
+      cropCtx.drawImage(image,
         (bounds.x / canvas.width) * image.naturalWidth, (bounds.y / canvas.height) * image.naturalHeight,
         (w / canvas.width) * image.naturalWidth, (ch / canvas.height) * image.naturalHeight,
         0, 0, crop.width, crop.height);
+      const zoom = crop.width / w;
+      cropCtx.setTransform(zoom, 0, 0, zoom, -bounds.x * zoom, -bounds.y * zoom);
+      cropCtx.strokeStyle = colour;
+      cropCtx.lineWidth = 2 / zoom;
+      for (const polygon of item.outline) { tracePolygon(cropCtx, polygon); cropCtx.stroke(); }
+      cropCtx.setTransform(1, 0, 0, 1, 0, 0);
     }
   }
-  image.addEventListener('load', draw);
+  image.addEventListener('load', () => { frameReady = true; if (!stopped) render(); });
+  image.addEventListener('error', () => {
+    errors.replaceChildren(h('div', { class: 'notice error', role: 'alert' }, 'This frame could not be loaded, so it cannot be reviewed.'));
+  });
 
   function renderDetails(item) {
     const answer = (value) => (value === null || value === undefined ? 'no answer' : (value ? 'present' : 'absent'));
@@ -140,7 +152,7 @@ export async function renderFinalPass(root, { id }) {
   }
 
   function renderActions(item) {
-    const locked = state.released;
+    const locked = state.released || !frameReady;
     actions.replaceChildren();
     if (drawing) {
       actions.append(
@@ -153,7 +165,7 @@ export async function renderFinalPass(root, { id }) {
       h('button', { class: 'btn bad', id: 'fp-reject', disabled: locked, onclick: () => review('reject') }, 'Not present', h('kbd', {}, 'X')),
       h('button', { class: 'btn', id: 'fp-draw', disabled: locked, onclick: () => { drawing = []; render(); } }, 'Draw correction', h('kbd', {}, 'D')));
     if (item.verdict) {
-      actions.append(h('span', { class: 'small muted' }, `Recorded: ${item.verdict.action}${locked ? '' : '. You can change it.'}`));
+      actions.append(h('span', { class: 'small muted' }, `Recorded: ${item.verdict.action}${state.released ? '' : '. You can change it.'}`));
     }
   }
 
@@ -200,7 +212,7 @@ export async function renderFinalPass(root, { id }) {
     }
     frameBox.hidden = false;
     heading.replaceChildren(
-      h('h2', { style: 'margin:0' }, `Is this ${labelName(item.label)}, and is the outline right?`),
+      h('h2', { style: 'margin:0' }, `${labelName(item.label)}: is it there, and is the outline right?`),
       h('span', { class: `pill ${item.kind === 'amber' ? 'AMBER' : ''}` }, item.kind));
     renderDetails(item);
     renderActions(item);
@@ -211,7 +223,10 @@ export async function renderFinalPass(root, { id }) {
     currentId = itemId;
     drawing = null;
     const item = current();
-    if (item && !image.src.endsWith(item.frame_url)) image.src = item.frame_url;
+    if (item && !image.src.endsWith(item.frame_url)) {
+      frameReady = false;
+      image.src = item.frame_url;
+    }
     render();
   }
 
@@ -256,7 +271,7 @@ export async function renderFinalPass(root, { id }) {
     if (e.target && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const item = current();
-    if (!item || state.released) return;
+    if (!item || state.released || !frameReady) return;
     const key = e.key.toLowerCase();
     if (drawing) {
       if (key === 'enter') saveDrawing();
@@ -264,8 +279,8 @@ export async function renderFinalPass(root, { id }) {
       return;
     }
     if (key === 'a') document.getElementById('fp-approve')?.click();
-    if (key === 'x') review('reject');
-    if (key === 'd') { drawing = []; render(); }
+    if (key === 'x') document.getElementById('fp-reject')?.click();
+    if (key === 'd') document.getElementById('fp-draw')?.click();
   };
   window.addEventListener('keydown', onKey);
 
