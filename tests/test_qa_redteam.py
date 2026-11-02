@@ -445,6 +445,12 @@ def test_narration_check_keeps_supported_sentences(text):
     "The cystic duct is not visible.",                              # amber, stated as verified absent
     "Blood could not be confirmed.",                                # verified absent, reported as doubt
     "The grasper is visible in every frame of the operation.",      # beyond the cited evidence
+    "Blood is seen, no L-hook.",                                    # a verified-absent label stated as seen, negation trailing
+    "Blood and no L-hook are visible.",                             # negation attached to one of two labels
+    "No L-hook, blood is visible.",                                 # negation leading, claim after the comma
+    "There is not an L-hook, there is blood.",                      # two clauses, one comma
+    "Blood is visible; no L-hook is visible.",                      # semicolon
+    "Blood is visible (no L-hook).",                                # brackets
 ])
 def test_narration_check_rejects_unverified_claims(text):
     from surgproof.pipeline import sentence_supported
