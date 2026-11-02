@@ -117,3 +117,9 @@ def test_scored_results_never_use_a_spent_clip():
     assert _results()["heldout_never_scored_3_videos"]["splits"] == ["test"]
     assert _results()["heldout_all_unspent_6_videos"]["splits"] == ["test"]
     assert all("mock" not in m for g in _results().values() for m in g["models"])
+
+
+def test_the_hardest_excluded_clip_is_disclosed():
+    """Leaving spent clips out is right for a clean test, and it flatters the table, so the README has to say so."""
+    x = json.loads((ROOT / "docs" / "e2e_status" / "qa_results.json").read_text())["excluded_spent_clip"]
+    assert f"{x['coverage'] * 100:.1f}% of labels" in README and f"{x['iou_with_errors']:.3f}" in README
