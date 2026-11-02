@@ -107,17 +107,61 @@ Everything below is measured on **held-out surgery videos** the system never saw
 
 ## Run it
 
+You need Python 3.10+, `ffmpeg`, and [Claude Code](https://claude.com/claude-code) logged in once (run `claude`). There is no API key: the pipeline calls headless Claude Code.
+
 ```bash
 git clone https://github.com/nirmathur/surgproof && cd surgproof
-make setup                       # Python deps; copies .env.example to .env (add your GEMINI_API_KEY)
-python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download('minwoosun/CholecSeg8k','data/CholecSeg8k.zip',repo_type='dataset',local_dir='raw')"
-(cd raw && unzip -q data/CholecSeg8k.zip)
-python3 web/export.py            # builds the app's data from out/
-python3 web/serve.py             # toolbox at http://localhost:8600, Watch mode at /watch.html
+make setup                       # private .venv with the app's dependencies
+make serve                       # http://localhost:8600
+```
+
+Drop a laparoscopic video (mp4 or mov, up to 5 minutes) on the Upload page. The job page shows each stage live, then offers **Watch** (the video at full frame rate with the AI's boxes, masks, phase and narration), **Final pass** (a person clears what is left amber plus a random audit sample) and **Download** (annotated MP4, COCO JSON, provenance). The COCO dataset stays locked until the final pass is finished and released.
+
+The same pipeline from the command line:
+
+```bash
+.venv/bin/python -m surgproof.run path/to/video.mp4 --out jobs/my_video
 ```
 
 <details>
-<summary><b>Re-run the whole pipeline</b></summary>
+<summary><b>Score it against ground truth</b></summary>
+
+Only videos assembled from the held-out CholecSeg8k clips have ground truth. The scorer is separate from the pipeline, and the pipeline never reads ground truth.
+
+```bash
+.venv/bin/python -m pip install huggingface_hub
+.venv/bin/python -c "from huggingface_hub import hf_hub_download; hf_hub_download('minwoosun/CholecSeg8k','data/CholecSeg8k.zip',repo_type='dataset',local_dir='raw')"
+(cd raw && unzip -q data/CholecSeg8k.zip)
+.venv/bin/python tools/make_test_video.py --video video12 --seconds 6 --out test_videos/video12_6s.mp4
+.venv/bin/python -m surgproof.run test_videos/video12_6s.mp4 --out jobs/video12_6s
+.venv/bin/python -m surgproof.eval jobs/video12_6s
+```
+
+It prints presence accuracy and mask IoU with n, and writes `jobs/video12_6s/eval_report.json`. It refuses to score a video with no registered ground truth, keyframes that do not match the frames they claim to be, or a mock run.
+
+</details>
+
+<details>
+<summary><b>Tests, without calling the model</b></summary>
+
+```bash
+SURGPROOF_VLM=mock .venv/bin/python -m surgproof.run path/to/video.mp4 --out jobs/mock_run   # plumbing only: every row is tagged mock
+.venv/bin/python -m pytest -q tests/test_e2e.py tests/test_qa_eval.py tests/test_qa_make_test_video.py tests/test_qa_redteam.py tests/test_qa_http_redteam.py
+SURGPROOF_E2E_REAL=1 .venv/bin/python -m pytest -q -s tests/test_e2e.py -k real              # the real thing: spends model credit
+```
+
+</details>
+
+<details>
+<summary><b>The research toolbox and the original pipeline</b></summary>
+
+The numbers under [The proof](#the-proof) came from this earlier Gemini 4 Argon pipeline, not from the drop-in-a-video pipeline above.
+
+```bash
+make setup-full                  # adds torch, streamlit and more; copies .env.example to .env (add your GEMINI_API_KEY)
+python3 web/export.py            # builds the toolbox data from out/
+PORT=8601 python3 web/serve.py   # toolbox at http://localhost:8601, Watch mode at /watch.html
+```
 
 `prepare_data.py` → `med_school.py` → `label.py` → `accept.py` → `tools/vote_worker.py` → `tools/refine_worker.py` → `tools/dense_worker.py` → `tools/smooth_dense.py`, then score with `tools/score_dense.py` and `eval/`.
 
