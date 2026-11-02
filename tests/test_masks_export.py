@@ -313,7 +313,7 @@ def test_a_stray_line_outside_the_queue_cannot_change_the_release(job):
 def test_approving_an_amber_that_has_no_mask_confirms_absence(tmp_path):
     job = make_job(tmp_path, [(0, "blood", "AMBER", None, False), (0, "liver", "AMBER", None, True)])
     X.run(job)
-    assert next(i for i in coco(job)["images"] if i["frame_index"] == 0)["attributes"]["excluded_amber"] == ["liver"]
+    assert next(i for i in coco(job)["images"] if i["frame_index"] == 0)["attributes"]["excluded_amber"] == ["liver", "blood"]
     resolve_all(job)
     X.release(job)
     c = coco(job, "released_coco.json")
