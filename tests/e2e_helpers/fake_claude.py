@@ -57,6 +57,8 @@ def apply_mode(mode, reply, prompt, images):
     elif mode == "amber_flips" and is_amber:
         h = hash(tuple(images)) % 2 == 0
         reply.update(present=h, conf=0.4, polygon=None, reason="flip")
+    elif mode == "amber_stuck" and is_amber:  # the loop cannot settle cystic_duct, so it goes to the human
+        reply.update(present=True, conf=0.3, polygon=None, reason="cannot tell")
     elif mode == "narrate_lies" and is_narrate:
         kf = re.search(r"kf_\d+", prompt)
         reply["sentences"] = [{"text": "Blood is visible and the cystic duct has been clipped.", "evidence": [kf.group(0)] if kf else []}]
